@@ -282,6 +282,81 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleMergeBranch = async (sourceBranch: string, targetRef: string) => {
+    if (!gih) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.mergeBranch(sourceBranch)
+      await refreshState()
+      if (res.exitCode !== 0) {
+        showToast({
+          type: 'error',
+          command: `git merge ${sourceBranch}`,
+          message: res.stderr || 'Merge resulted in conflicts. Check staging panel.',
+        })
+      } else {
+        showToast({
+          type: 'success',
+          command: `git merge ${sourceBranch}`,
+          message: `Merged ${sourceBranch} into ${targetRef}`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: `git merge ${sourceBranch}`, message: e.message })
+    }
+  }
+
+  const handleRebaseBranch = async (sourceBranch: string, upstreamRef: string) => {
+    if (!gih) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.rebaseBranch(upstreamRef)
+      await refreshState()
+      if (res.exitCode !== 0) {
+        showToast({
+          type: 'error',
+          command: `git rebase ${upstreamRef}`,
+          message: res.stderr || 'Rebase stopped with conflicts. Use HUD to continue or abort.',
+        })
+      } else {
+        showToast({
+          type: 'success',
+          command: `git rebase ${upstreamRef}`,
+          message: `Rebased ${sourceBranch} onto ${upstreamRef}`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: `git rebase ${upstreamRef}`, message: e.message })
+    }
+  }
+
+  const handleCherryPick = async (commitHash: string) => {
+    if (!gih) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.cherryPick(commitHash)
+      await refreshState()
+      if (res.exitCode !== 0) {
+        showToast({
+          type: 'error',
+          command: `git cherry-pick ${commitHash.slice(0, 7)}`,
+          message: res.stderr || 'Cherry-pick conflict. Check staging panel.',
+        })
+      } else {
+        showToast({
+          type: 'success',
+          command: `git cherry-pick ${commitHash.slice(0, 7)}`,
+          message: `Cherry-picked ${commitHash.slice(0, 7)} onto current branch`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: `git cherry-pick`, message: e.message })
+    }
+  }
+
   const handleOpenRepo = async () => {
     if (!gih) return
     const dir = await gih.openDirectoryDialog()
@@ -735,6 +810,9 @@ export const App: React.FC = () => {
                 e.preventDefault()
                 setContextMenu({ x: e.clientX, y: e.clientY, commit })
               }}
+              onMergeBranch={handleMergeBranch}
+              onRebaseBranch={handleRebaseBranch}
+              onCherryPick={handleCherryPick}
             />
 
             {/* Context Menu */}

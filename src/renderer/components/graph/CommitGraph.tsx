@@ -1,13 +1,25 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import type { GitCommit } from '@/shared/types'
 import { computeDagLayout } from './dagLayout'
-import { GitBranch as GitBranchIcon, Tag as TagIcon, CheckCircle2, Search, X } from 'lucide-react'
+import {
+  GitBranch as GitBranchIcon,
+  Tag as TagIcon,
+  CheckCircle2,
+  Search,
+  X,
+  GitMerge,
+  GitPullRequest,
+  ArrowDownToLine
+} from 'lucide-react'
 
 interface CommitGraphProps {
   commits: GitCommit[]
   selectedCommit: GitCommit | null
   onSelectCommit: (commit: GitCommit) => void
   onContextMenu: (e: React.MouseEvent, commit: GitCommit) => void
+  onMergeBranch?: (sourceBranch: string, targetRef: string) => void
+  onRebaseBranch?: (sourceBranch: string, upstreamRef: string) => void
+  onCherryPick?: (commitHash: string) => void
 }
 
 const ROW_HEIGHT = 44
@@ -19,8 +31,19 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
   selectedCommit,
   onSelectCommit,
   onContextMenu,
+  onMergeBranch,
+  onRebaseBranch,
+  onCherryPick,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
+  const [draggedItem, setDraggedItem] = useState<{ type: 'branch' | 'commit'; name?: string; hash: string } | null>(null)
+  const [dragOverHash, setDragOverHash] = useState<string | null>(null)
+  const [dropMenu, setDropMenu] = useState<{
+    source: { type: 'branch' | 'commit'; name?: string; hash: string }
+    target: GitCommit
+    x: number
+    y: number
+  } | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -210,13 +233,40 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
               const isSearchActive = searchQuery.trim().length > 0
               const isMatch = isSearchActive ? matchingCommitHashes.has(commit.hash) : true
 
+              const isDragTarget = dragOverHash === commit.hash
+
               return (
                 <div
                   key={commit.hash}
                   onClick={() => onSelectCommit(commit)}
                   onContextMenu={(e) => onContextMenu(e, commit)}
+                  onDragOver={(e) => {
+                    if (draggedItem && draggedItem.hash !== commit.hash) {
+                      e.preventDefault()
+                      setDragOverHash(commit.hash)
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverHash === commit.hash) {
+                      setDragOverHash(null)
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setDragOverHash(null)
+                    if (draggedItem && draggedItem.hash !== commit.hash) {
+                      setDropMenu({
+                        source: draggedItem,
+                        target: commit,
+                        x: e.clientX,
+                        y: e.clientY,
+                      })
+                    }
+                  }}
                   className={`flex items-center h-[44px] px-3 cursor-pointer border-b border-surface-border/40 transition-all ${
-                    isSelected
+                    isDragTarget
+                      ? 'bg-sky-500/20 ring-2 ring-inset ring-sky-400'
+                      : isSelected
                       ? 'bg-surface-subtle/90 border-l-2 border-l-brand'
                       : isSearchActive && isMatch
                       ? 'bg-sky-950/20 hover:bg-sky-950/30'
@@ -235,7 +285,14 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
                   {commit.branches.map((branch) => (
                     <span
                       key={branch}
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-sky-500/20 text-sky-300 border border-sky-500/30 hover:bg-sky-500/30"
+                      draggable
+                      onDragStart={(e) => {
+                        e.stopPropagation()
+                        setDraggedItem({ type: 'branch', name: branch, hash: commit.hash })
+                        e.dataTransfer.setData('text/plain', branch)
+                      }}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-sky-500/20 text-sky-300 border border-sky-500/30 hover:bg-sky-500/30 cursor-grab active:cursor-grabbing transition-transform active:scale-95"
+                      title={`Drag ${branch} onto another commit to merge, rebase, or cherry-pick`}
                     >
                       <GitBranchIcon className="w-3 h-3" />
                       {branch}
@@ -282,6 +339,85 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
           })}
         </div>
       </div>
+
+      {/* Drag & Drop Action Popover */}
+      {dropMenu && (
+        <div
+          className="fixed z-50 bg-[#0f172a]/95 border border-surface-border rounded-xl shadow-2xl p-2 backdrop-blur-md min-w-[260px] text-xs space-y-1 animate-fade-in text-slate-200 select-none"
+          style={{
+            left: Math.max(16, Math.min(window.innerWidth - 280, dropMenu.x - 20)),
+            top: Math.max(16, Math.min(window.innerHeight - 200, dropMenu.y - 20)),
+          }}
+        >
+          <div className="px-2 py-1 text-[11px] font-semibold text-slate-400 border-b border-surface-border/50 flex items-center justify-between">
+            <span className="truncate max-w-[200px]">
+              {dropMenu.source.name ? `Branch: ${dropMenu.source.name}` : `Commit: ${dropMenu.source.hash.slice(0, 7)}`}
+            </span>
+            <button
+              onClick={() => {
+                setDropMenu(null)
+                setDraggedItem(null)
+              }}
+              className="p-0.5 hover:text-white text-slate-500 rounded"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="pt-1 space-y-0.5">
+            {dropMenu.source.type === 'branch' && dropMenu.source.name && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetBranch = dropMenu.target.branches[0] || dropMenu.target.shortHash
+                    onMergeBranch?.(dropMenu.source.name!, targetBranch)
+                    setDropMenu(null)
+                    setDraggedItem(null)
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-emerald-950/60 hover:text-emerald-300 text-slate-200 flex items-center gap-2 transition-all active:scale-95"
+                >
+                  <GitMerge className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="truncate">
+                    Merge <strong>{dropMenu.source.name}</strong> into <strong>{dropMenu.target.branches[0] || dropMenu.target.shortHash}</strong>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetBranch = dropMenu.target.branches[0] || dropMenu.target.shortHash
+                    onRebaseBranch?.(dropMenu.source.name!, targetBranch)
+                    setDropMenu(null)
+                    setDraggedItem(null)
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-indigo-950/60 hover:text-indigo-300 text-slate-200 flex items-center gap-2 transition-all active:scale-95"
+                >
+                  <GitPullRequest className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <span className="truncate">
+                    Rebase <strong>{dropMenu.source.name}</strong> onto <strong>{dropMenu.target.branches[0] || dropMenu.target.shortHash}</strong>
+                  </span>
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                onCherryPick?.(dropMenu.source.hash)
+                setDropMenu(null)
+                setDraggedItem(null)
+              }}
+              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-amber-950/60 hover:text-amber-300 text-slate-200 flex items-center gap-2 transition-all active:scale-95"
+            >
+              <ArrowDownToLine className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="truncate">
+                Cherry-pick <strong>{dropMenu.source.hash.slice(0, 7)}</strong> onto current branch
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   </div>
   )

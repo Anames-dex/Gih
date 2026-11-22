@@ -482,6 +482,24 @@ export class GitService {
     return await this.execGit(['clone', '--progress', url, targetPath], parentDir)
   }
 
+  public async mergeBranch(
+    branchOrRef: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return await this.execGit(['merge', branchOrRef])
+  }
+
+  public async rebaseBranch(
+    upstream: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return await this.execGit(['rebase', upstream])
+  }
+
+  public async cherryPick(
+    commitHash: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return await this.execGit(['cherry-pick', commitHash])
+  }
+
   /**
    * List stashes
    */

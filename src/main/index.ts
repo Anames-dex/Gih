@@ -215,6 +215,18 @@ ipcMain.handle('git:renameBranch', async (_, oldName: string, newName: string) =
   return await gitService.renameBranch(oldName, newName)
 })
 
+ipcMain.handle('git:merge', async (_, branchOrRef: string) => {
+  return await gitService.mergeBranch(branchOrRef)
+})
+
+ipcMain.handle('git:rebase', async (_, upstream: string) => {
+  return await gitService.rebaseBranch(upstream)
+})
+
+ipcMain.handle('git:cherryPick', async (_, commitHash: string) => {
+  return await gitService.cherryPick(commitHash)
+})
+
 ipcMain.handle('git:fetch', async (_, remoteName?: string) => {
   const args = ['fetch', '--prune']
   if (remoteName) args.push(remoteName)
