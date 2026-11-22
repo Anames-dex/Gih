@@ -11,17 +11,7 @@ import {
   FileDiff as DiffIcon,
   AlertTriangle
 } from 'lucide-react'
-
-export function buildHunkPatch(filePath: string, hunk: DiffHunk): string {
-  const normPath = filePath.replace(/\\/g, '/')
-  if (hunk.rawHunk) {
-    return `diff --git a/${normPath} b/${normPath}\n--- a/${normPath}\n+++ b/${normPath}\n${hunk.rawHunk}`
-  }
-  const linesText = hunk.lines
-    .map((l) => (l.type === 'add' ? `+${l.content}` : l.type === 'delete' ? `-${l.content}` : ` ${l.content}`))
-    .join('\n')
-  return `diff --git a/${normPath} b/${normPath}\n--- a/${normPath}\n+++ b/${normPath}\n${hunk.header}\n${linesText}\n`
-}
+import { buildSplitRows, buildUnifiedRows, buildHunkPatch } from './diffUtils'
 
 interface StagingAreaProps {
   width?: number
@@ -61,6 +51,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const [commitMessage, setCommitMessage] = useState('')
   const [signOff, setSignOff] = useState(false)
   const [isAmend, setIsAmend] = useState(false)
+  const [diffViewMode, setDiffViewMode] = useState<'unified' | 'split'>('unified')
   const [isDiffLoading, setIsDiffLoading] = useState(false)
   const [isApplyingHunk, setIsApplyingHunk] = useState(false)
 
@@ -199,88 +190,228 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
     >
       {/* Diff Modal / Flyout if active file is clicked */}
       {activeFile && (
-        <div className="border-b border-surface-border bg-surface-subtle/50 p-2">
-          <div className="flex items-center justify-between pb-1 mb-1 border-b border-surface-border/50 text-xs">
+        <div className="border-b border-surface-border bg-surface-subtle/50 p-2.5">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-surface-border/50 text-xs">
             <div className="flex items-center gap-1.5 truncate">
-              <DiffIcon className="w-3.5 h-3.5 text-sky-400" />
-              <span className="font-mono text-white truncate">{activeFile.path}</span>
+              <DiffIcon className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span className="font-mono text-white truncate max-w-[180px]" title={activeFile.path}>{activeFile.path}</span>
             </div>
-            <button
-              onClick={() => setActiveFile(null)}
-              className="p-0.5 hover:bg-surface-hover rounded"
-            >
-              <X className="w-3.5 h-3.5 text-slate-400" />
-            </button>
+
+            <div className="flex items-center gap-2">
+              {/* Segmented View Mode Toggle: Unified vs Split */}
+              <div className="flex items-center bg-[#090b10] border border-surface-border/60 rounded p-0.5 text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => setDiffViewMode('unified')}
+                  className={`px-2 py-0.5 rounded transition-all ${
+                    diffViewMode === 'unified'
+                      ? 'bg-sky-500/20 text-sky-300 font-semibold shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Unified single-column diff with intra-line word highlight"
+                >
+                  Unified
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDiffViewMode('split')}
+                  className={`px-2 py-0.5 rounded transition-all ${
+                    diffViewMode === 'split'
+                      ? 'bg-sky-500/20 text-sky-300 font-semibold shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Side-by-side split diff with paired word changes"
+                >
+                  Split
+                </button>
+              </div>
+
+              <button
+                onClick={() => setActiveFile(null)}
+                className="p-1 hover:bg-surface-hover rounded text-slate-400 hover:text-white transition-colors"
+                title="Close diff view"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
-          <div className="max-h-72 overflow-y-auto text-xs font-mono bg-[#090b10] p-2 rounded border border-surface-border/40 space-y-2.5">
+          <div className="max-h-80 overflow-y-auto text-xs font-mono bg-[#090b10] p-2 rounded border border-surface-border/40 space-y-2.5">
             {isDiffLoading && <p className="text-slate-500 py-2">Loading diff...</p>}
             {activeDiff && activeDiff.hunks.length === 0 && !isDiffLoading && (
               <p className="text-slate-500 py-2">No text differences found.</p>
             )}
-            {activeDiff?.hunks.map((hunk, hIdx) => (
-              <div key={hIdx} className="rounded border border-surface-border/50 overflow-hidden bg-[#0c0e14]">
-                <div className="flex items-center justify-between text-[11px] text-indigo-300 bg-indigo-950/40 px-2 py-1 border-b border-surface-border/40 font-mono">
-                  <span className="truncate max-w-[200px]" title={hunk.header}>{hunk.header}</span>
-                  <div className="flex items-center gap-1.5 font-sans shrink-0">
-                    {!activeFile.staged ? (
-                      <>
+            {activeDiff?.hunks.map((hunk, hIdx) => {
+              const unifiedRows = buildUnifiedRows(hunk.lines)
+              const splitRows = buildSplitRows(hunk.lines)
+
+              return (
+                <div key={hIdx} className="rounded border border-surface-border/50 overflow-hidden bg-[#0c0e14]">
+                  {/* Hunk Header */}
+                  <div className="flex items-center justify-between text-[11px] text-indigo-300 bg-indigo-950/40 px-2 py-1 border-b border-surface-border/40 font-mono">
+                    <span className="truncate max-w-[200px]" title={hunk.header}>{hunk.header}</span>
+                    <div className="flex items-center gap-1.5 font-sans shrink-0">
+                      {!activeFile.staged ? (
+                        <>
+                          <button
+                            type="button"
+                            disabled={isApplyingHunk}
+                            onClick={() => handleStageHunk(hunk)}
+                            className="px-1.5 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-emerald-200 text-[10px] font-medium flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
+                            title="Stage this hunk only"
+                          >
+                            <Plus className="w-2.5 h-2.5" />
+                            <span>Stage Hunk</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isApplyingHunk}
+                            onClick={() => handleDiscardHunk(hunk)}
+                            className="px-1.5 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 text-[10px] font-medium flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
+                            title="Discard this hunk from working directory"
+                          >
+                            <RotateCcw className="w-2.5 h-2.5" />
+                            <span>Discard Hunk</span>
+                          </button>
+                        </>
+                      ) : (
                         <button
                           type="button"
                           disabled={isApplyingHunk}
-                          onClick={() => handleStageHunk(hunk)}
-                          className="px-1.5 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-emerald-200 text-[10px] font-medium flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
-                          title="Stage this hunk only"
+                          onClick={() => handleUnstageHunk(hunk)}
+                          className="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 text-[10px] font-medium flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
+                          title="Unstage this hunk"
                         >
-                          <Plus className="w-2.5 h-2.5" />
-                          <span>Stage Hunk</span>
+                          <Minus className="w-2.5 h-2.5" />
+                          <span>Unstage Hunk</span>
                         </button>
-                        <button
-                          type="button"
-                          disabled={isApplyingHunk}
-                          onClick={() => handleDiscardHunk(hunk)}
-                          className="px-1.5 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 text-[10px] font-medium flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
-                          title="Discard this hunk from working directory"
-                        >
-                          <RotateCcw className="w-2.5 h-2.5" />
-                          <span>Discard Hunk</span>
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={isApplyingHunk}
-                        onClick={() => handleUnstageHunk(hunk)}
-                        className="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 text-[10px] font-medium flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
-                        title="Unstage this hunk"
-                      >
-                        <Minus className="w-2.5 h-2.5" />
-                        <span>Unstage Hunk</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="overflow-x-auto p-1 text-[11px] leading-tight">
-                  {hunk.lines.map((line, lIdx) => (
-                    <div
-                      key={lIdx}
-                      className={`px-1 rounded-sm ${
-                        line.type === 'add'
-                          ? 'bg-emerald-950/40 text-emerald-300'
-                          : line.type === 'delete'
-                          ? 'bg-rose-950/40 text-rose-300'
-                          : 'text-slate-400'
-                      }`}
-                    >
-                      <span className="inline-block w-4 text-slate-600 select-none">
-                        {line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '}
-                      </span>
-                      {line.content}
+                      )}
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Hunk Lines: Unified Mode */}
+                  {diffViewMode === 'unified' ? (
+                    <div className="overflow-x-auto p-1 text-[11px] leading-relaxed">
+                      {unifiedRows.map((item, lIdx) => (
+                        <div
+                          key={lIdx}
+                          className={`px-1.5 py-0.5 rounded-xs flex items-start ${
+                            item.line.type === 'add'
+                              ? 'bg-emerald-950/30 text-emerald-300'
+                              : item.line.type === 'delete'
+                              ? 'bg-rose-950/30 text-rose-300'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          <span className="inline-block w-4 text-slate-600 select-none shrink-0 font-bold">
+                            {item.line.type === 'add' ? '+' : item.line.type === 'delete' ? '-' : ' '}
+                          </span>
+                          <span className="whitespace-pre flex-1">
+                            {item.tokens ? (
+                              item.tokens.map((tok, tIdx) => (
+                                <span
+                                  key={tIdx}
+                                  className={
+                                    tok.isChanged
+                                      ? item.line.type === 'add'
+                                        ? 'bg-emerald-500/35 text-emerald-100 font-semibold rounded-xs px-0.5'
+                                        : 'bg-rose-500/35 text-rose-100 font-semibold line-through rounded-xs px-0.5'
+                                      : ''
+                                  }
+                                >
+                                  {tok.text}
+                                </span>
+                              ))
+                            ) : (
+                              item.line.content
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Hunk Lines: Split Mode (Side-by-Side) */
+                    <div className="overflow-x-auto p-1 text-[11px] leading-relaxed divide-y divide-surface-border/20">
+                      {splitRows.map((row, rIdx) => (
+                        <div key={rIdx} className="grid grid-cols-2 gap-1">
+                          {/* Left Column: Old / Delete */}
+                          <div
+                            className={`px-1.5 py-0.5 rounded-xs truncate flex items-start ${
+                              row.left
+                                ? row.left.line.type === 'delete'
+                                  ? 'bg-rose-950/35 text-rose-300'
+                                  : 'text-slate-400'
+                                : 'bg-surface-subtle/10'
+                            }`}
+                          >
+                            {row.left && (
+                              <>
+                                <span className="w-6 text-[10px] text-slate-600 select-none shrink-0 text-right pr-1">
+                                  {row.left.line.oldLineNumber || ''}
+                                </span>
+                                <span className="inline-block w-3 text-slate-600 select-none shrink-0 font-bold">
+                                  {row.left.line.type === 'delete' ? '-' : ' '}
+                                </span>
+                                <span className="whitespace-pre flex-1 truncate">
+                                  {row.left.tokens ? (
+                                    row.left.tokens.map((tok, tIdx) => (
+                                      <span
+                                        key={tIdx}
+                                        className={tok.isChanged ? 'bg-rose-500/35 text-rose-100 font-semibold rounded-xs px-0.5' : ''}
+                                      >
+                                        {tok.text}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    row.left.line.content
+                                  )}
+                                </span>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Right Column: New / Add */}
+                          <div
+                            className={`px-1.5 py-0.5 rounded-xs truncate flex items-start ${
+                              row.right
+                                ? row.right.line.type === 'add'
+                                  ? 'bg-emerald-950/35 text-emerald-300'
+                                  : 'text-slate-400'
+                                : 'bg-surface-subtle/10'
+                            }`}
+                          >
+                            {row.right && (
+                              <>
+                                <span className="w-6 text-[10px] text-slate-600 select-none shrink-0 text-right pr-1">
+                                  {row.right.line.newLineNumber || ''}
+                                </span>
+                                <span className="inline-block w-3 text-slate-600 select-none shrink-0 font-bold">
+                                  {row.right.line.type === 'add' ? '+' : ' '}
+                                </span>
+                                <span className="whitespace-pre flex-1 truncate">
+                                  {row.right.tokens ? (
+                                    row.right.tokens.map((tok, tIdx) => (
+                                      <span
+                                        key={tIdx}
+                                        className={tok.isChanged ? 'bg-emerald-500/35 text-emerald-100 font-semibold rounded-xs px-0.5' : ''}
+                                      >
+                                        {tok.text}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    row.right.line.content
+                                  )}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
