@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import path from 'node:path'
+import fs from 'node:fs'
 import type {
   GitCommit,
   GitBranch,
@@ -90,6 +91,24 @@ export class GitService {
    */
   public async getRepositoryState(): Promise<RepositoryState> {
     const repoName = path.basename(this.currentRepoPath)
+    const isGitRepo = fs.existsSync(path.join(this.currentRepoPath, '.git'))
+
+    if (!isGitRepo) {
+      return {
+        path: this.currentRepoPath,
+        name: repoName,
+        isGitRepo: false,
+        currentBranch: null,
+        isDetached: false,
+        branches: [],
+        tags: [],
+        stashes: [],
+        commits: [],
+        files: [],
+        worktrees: [],
+      }
+    }
+
     const [branches, tags, stashes, commits, files, worktrees] = await Promise.all([
       this.getBranches(),
       this.getTags(),
@@ -105,6 +124,7 @@ export class GitService {
     return {
       path: this.currentRepoPath,
       name: repoName,
+      isGitRepo: true,
       currentBranch,
       isDetached,
       branches,
@@ -114,6 +134,10 @@ export class GitService {
       files,
       worktrees,
     }
+  }
+
+  public async initRepository(branchName: string = 'main'): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return await this.execGit(['init', '-b', branchName])
   }
 
   /**

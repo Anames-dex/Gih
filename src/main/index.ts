@@ -123,6 +123,12 @@ ipcMain.handle('git:setRepoPath', async (_, repoPath: string) => {
   return await gitService.getRepositoryState()
 })
 
+ipcMain.handle('git:init', async (_, branchName?: string) => {
+  const result = await gitService.initRepository(branchName)
+  setupGitWatcher(gitService.getRepositoryPath())
+  return result
+})
+
 ipcMain.handle('app:openDirectoryDialog', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],

@@ -101,6 +101,7 @@ export interface CommandLogEntry {
 export interface RepositoryState {
   path: string
   name: string
+  isGitRepo: boolean
   currentBranch: string | null
   isDetached: boolean
   branches: GitBranch[]

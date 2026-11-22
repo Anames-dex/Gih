@@ -4,6 +4,7 @@ import type { RepositoryState, FileDiff, ReflogEntry, CommandLogEntry } from '..
 export interface GihAPI {
   getState: () => Promise<RepositoryState>
   setRepoPath: (repoPath: string) => Promise<RepositoryState>
+  initRepository: (branchName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   openDirectoryDialog: () => Promise<string | null>
   execCommand: (args: string[]) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   getDiff: (filePath: string, staged?: boolean) => Promise<FileDiff>
@@ -35,6 +36,7 @@ export interface GihAPI {
 const api: GihAPI = {
   getState: () => ipcRenderer.invoke('git:getState'),
   setRepoPath: (path: string) => ipcRenderer.invoke('git:setRepoPath', path),
+  initRepository: (branchName?: string) => ipcRenderer.invoke('git:init', branchName),
   openDirectoryDialog: () => ipcRenderer.invoke('app:openDirectoryDialog'),
   execCommand: (args: string[]) => ipcRenderer.invoke('git:exec', args),
   getDiff: (filePath: string, staged?: boolean) => ipcRenderer.invoke('git:getDiff', filePath, staged),

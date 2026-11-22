@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import type { RepositoryState, GitCommit, CommandLogEntry } from '../shared/types'
+import { FolderGit2 } from 'lucide-react'
 import { AppHeader } from './components/layout/AppHeader'
 import { Sidebar } from './components/layout/Sidebar'
 import { CommitGraph } from './components/graph/CommitGraph'
@@ -210,6 +211,17 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleInitRepo = async () => {
+    if (!gih) return
+    try {
+      await gih.initRepository('main')
+      await refreshState()
+      showStatus('Initialized empty Git repository on branch main.')
+    } catch (e: any) {
+      showStatus(`Failed to initialize: ${e.message}`)
+    }
+  }
+
   const handleStash = async () => {
     if (!gih) return
     const msg = window.prompt('Stash message (optional):')
@@ -333,135 +345,169 @@ export const App: React.FC = () => {
       />
 
       {/* Main Workspace (Sidebar + DAG Graph + Staging / Inspector) */}
-      <div className="flex-1 flex overflow-hidden relative">
-        <Sidebar
-          width={sidebarWidth}
-          branches={repoState?.branches || []}
-          tags={repoState?.tags || []}
-          stashes={repoState?.stashes || []}
-          worktrees={repoState?.worktrees || []}
-          currentBranch={repoState?.currentBranch || null}
-          onCheckoutBranch={handleCheckoutBranch}
-          onCreateBranch={handleNewBranch}
-          onDeleteBranch={handleDeleteBranch}
-          onApplyStash={(idx) => gih?.applyStash(idx).then(refreshState)}
-          onPopStash={handlePopStash}
-          onDropStash={handleDropStash}
-          onCreateTag={handleCreateTag}
-          onDeleteTag={handleDeleteTag}
-          onBranchFromStash={handleBranchFromStash}
-        />
+      {repoState && !repoState.isGitRepo ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#0c0e14]">
+          <div className="max-w-md w-full p-8 rounded-2xl bg-surface border border-surface-border shadow-2xl flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-5 shadow-inner">
+              <FolderGit2 className="w-7 h-7" />
+            </div>
 
-        {/* Drag Splitter: Sidebar -> Graph */}
-        <div
-          onMouseDown={() => {
-            isDraggingSidebar.current = true
-            document.body.style.cursor = 'col-resize'
-          }}
-          className="w-1 hover:w-1.5 z-20 cursor-col-resize hover:bg-brand active:bg-brand transition-colors bg-surface-border/60 select-none shrink-0"
-          title="Drag to resize sidebar"
-        />
+            <h2 className="text-lg font-bold text-white tracking-tight">Not a Git Repository</h2>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              This directory hasn't been initialized as a Git repository yet.
+            </p>
 
-        <main className="flex-1 flex flex-col overflow-hidden relative">
-          <CommitGraph
-            commits={repoState?.commits || []}
-            selectedCommit={selectedCommit}
-            onSelectCommit={(c) => setSelectedCommit(c)}
-            onContextMenu={(e, commit) => {
-              e.preventDefault()
-              setContextMenu({ x: e.clientX, y: e.clientY, commit })
-            }}
-          />
+            <div className="mt-4 px-3 py-1.5 bg-surface-subtle border border-surface-border/60 rounded-lg text-xs font-mono text-slate-300 max-w-full truncate">
+              {repoState.path}
+            </div>
 
-          {/* Context Menu */}
-          {contextMenu && (
-            <div
-              className="fixed z-50 bg-surface border border-surface-border rounded-lg shadow-2xl py-1 text-xs text-slate-200 min-w-[200px]"
-              style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="px-3 py-1 text-[10px] text-slate-500 font-mono border-b border-surface-border">
-                {contextMenu.commit.shortHash}
-              </div>
+            <div className="flex items-center gap-3 mt-6 w-full">
               <button
-                onClick={() => {
-                  gih?.execCommand(['checkout', contextMenu.commit.hash]).then(refreshState)
-                  setContextMenu(null)
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface-hover"
+                onClick={handleOpenRepo}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-surface-border hover:bg-surface-hover text-slate-300 text-xs font-medium transition-colors"
               >
-                Checkout this commit
+                Choose Another Folder
               </button>
               <button
-                onClick={() => {
-                  const bName = window.prompt('Create branch from this commit:')
-                  if (bName) {
-                    gih?.createBranch(bName, contextMenu.commit.hash).then(refreshState)
-                  }
-                  setContextMenu(null)
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface-hover"
+                onClick={handleInitRepo}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-slate-950 text-xs font-bold transition-colors shadow-sm"
               >
-                Create branch here...
-              </button>
-              <button
-                onClick={() => {
-                  gih?.execCommand(['cherry-pick', contextMenu.commit.hash]).then(refreshState)
-                  setContextMenu(null)
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface-hover"
-              >
-                Cherry-pick commit
-              </button>
-              <button
-                onClick={() => {
-                  setIsRebaseModalOpen(true)
-                  setContextMenu(null)
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-brand"
-              >
-                Interactive rebase onto here...
-              </button>
-              <div className="border-t border-surface-border my-1" />
-              <button
-                onClick={() => {
-                  if (window.confirm(`Reset current branch to ${contextMenu.commit.shortHash}?`)) {
-                    gih?.execCommand(['reset', '--hard', contextMenu.commit.hash]).then(refreshState)
-                  }
-                  setContextMenu(null)
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-rose-950/60 text-rose-300"
-              >
-                Reset current branch to here
+                Initialize (git init)
               </button>
             </div>
-          )}
-        </main>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex overflow-hidden relative">
+          <Sidebar
+            width={sidebarWidth}
+            branches={repoState?.branches || []}
+            tags={repoState?.tags || []}
+            stashes={repoState?.stashes || []}
+            worktrees={repoState?.worktrees || []}
+            currentBranch={repoState?.currentBranch || null}
+            onCheckoutBranch={handleCheckoutBranch}
+            onCreateBranch={handleNewBranch}
+            onDeleteBranch={handleDeleteBranch}
+            onApplyStash={(idx) => gih?.applyStash(idx).then(refreshState)}
+            onPopStash={handlePopStash}
+            onDropStash={handleDropStash}
+            onCreateTag={handleCreateTag}
+            onDeleteTag={handleDeleteTag}
+            onBranchFromStash={handleBranchFromStash}
+          />
 
-        {/* Drag Splitter: Graph -> Staging */}
-        <div
-          onMouseDown={() => {
-            isDraggingStaging.current = true
-            document.body.style.cursor = 'col-resize'
-          }}
-          className="w-1 hover:w-1.5 z-20 cursor-col-resize hover:bg-brand active:bg-brand transition-colors bg-surface-border/60 select-none shrink-0"
-          title="Drag to resize staging panel"
-        />
+          {/* Drag Splitter: Sidebar -> Graph */}
+          <div
+            onMouseDown={() => {
+              isDraggingSidebar.current = true
+              document.body.style.cursor = 'col-resize'
+            }}
+            className="w-1 hover:w-1.5 z-20 cursor-col-resize hover:bg-brand active:bg-brand transition-colors bg-surface-border/60 select-none shrink-0"
+            title="Drag to resize sidebar"
+          />
 
-        <StagingArea
-          width={stagingWidth}
-          files={repoState?.files || []}
-          selectedCommit={selectedCommit}
-          onClearSelectedCommit={() => setSelectedCommit(null)}
-          onStageFile={(path) => gih?.stageFile(path).then(refreshState)}
-          onUnstageFile={(path) => gih?.unstageFile(path).then(refreshState)}
-          onStageAll={() => gih?.stageAll().then(refreshState)}
-          onUnstageAll={() => gih?.unstageAll().then(refreshState)}
-          onDiscardChanges={(path) => gih?.discardChanges(path).then(refreshState)}
-          onCommit={handleCommit}
-          onGetDiff={(path, staged) => gih?.getDiff(path, staged)}
-        />
-      </div>
+          <main className="flex-1 flex flex-col overflow-hidden relative">
+            <CommitGraph
+              commits={repoState?.commits || []}
+              selectedCommit={selectedCommit}
+              onSelectCommit={(c) => setSelectedCommit(c)}
+              onContextMenu={(e, commit) => {
+                e.preventDefault()
+                setContextMenu({ x: e.clientX, y: e.clientY, commit })
+              }}
+            />
+
+            {/* Context Menu */}
+            {contextMenu && (
+              <div
+                className="fixed z-50 bg-surface border border-surface-border rounded-lg shadow-2xl py-1 text-xs text-slate-200 min-w-[200px]"
+                style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="px-3 py-1 text-[10px] text-slate-500 font-mono border-b border-surface-border">
+                  {contextMenu.commit.shortHash}
+                </div>
+                <button
+                  onClick={() => {
+                    gih?.execCommand(['checkout', contextMenu.commit.hash]).then(refreshState)
+                    setContextMenu(null)
+                  }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover"
+                >
+                  Checkout this commit
+                </button>
+                <button
+                  onClick={() => {
+                    const bName = window.prompt('Create branch from this commit:')
+                    if (bName) {
+                      gih?.createBranch(bName, contextMenu.commit.hash).then(refreshState)
+                    }
+                    setContextMenu(null)
+                  }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover"
+                >
+                  Create branch here...
+                </button>
+                <button
+                  onClick={() => {
+                    gih?.execCommand(['cherry-pick', contextMenu.commit.hash]).then(refreshState)
+                    setContextMenu(null)
+                  }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover"
+                >
+                  Cherry-pick commit
+                </button>
+                <button
+                  onClick={() => {
+                    setIsRebaseModalOpen(true)
+                    setContextMenu(null)
+                  }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-brand"
+                >
+                  Interactive rebase onto here...
+                </button>
+                <div className="border-t border-surface-border my-1" />
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Reset current branch to ${contextMenu.commit.shortHash}?`)) {
+                      gih?.execCommand(['reset', '--hard', contextMenu.commit.hash]).then(refreshState)
+                    }
+                    setContextMenu(null)
+                  }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-rose-950/60 text-rose-300"
+                >
+                  Reset current branch to here
+                </button>
+              </div>
+            )}
+          </main>
+
+          {/* Drag Splitter: Graph -> Staging */}
+          <div
+            onMouseDown={() => {
+              isDraggingStaging.current = true
+              document.body.style.cursor = 'col-resize'
+            }}
+            className="w-1 hover:w-1.5 z-20 cursor-col-resize hover:bg-brand active:bg-brand transition-colors bg-surface-border/60 select-none shrink-0"
+            title="Drag to resize staging panel"
+          />
+
+          <StagingArea
+            width={stagingWidth}
+            files={repoState?.files || []}
+            selectedCommit={selectedCommit}
+            onClearSelectedCommit={() => setSelectedCommit(null)}
+            onStageFile={(path) => gih?.stageFile(path).then(refreshState)}
+            onUnstageFile={(path) => gih?.unstageFile(path).then(refreshState)}
+            onStageAll={() => gih?.stageAll().then(refreshState)}
+            onUnstageAll={() => gih?.unstageAll().then(refreshState)}
+            onDiscardChanges={(path) => gih?.discardChanges(path).then(refreshState)}
+            onCommit={handleCommit}
+            onGetDiff={(path, staged) => gih?.getDiff(path, staged)}
+          />
+        </div>
+      )}
 
       {/* Drag Splitter: Workspace -> Bottom Dock */}
       {isTerminalOpen && (

@@ -42,13 +42,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     <header className="h-12 bg-surface border-b border-surface-border flex items-center justify-between px-3 select-none shrink-0" style={{ WebkitAppRegion: 'drag' } as any}>
       {/* Left: App Brand & Repository Switcher */}
       <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as any}>
-        <div className="flex items-center gap-2 pr-2 border-r border-surface-border">
+        <div className="flex items-center pr-3 border-r border-surface-border">
           <img
             src="/logo.png"
             alt="Gih"
-            className="w-7 h-7 object-contain rounded drop-shadow-sm select-none"
+            className="h-9 w-auto object-contain drop-shadow select-none"
+            title="Gih"
           />
-          <span className="font-bold text-sm tracking-tight text-white">Gih</span>
         </div>
 
         <button
