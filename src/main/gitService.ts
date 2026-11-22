@@ -281,6 +281,32 @@ export class GitService {
       })
   }
 
+  public async createTag(name: string, message?: string, targetHash?: string): Promise<void> {
+    const args = ['tag']
+    if (message) {
+      args.push('-a', name, '-m', message)
+    } else {
+      args.push(name)
+    }
+    if (targetHash) {
+      args.push(targetHash)
+    }
+    await this.execGit(args)
+  }
+
+  public async deleteTag(name: string): Promise<void> {
+    await this.execGit(['tag', '-d', name])
+  }
+
+  public async branchFromStash(branchName: string, index: number = 0): Promise<void> {
+    await this.execGit(['stash', 'branch', branchName, `stash@{${index}}`])
+  }
+
+  public async getStashDiff(index: number = 0): Promise<string> {
+    const { stdout } = await this.execGit(['stash', 'show', '-p', `stash@{${index}}`])
+    return stdout
+  }
+
   /**
    * List stashes
    */

@@ -210,3 +210,19 @@ ipcMain.handle('git:applyStash', async (_, index: number = 0) => {
 ipcMain.handle('git:dropStash', async (_, index: number = 0) => {
   await gitService.execGit(['stash', 'drop', `stash@{${index}}`])
 })
+
+ipcMain.handle('git:branchFromStash', async (_, branchName: string, index: number = 0) => {
+  await gitService.branchFromStash(branchName, index)
+})
+
+ipcMain.handle('git:getStashDiff', async (_, index: number = 0) => {
+  return await gitService.getStashDiff(index)
+})
+
+ipcMain.handle('git:createTag', async (_, name: string, message?: string, targetHash?: string) => {
+  await gitService.createTag(name, message, targetHash)
+})
+
+ipcMain.handle('git:deleteTag', async (_, name: string) => {
+  await gitService.deleteTag(name)
+})

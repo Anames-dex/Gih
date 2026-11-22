@@ -25,6 +25,10 @@ export interface GihAPI {
   popStash: (index?: number) => Promise<void>
   applyStash: (index?: number) => Promise<void>
   dropStash: (index?: number) => Promise<void>
+  branchFromStash: (branchName: string, index?: number) => Promise<void>
+  getStashDiff: (index?: number) => Promise<string>
+  createTag: (name: string, message?: string, targetHash?: string) => Promise<void>
+  deleteTag: (name: string) => Promise<void>
   onRepoChanged: (callback: () => void) => () => void
 }
 
@@ -52,6 +56,10 @@ const api: GihAPI = {
   popStash: (index?: number) => ipcRenderer.invoke('git:popStash', index),
   applyStash: (index?: number) => ipcRenderer.invoke('git:applyStash', index),
   dropStash: (index?: number) => ipcRenderer.invoke('git:dropStash', index),
+  branchFromStash: (branchName: string, index?: number) => ipcRenderer.invoke('git:branchFromStash', branchName, index),
+  getStashDiff: (index?: number) => ipcRenderer.invoke('git:getStashDiff', index),
+  createTag: (name: string, message?: string, targetHash?: string) => ipcRenderer.invoke('git:createTag', name, message, targetHash),
+  deleteTag: (name: string) => ipcRenderer.invoke('git:deleteTag', name),
   onRepoChanged: (callback: () => void) => {
     const handler = () => callback()
     ipcRenderer.on('git:changed', handler)

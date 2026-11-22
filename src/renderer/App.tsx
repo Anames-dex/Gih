@@ -195,6 +195,44 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleCreateTag = async () => {
+    if (!gih) return
+    const name = window.prompt('Tag name:')
+    if (!name?.trim()) return
+    const msg = window.prompt('Tag message (optional):')
+    try {
+      await gih.createTag(name.trim(), msg || undefined)
+      await refreshState()
+      showStatus(`Created tag '${name.trim()}'.`)
+    } catch (e: any) {
+      showStatus(`Tag creation failed: ${e.message}`)
+    }
+  }
+
+  const handleDeleteTag = async (tagName: string) => {
+    if (!gih) return
+    if (window.confirm(`Delete tag '${tagName}'?`)) {
+      try {
+        await gih.deleteTag(tagName)
+        await refreshState()
+        showStatus(`Deleted tag '${tagName}'.`)
+      } catch (e: any) {
+        showStatus(`Delete tag failed: ${e.message}`)
+      }
+    }
+  }
+
+  const handleBranchFromStash = async (branchName: string, index: number) => {
+    if (!gih) return
+    try {
+      await gih.branchFromStash(branchName, index)
+      await refreshState()
+      showStatus(`Created and checked out '${branchName}' from stash@{${index}}.`)
+    } catch (e: any) {
+      showStatus(`Branch from stash failed: ${e.message}`)
+    }
+  }
+
   const handleCommit = async (message: string, signOff?: boolean) => {
     if (!gih) return
     try {
@@ -259,6 +297,9 @@ export const App: React.FC = () => {
           onApplyStash={(idx) => gih?.applyStash(idx).then(refreshState)}
           onPopStash={handlePopStash}
           onDropStash={handleDropStash}
+          onCreateTag={handleCreateTag}
+          onDeleteTag={handleDeleteTag}
+          onBranchFromStash={handleBranchFromStash}
         />
 
         <main className="flex-1 flex flex-col overflow-hidden relative">

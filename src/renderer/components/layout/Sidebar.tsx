@@ -25,6 +25,9 @@ interface SidebarProps {
   onApplyStash: (index: number) => void
   onPopStash: (index: number) => void
   onDropStash: (index: number) => void
+  onCreateTag?: () => void
+  onDeleteTag?: (name: string) => void
+  onBranchFromStash?: (name: string, index: number) => void
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -38,6 +41,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteBranch,
   onPopStash,
   onDropStash,
+  onCreateTag,
+  onDeleteTag,
+  onBranchFromStash,
 }) => {
   const [localExpanded, setLocalExpanded] = useState(true)
   const [remotesExpanded, setRemotesExpanded] = useState(true)
@@ -185,16 +191,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div>
           <div
             onClick={() => setTagsExpanded(!tagsExpanded)}
-            className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-hover cursor-pointer text-xs font-semibold text-slate-400 uppercase tracking-wider"
+            className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-hover cursor-pointer text-xs font-semibold text-slate-400 uppercase tracking-wider group"
           >
             <div className="flex items-center gap-1.5">
               {tagsExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               <TagIcon className="w-3.5 h-3.5 text-emerald-400" />
               <span>Tags</span>
             </div>
-            <span className="text-[10px] bg-surface-subtle px-1.5 py-0.2 rounded text-slate-400">
-              {tags.length}
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] bg-surface-subtle px-1.5 py-0.2 rounded text-slate-400">
+                {tags.length}
+              </span>
+              {onCreateTag && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onCreateTag()
+                  }}
+                  className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-white transition-opacity"
+                  title="Create tag"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {tagsExpanded && (
@@ -202,10 +222,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {tags.map((t) => (
                 <div
                   key={t.name}
-                  className="flex items-center gap-2 px-2 py-1 rounded text-xs hover:bg-surface-hover text-slate-300"
+                  className="flex items-center justify-between px-2 py-1 rounded text-xs hover:bg-surface-hover text-slate-300 group cursor-pointer"
                 >
-                  <TagIcon className="w-3 h-3 text-emerald-400" />
-                  <span className="truncate">{t.name}</span>
+                  <div className="flex items-center gap-2 truncate">
+                    <TagIcon className="w-3 h-3 text-emerald-400" />
+                    <span className="truncate">{t.name}</span>
+                  </div>
+                  {onDeleteTag && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDeleteTag(t.name)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400"
+                      title="Delete tag"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               ))}
               {tags.length === 0 && (
@@ -243,6 +277,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span className="truncate" title={s.message}>{s.message || s.name}</span>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                    {onBranchFromStash && (
+                      <button
+                        onClick={() => {
+                          const bName = window.prompt('New branch name from stash:')
+                          if (bName) onBranchFromStash(bName, s.index)
+                        }}
+                        className="text-[10px] px-1 py-0.5 bg-surface-subtle hover:bg-surface-border rounded text-amber-400"
+                        title="Branch from stash"
+                      >
+                        Branch
+                      </button>
+                    )}
                     <button
                       onClick={() => onPopStash(s.index)}
                       className="text-[10px] px-1 py-0.5 bg-surface-subtle hover:bg-surface-border rounded text-sky-400"
