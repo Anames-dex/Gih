@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { RepositoryState, FileDiff, ReflogEntry, CommandLogEntry } from '../shared/types'
+import type {
+  RepositoryState,
+  FileDiff,
+  ReflogEntry,
+  CommandLogEntry,
+  GitFileStatus,
+  CommitRangeDiff,
+  RemoteProviderInfo
+} from '../shared/types'
 
 export interface GihAPI {
   getState: () => Promise<RepositoryState>
@@ -7,8 +15,13 @@ export interface GihAPI {
   initRepository: (branchName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   cloneRepository: (url: string, targetPath: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   openDirectoryDialog: () => Promise<string | null>
+  openExternal: (url: string) => Promise<void>
   execCommand: (args: string[]) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   getDiff: (filePath: string, staged?: boolean) => Promise<FileDiff>
+  getCommitFiles: (hash: string) => Promise<{ files: GitFileStatus[]; statSummary: string }>
+  getRangeDiff: (baseHash: string, headHash: string) => Promise<CommitRangeDiff>
+  getCommitFileDiff: (baseHash: string, headHash: string, filePath: string) => Promise<FileDiff>
+  getRemoteInfo: (remoteName?: string) => Promise<RemoteProviderInfo | null>
   getReflog: (count?: number) => Promise<ReflogEntry[]>
   getCommandHistory: () => Promise<CommandLogEntry[]>
   stageFile: (filePath: string) => Promise<void>
@@ -29,7 +42,7 @@ export interface GihAPI {
   cherryPick: (commitHash: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   fetchRemote: (remoteName?: string) => Promise<void>
   pullRemote: (remoteName?: string, branchName?: string) => Promise<void>
-  pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean) => Promise<void>
+  pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   createStash: (message?: string, includeUntracked?: boolean) => Promise<void>
   popStash: (index?: number) => Promise<void>
   applyStash: (index?: number) => Promise<void>
@@ -50,8 +63,13 @@ const api: GihAPI = {
   initRepository: (branchName?: string) => ipcRenderer.invoke('git:init', branchName),
   cloneRepository: (url: string, targetPath: string) => ipcRenderer.invoke('git:clone', url, targetPath),
   openDirectoryDialog: () => ipcRenderer.invoke('app:openDirectoryDialog'),
+  openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
   execCommand: (args: string[]) => ipcRenderer.invoke('git:exec', args),
   getDiff: (filePath: string, staged?: boolean) => ipcRenderer.invoke('git:getDiff', filePath, staged),
+  getCommitFiles: (hash: string) => ipcRenderer.invoke('git:getCommitFiles', hash),
+  getRangeDiff: (baseHash: string, headHash: string) => ipcRenderer.invoke('git:getRangeDiff', baseHash, headHash),
+  getCommitFileDiff: (baseHash: string, headHash: string, filePath: string) => ipcRenderer.invoke('git:getCommitFileDiff', baseHash, headHash, filePath),
+  getRemoteInfo: (remoteName?: string) => ipcRenderer.invoke('git:getRemoteInfo', remoteName),
   getReflog: (count?: number) => ipcRenderer.invoke('git:getReflog', count),
   getCommandHistory: () => ipcRenderer.invoke('git:getCommandHistory'),
   stageFile: (filePath: string) => ipcRenderer.invoke('git:stageFile', filePath),
@@ -72,7 +90,7 @@ const api: GihAPI = {
   cherryPick: (commitHash: string) => ipcRenderer.invoke('git:cherryPick', commitHash),
   fetchRemote: (remoteName?: string) => ipcRenderer.invoke('git:fetch', remoteName),
   pullRemote: (remoteName?: string, branchName?: string) => ipcRenderer.invoke('git:pull', remoteName, branchName),
-  pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean) => ipcRenderer.invoke('git:push', remoteName, branchName, setUpstream),
+  pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => ipcRenderer.invoke('git:push', remoteName, branchName, setUpstream, forceWithLease),
   createStash: (message?: string, includeUntracked?: boolean) => ipcRenderer.invoke('git:createStash', message, includeUntracked),
   popStash: (index?: number) => ipcRenderer.invoke('git:popStash', index),
   applyStash: (index?: number) => ipcRenderer.invoke('git:applyStash', index),

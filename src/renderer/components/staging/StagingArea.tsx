@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import type { GitFileStatus, FileDiff, DiffHunk, GitCommit } from '@/shared/types'
+import type { GitFileStatus, FileDiff, DiffHunk, GitCommit, CommitRangeDiff } from '@/shared/types'
 import {
   FileText,
   Plus,
@@ -9,15 +9,19 @@ import {
   GitCommit as CommitIcon,
   X,
   FileDiff as DiffIcon,
-  AlertTriangle
+  AlertTriangle,
+  Copy,
+  GitCompare,
+  Layers,
+  ChevronRight
 } from 'lucide-react'
 import { buildSplitRows, buildUnifiedRows, buildHunkPatch } from './diffUtils'
 
 interface StagingAreaProps {
   width?: number
   files: GitFileStatus[]
-  selectedCommit: GitCommit | null
-  onClearSelectedCommit: () => void
+  selectedCommits: GitCommit[]
+  onClearSelectedCommits: () => void
   onStageFile: (path: string) => void
   onUnstageFile: (path: string) => void
   onStageAll: () => void
@@ -25,6 +29,9 @@ interface StagingAreaProps {
   onDiscardChanges: (path: string) => void
   onCommit: (message: string, signOff?: boolean, amend?: boolean) => void
   onGetDiff: (path: string, staged: boolean) => Promise<FileDiff>
+  onGetCommitFiles?: (hash: string) => Promise<{ files: GitFileStatus[]; statSummary: string }>
+  onGetRangeDiff?: (baseHash: string, headHash: string) => Promise<CommitRangeDiff>
+  onGetCommitFileDiff?: (baseHash: string, headHash: string, filePath: string) => Promise<FileDiff>
   onApplyHunkPatch?: (patch: string, options: { cached?: boolean; reverse?: boolean }) => Promise<void>
   onResolveConflict?: (filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => void
   headCommit?: GitCommit | null
@@ -33,8 +40,8 @@ interface StagingAreaProps {
 export const StagingArea: React.FC<StagingAreaProps> = ({
   width = 380,
   files,
-  selectedCommit,
-  onClearSelectedCommit,
+  selectedCommits,
+  onClearSelectedCommits,
   onStageFile,
   onUnstageFile,
   onStageAll,
@@ -42,6 +49,9 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   onDiscardChanges,
   onCommit,
   onGetDiff,
+  onGetCommitFiles,
+  onGetRangeDiff,
+  onGetCommitFileDiff,
   onApplyHunkPatch,
   onResolveConflict,
   headCommit,
@@ -55,9 +65,110 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const [isDiffLoading, setIsDiffLoading] = useState(false)
   const [isApplyingHunk, setIsApplyingHunk] = useState(false)
 
+  // Commit / Range inspection state
+  const [inspectorFiles, setInspectorFiles] = useState<GitFileStatus[]>([])
+  const [inspectorStatSummary, setInspectorStatSummary] = useState('')
+  const [isInspectorLoading, setIsInspectorLoading] = useState(false)
+  const [activeInspectorFile, setActiveInspectorFile] = useState<GitFileStatus | null>(null)
+  const [activeInspectorDiff, setActiveInspectorDiff] = useState<FileDiff | null>(null)
+  const [isInspectorDiffLoading, setIsInspectorDiffLoading] = useState(false)
+  const [hasCopiedHashes, setHasCopiedHashes] = useState(false)
+
+  const isMultiSelection = selectedCommits.length > 1
+  const isSingleSelection = selectedCommits.length === 1
+  const headCommitSelected = selectedCommits[0] || null
+  const baseCommitSelected = selectedCommits[selectedCommits.length - 1] || null
+
   const conflictedFiles = files.filter((f) => f.status === 'conflicted')
   const stagedFiles = files.filter((f) => f.staged)
   const unstagedFiles = files.filter((f) => !f.staged && f.status !== 'conflicted')
+
+  // Load files for selected commit or commit range
+  useEffect(() => {
+    if (selectedCommits.length === 0) {
+      setInspectorFiles([])
+      setInspectorStatSummary('')
+      setActiveInspectorFile(null)
+      setActiveInspectorDiff(null)
+      return
+    }
+
+    let isMounted = true
+    setIsInspectorLoading(true)
+    setActiveInspectorFile(null)
+    setActiveInspectorDiff(null)
+
+    if (isSingleSelection && onGetCommitFiles) {
+      onGetCommitFiles(selectedCommits[0].hash)
+        .then((res) => {
+          if (!isMounted) return
+          setInspectorFiles(res.files)
+          setInspectorStatSummary(res.statSummary)
+        })
+        .catch((err) => {
+          console.error('Failed to load commit files:', err)
+        })
+        .finally(() => {
+          if (isMounted) setIsInspectorLoading(false)
+        })
+    } else if (isMultiSelection && onGetRangeDiff && baseCommitSelected && headCommitSelected) {
+      onGetRangeDiff(baseCommitSelected.hash, headCommitSelected.hash)
+        .then((res) => {
+          if (!isMounted) return
+          setInspectorFiles(res.files)
+          setInspectorStatSummary(res.statSummary)
+        })
+        .catch((err) => {
+          console.error('Failed to load range diff:', err)
+        })
+        .finally(() => {
+          if (isMounted) setIsInspectorLoading(false)
+        })
+    } else {
+      setIsInspectorLoading(false)
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedCommits, onGetCommitFiles, onGetRangeDiff])
+
+  // Load diff for inspected file
+  useEffect(() => {
+    if (!activeInspectorFile || !onGetCommitFileDiff || selectedCommits.length === 0) {
+      setActiveInspectorDiff(null)
+      return
+    }
+
+    let isMounted = true
+    setIsInspectorDiffLoading(true)
+    const baseHash = baseCommitSelected ? baseCommitSelected.hash : headCommitSelected!.hash
+    const headHash = headCommitSelected!.hash
+
+    onGetCommitFileDiff(baseHash, headHash, activeInspectorFile.path)
+      .then((diff) => {
+        if (!isMounted) return
+        setActiveInspectorDiff(diff)
+      })
+      .catch((err) => {
+        console.error('Failed to load file diff:', err)
+      })
+      .finally(() => {
+        if (isMounted) setIsInspectorDiffLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [activeInspectorFile, selectedCommits, onGetCommitFileDiff])
+
+  const handleCopyHashes = () => {
+    if (selectedCommits.length === 0) return
+    const text = selectedCommits.map((c) => c.hash).join('\n')
+    navigator.clipboard.writeText(text)
+    setHasCopiedHashes(true)
+    setTimeout(() => setHasCopiedHashes(false), 2000)
+  }
 
   const handleStageHunk = async (hunk: DiffHunk) => {
     if (!activeFile || !onApplyHunkPatch) return
@@ -122,134 +233,77 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
     setIsAmend(false)
   }
 
-  // If a commit is selected from the graph, show its inspector
-  if (selectedCommit) {
+  const renderFileDiffViewer = (
+    filePath: string,
+    diff: FileDiff | null,
+    isLoading: boolean,
+    onClose: () => void,
+    isInspect: boolean = false
+  ) => {
     return (
-      <aside
-        className="bg-surface border-l border-surface-border flex flex-col shrink-0 text-slate-300"
-        style={{ width: `${width}px` }}
-      >
-        <div className="p-3 border-b border-surface-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CommitIcon className="w-4 h-4 text-sky-400" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Commit Details
+      <div className="border-b border-surface-border bg-surface-subtle/50 p-2.5">
+        <div className="flex items-center justify-between pb-2 mb-2 border-b border-surface-border/50 text-xs">
+          <div className="flex items-center gap-1.5 truncate">
+            <DiffIcon className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <span className="font-mono text-white truncate max-w-[180px]" title={filePath}>
+              {filePath}
             </span>
           </div>
-          <button
-            onClick={onClearSelectedCommit}
-            className="p-1 hover:bg-surface-hover rounded text-slate-400 hover:text-white"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
 
-        <div className="p-4 flex-1 overflow-y-auto space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-white leading-snug">
-              {selectedCommit.summary}
-            </h3>
-            {selectedCommit.message !== selectedCommit.summary && (
-              <p className="mt-2 text-xs text-slate-400 whitespace-pre-wrap font-mono">
-                {selectedCommit.message}
-              </p>
-            )}
-          </div>
-
-          <div className="p-3 bg-surface-subtle border border-surface-border rounded-lg space-y-2 text-xs">
-            <div className="flex justify-between text-slate-400">
-              <span>Hash</span>
-              <span className="font-mono text-slate-200 select-all">{selectedCommit.hash}</span>
-            </div>
-            <div className="flex justify-between text-slate-400">
-              <span>Author</span>
-              <span className="text-slate-200">{selectedCommit.author.name}</span>
-            </div>
-            <div className="flex justify-between text-slate-400">
-              <span>Date</span>
-              <span className="text-slate-200">{selectedCommit.author.date}</span>
-            </div>
-            {selectedCommit.parents.length > 0 && (
-              <div className="flex justify-between text-slate-400">
-                <span>Parents</span>
-                <span className="font-mono text-slate-200 truncate max-w-[180px]">
-                  {selectedCommit.parents.map((p) => p.substring(0, 7)).join(', ')}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </aside>
-    )
-  }
-
-  return (
-    <aside
-      className="bg-surface border-l border-surface-border flex flex-col shrink-0 text-slate-300"
-      style={{ width: `${width}px` }}
-    >
-      {/* Diff Modal / Flyout if active file is clicked */}
-      {activeFile && (
-        <div className="border-b border-surface-border bg-surface-subtle/50 p-2.5">
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-surface-border/50 text-xs">
-            <div className="flex items-center gap-1.5 truncate">
-              <DiffIcon className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              <span className="font-mono text-white truncate max-w-[180px]" title={activeFile.path}>{activeFile.path}</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Segmented View Mode Toggle: Unified vs Split */}
-              <div className="flex items-center bg-[#090b10] border border-surface-border/60 rounded p-0.5 text-[10px]">
-                <button
-                  type="button"
-                  onClick={() => setDiffViewMode('unified')}
-                  className={`px-2 py-0.5 rounded transition-all ${
-                    diffViewMode === 'unified'
-                      ? 'bg-sky-500/20 text-sky-300 font-semibold shadow-xs'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="Unified single-column diff with intra-line word highlight"
-                >
-                  Unified
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDiffViewMode('split')}
-                  className={`px-2 py-0.5 rounded transition-all ${
-                    diffViewMode === 'split'
-                      ? 'bg-sky-500/20 text-sky-300 font-semibold shadow-xs'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="Side-by-side split diff with paired word changes"
-                >
-                  Split
-                </button>
-              </div>
-
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-[#090b10] border border-surface-border/60 rounded p-0.5 text-[10px]">
               <button
-                onClick={() => setActiveFile(null)}
-                className="p-1 hover:bg-surface-hover rounded text-slate-400 hover:text-white transition-colors"
-                title="Close diff view"
+                type="button"
+                onClick={() => setDiffViewMode('unified')}
+                className={`px-2 py-0.5 rounded transition-all ${
+                  diffViewMode === 'unified'
+                    ? 'bg-sky-500/20 text-sky-300 font-semibold shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Unified single-column diff with intra-line word highlight"
               >
-                <X className="w-3.5 h-3.5" />
+                Unified
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiffViewMode('split')}
+                className={`px-2 py-0.5 rounded transition-all ${
+                  diffViewMode === 'split'
+                    ? 'bg-sky-500/20 text-sky-300 font-semibold shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Side-by-side split diff with paired word changes"
+              >
+                Split
               </button>
             </div>
+
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-surface-hover rounded text-slate-400 hover:text-white transition-colors"
+              title="Close diff view"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
+        </div>
 
-          <div className="max-h-80 overflow-y-auto text-xs font-mono bg-[#090b10] p-2 rounded border border-surface-border/40 space-y-2.5">
-            {isDiffLoading && <p className="text-slate-500 py-2">Loading diff...</p>}
-            {activeDiff && activeDiff.hunks.length === 0 && !isDiffLoading && (
-              <p className="text-slate-500 py-2">No text differences found.</p>
-            )}
-            {activeDiff?.hunks.map((hunk, hIdx) => {
-              const unifiedRows = buildUnifiedRows(hunk.lines)
-              const splitRows = buildSplitRows(hunk.lines)
+        <div className="max-h-80 overflow-y-auto text-xs font-mono bg-[#090b10] p-2 rounded border border-surface-border/40 space-y-2.5">
+          {isLoading && <p className="text-slate-500 py-2">Loading diff...</p>}
+          {diff && diff.hunks.length === 0 && !isLoading && (
+            <p className="text-slate-500 py-2">No text differences found.</p>
+          )}
+          {diff?.hunks.map((hunk, hIdx) => {
+            const unifiedRows = buildUnifiedRows(hunk.lines)
+            const splitRows = buildSplitRows(hunk.lines)
 
-              return (
-                <div key={hIdx} className="rounded border border-surface-border/50 overflow-hidden bg-[#0c0e14]">
-                  {/* Hunk Header */}
-                  <div className="flex items-center justify-between text-[11px] text-indigo-300 bg-indigo-950/40 px-2 py-1 border-b border-surface-border/40 font-mono">
-                    <span className="truncate max-w-[200px]" title={hunk.header}>{hunk.header}</span>
+            return (
+              <div key={hIdx} className="rounded border border-surface-border/50 overflow-hidden bg-[#0c0e14]">
+                <div className="flex items-center justify-between text-[11px] text-indigo-300 bg-indigo-950/40 px-2 py-1 border-b border-surface-border/40 font-mono">
+                  <span className="truncate max-w-[200px]" title={hunk.header}>
+                    {hunk.header}
+                  </span>
+                  {!isInspect && activeFile && (
                     <div className="flex items-center gap-1.5 font-sans shrink-0">
                       {!activeFile.staged ? (
                         <>
@@ -287,133 +341,321 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                         </button>
                       )}
                     </div>
-                  </div>
-
-                  {/* Hunk Lines: Unified Mode */}
-                  {diffViewMode === 'unified' ? (
-                    <div className="overflow-x-auto p-1 text-[11px] leading-relaxed">
-                      {unifiedRows.map((item, lIdx) => (
-                        <div
-                          key={lIdx}
-                          className={`px-1.5 py-0.5 rounded-xs flex items-start ${
-                            item.line.type === 'add'
-                              ? 'bg-emerald-950/30 text-emerald-300'
-                              : item.line.type === 'delete'
-                              ? 'bg-rose-950/30 text-rose-300'
-                              : 'text-slate-400'
-                          }`}
-                        >
-                          <span className="inline-block w-4 text-slate-600 select-none shrink-0 font-bold">
-                            {item.line.type === 'add' ? '+' : item.line.type === 'delete' ? '-' : ' '}
-                          </span>
-                          <span className="whitespace-pre flex-1">
-                            {item.tokens ? (
-                              item.tokens.map((tok, tIdx) => (
-                                <span
-                                  key={tIdx}
-                                  className={
-                                    tok.isChanged
-                                      ? item.line.type === 'add'
-                                        ? 'bg-emerald-500/35 text-emerald-100 font-semibold rounded-xs px-0.5'
-                                        : 'bg-rose-500/35 text-rose-100 font-semibold line-through rounded-xs px-0.5'
-                                      : ''
-                                  }
-                                >
-                                  {tok.text}
-                                </span>
-                              ))
-                            ) : (
-                              item.line.content
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    /* Hunk Lines: Split Mode (Side-by-Side) */
-                    <div className="overflow-x-auto p-1 text-[11px] leading-relaxed divide-y divide-surface-border/20">
-                      {splitRows.map((row, rIdx) => (
-                        <div key={rIdx} className="grid grid-cols-2 gap-1">
-                          {/* Left Column: Old / Delete */}
-                          <div
-                            className={`px-1.5 py-0.5 rounded-xs truncate flex items-start ${
-                              row.left
-                                ? row.left.line.type === 'delete'
-                                  ? 'bg-rose-950/35 text-rose-300'
-                                  : 'text-slate-400'
-                                : 'bg-surface-subtle/10'
-                            }`}
-                          >
-                            {row.left && (
-                              <>
-                                <span className="w-6 text-[10px] text-slate-600 select-none shrink-0 text-right pr-1">
-                                  {row.left.line.oldLineNumber || ''}
-                                </span>
-                                <span className="inline-block w-3 text-slate-600 select-none shrink-0 font-bold">
-                                  {row.left.line.type === 'delete' ? '-' : ' '}
-                                </span>
-                                <span className="whitespace-pre flex-1 truncate">
-                                  {row.left.tokens ? (
-                                    row.left.tokens.map((tok, tIdx) => (
-                                      <span
-                                        key={tIdx}
-                                        className={tok.isChanged ? 'bg-rose-500/35 text-rose-100 font-semibold rounded-xs px-0.5' : ''}
-                                      >
-                                        {tok.text}
-                                      </span>
-                                    ))
-                                  ) : (
-                                    row.left.line.content
-                                  )}
-                                </span>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Right Column: New / Add */}
-                          <div
-                            className={`px-1.5 py-0.5 rounded-xs truncate flex items-start ${
-                              row.right
-                                ? row.right.line.type === 'add'
-                                  ? 'bg-emerald-950/35 text-emerald-300'
-                                  : 'text-slate-400'
-                                : 'bg-surface-subtle/10'
-                            }`}
-                          >
-                            {row.right && (
-                              <>
-                                <span className="w-6 text-[10px] text-slate-600 select-none shrink-0 text-right pr-1">
-                                  {row.right.line.newLineNumber || ''}
-                                </span>
-                                <span className="inline-block w-3 text-slate-600 select-none shrink-0 font-bold">
-                                  {row.right.line.type === 'add' ? '+' : ' '}
-                                </span>
-                                <span className="whitespace-pre flex-1 truncate">
-                                  {row.right.tokens ? (
-                                    row.right.tokens.map((tok, tIdx) => (
-                                      <span
-                                        key={tIdx}
-                                        className={tok.isChanged ? 'bg-emerald-500/35 text-emerald-100 font-semibold rounded-xs px-0.5' : ''}
-                                      >
-                                        {tok.text}
-                                      </span>
-                                    ))
-                                  ) : (
-                                    row.right.line.content
-                                  )}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
                   )}
                 </div>
-              )
-            })}
+
+                {diffViewMode === 'unified' ? (
+                  <div className="overflow-x-auto p-1 text-[11px] leading-relaxed">
+                    {unifiedRows.map((item, lIdx) => (
+                      <div
+                        key={lIdx}
+                        className={`px-1.5 py-0.5 rounded-xs flex items-start ${
+                          item.line.type === 'add'
+                            ? 'bg-emerald-950/30 text-emerald-300'
+                            : item.line.type === 'delete'
+                            ? 'bg-rose-950/30 text-rose-300'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        <span className="inline-block w-4 text-slate-600 select-none shrink-0 font-bold">
+                          {item.line.type === 'add' ? '+' : item.line.type === 'delete' ? '-' : ' '}
+                        </span>
+                        <span className="whitespace-pre flex-1">
+                          {item.tokens ? (
+                            item.tokens.map((tok, tIdx) => (
+                              <span
+                                key={tIdx}
+                                className={
+                                  tok.isChanged
+                                    ? item.line.type === 'add'
+                                      ? 'bg-emerald-500/35 text-emerald-100 font-semibold rounded-xs px-0.5'
+                                      : 'bg-rose-500/35 text-rose-100 font-semibold line-through rounded-xs px-0.5'
+                                    : ''
+                                }
+                              >
+                                {tok.text}
+                              </span>
+                            ))
+                          ) : (
+                            item.line.content
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto p-1 text-[11px] leading-relaxed divide-y divide-surface-border/20">
+                    {splitRows.map((row, rIdx) => (
+                      <div key={rIdx} className="grid grid-cols-2 gap-1">
+                        <div
+                          className={`px-1.5 py-0.5 rounded-xs truncate flex items-start ${
+                            row.left
+                              ? row.left.line.type === 'delete'
+                                ? 'bg-rose-950/35 text-rose-300'
+                                : 'text-slate-400'
+                              : 'bg-surface-subtle/10'
+                          }`}
+                        >
+                          {row.left && (
+                            <>
+                              <span className="w-6 text-[10px] text-slate-600 select-none shrink-0 text-right pr-1">
+                                {row.left.line.oldLineNumber || ''}
+                              </span>
+                              <span className="inline-block w-3 text-slate-600 select-none shrink-0 font-bold">
+                                {row.left.line.type === 'delete' ? '-' : ' '}
+                              </span>
+                              <span className="whitespace-pre flex-1 truncate">
+                                {row.left.tokens ? (
+                                  row.left.tokens.map((tok, tIdx) => (
+                                    <span
+                                      key={tIdx}
+                                      className={tok.isChanged ? 'bg-rose-500/35 text-rose-100 font-semibold rounded-xs px-0.5' : ''}
+                                    >
+                                      {tok.text}
+                                    </span>
+                                  ))
+                                ) : (
+                                  row.left.line.content
+                                )}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        <div
+                          className={`px-1.5 py-0.5 rounded-xs truncate flex items-start ${
+                            row.right
+                              ? row.right.line.type === 'add'
+                                ? 'bg-emerald-950/35 text-emerald-300'
+                                : 'text-slate-400'
+                              : 'bg-surface-subtle/10'
+                          }`}
+                        >
+                          {row.right && (
+                            <>
+                              <span className="w-6 text-[10px] text-slate-600 select-none shrink-0 text-right pr-1">
+                                {row.right.line.newLineNumber || ''}
+                              </span>
+                              <span className="inline-block w-3 text-slate-600 select-none shrink-0 font-bold">
+                                {row.right.line.type === 'add' ? '+' : ' '}
+                              </span>
+                              <span className="whitespace-pre flex-1 truncate">
+                                {row.right.tokens ? (
+                                  row.right.tokens.map((tok, tIdx) => (
+                                    <span
+                                      key={tIdx}
+                                      className={tok.isChanged ? 'bg-emerald-500/35 text-emerald-100 font-semibold rounded-xs px-0.5' : ''}
+                                    >
+                                      {tok.text}
+                                    </span>
+                                  ))
+                                ) : (
+                                  row.right.line.content
+                                )}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // If commits are selected from the graph, show Inspector for single or multi-commit range
+  if (selectedCommits.length > 0 && headCommitSelected) {
+    return (
+      <aside
+        className="bg-surface border-l border-surface-border flex flex-col shrink-0 text-slate-300"
+        style={{ width: `${width}px` }}
+      >
+        <div className="p-3 border-b border-surface-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isMultiSelection ? (
+              <GitCompare className="w-4 h-4 text-sky-400" />
+            ) : (
+              <CommitIcon className="w-4 h-4 text-sky-400" />
+            )}
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              {isMultiSelection
+                ? `Range (${selectedCommits.length} Commits)`
+                : 'Commit Details'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {isMultiSelection && (
+              <button
+                type="button"
+                onClick={handleCopyHashes}
+                className="px-2 py-0.5 rounded text-[10px] font-medium bg-surface-subtle hover:bg-surface-hover text-slate-300 border border-surface-border/60 flex items-center gap-1 transition-all active:scale-95"
+                title="Copy all selected commit hashes"
+              >
+                <Copy className="w-3 h-3 text-slate-400" />
+                <span>{hasCopiedHashes ? 'Copied!' : 'Copy Hashes'}</span>
+              </button>
+            )}
+            <button
+              onClick={onClearSelectedCommits}
+              className="p-1 hover:bg-surface-hover rounded text-slate-400 hover:text-white"
+              title="Close inspection"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
+
+        <div className="p-4 flex-1 overflow-y-auto space-y-4">
+          {/* Metadata Card */}
+          {isSingleSelection ? (
+            <div>
+              <h3 className="text-sm font-semibold text-white leading-snug">
+                {headCommitSelected.summary}
+              </h3>
+              {headCommitSelected.message !== headCommitSelected.summary && (
+                <p className="mt-2 text-xs text-slate-400 whitespace-pre-wrap font-mono">
+                  {headCommitSelected.message}
+                </p>
+              )}
+
+              <div className="mt-3 p-3 bg-surface-subtle border border-surface-border rounded-lg space-y-2 text-xs">
+                <div className="flex justify-between text-slate-400">
+                  <span>Hash</span>
+                  <span className="font-mono text-slate-200 select-all">{headCommitSelected.hash}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Author</span>
+                  <span className="text-slate-200">{headCommitSelected.author.name}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Date</span>
+                  <span className="text-slate-200">{headCommitSelected.author.date}</span>
+                </div>
+                {headCommitSelected.parents.length > 0 && (
+                  <div className="flex justify-between text-slate-400">
+                    <span>Parents</span>
+                    <span className="font-mono text-slate-200 truncate max-w-[180px]">
+                      {headCommitSelected.parents.map((p) => p.substring(0, 7)).join(', ')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="p-3 bg-surface-subtle border border-surface-border rounded-lg text-xs space-y-2">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="font-semibold text-slate-300">Endpoint Commits</span>
+                  <span className="font-mono text-sky-400">
+                    {baseCommitSelected?.shortHash}..{headCommitSelected.shortHash}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-300">
+                  <span className="text-slate-500 font-semibold uppercase text-[10px] block mb-0.5">Head:</span>
+                  <div className="truncate font-medium">{headCommitSelected.summary}</div>
+                </div>
+                <div className="text-[11px] text-slate-300">
+                  <span className="text-slate-500 font-semibold uppercase text-[10px] block mb-0.5">Base:</span>
+                  <div className="truncate font-medium">{baseCommitSelected?.summary}</div>
+                </div>
+                {inspectorStatSummary && (
+                  <div className="pt-2 border-t border-surface-border/50 text-[11px] text-emerald-400 font-mono">
+                    {inspectorStatSummary}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Active File Diff (when an inspected file is clicked) */}
+          {activeInspectorFile && (
+            renderFileDiffViewer(
+              activeInspectorFile.path,
+              activeInspectorDiff,
+              isInspectorDiffLoading,
+              () => setActiveInspectorFile(null),
+              true
+            )
+          )}
+
+          {/* Files Changed List */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-sky-400" />
+                <span>Files Changed ({inspectorFiles.length})</span>
+              </div>
+              {isInspectorLoading && (
+                <span className="text-[10px] text-slate-500 normal-case animate-pulse">Loading...</span>
+              )}
+            </div>
+
+            {inspectorFiles.length === 0 && !isInspectorLoading ? (
+              <div className="p-4 rounded-lg bg-surface-subtle/50 border border-surface-border text-center text-xs text-slate-500">
+                No changed files in this commit selection.
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {inspectorFiles.map((file) => {
+                  const isActive = activeInspectorFile?.path === file.path
+                  const statusColors: Record<string, string> = {
+                    modified: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+                    added: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+                    deleted: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
+                    renamed: 'text-sky-400 bg-sky-500/10 border-sky-500/30',
+                  }
+                  const badgeClass = statusColors[file.status] || 'text-slate-400 bg-slate-500/10 border-slate-500/30'
+
+                  return (
+                    <div
+                      key={file.path}
+                      onClick={() => setActiveInspectorFile(isActive ? null : file)}
+                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors border ${
+                        isActive
+                          ? 'bg-sky-500/15 border-sky-500/40 text-white'
+                          : 'bg-surface-subtle/60 border-surface-border/50 hover:bg-surface-hover text-slate-300'
+                      }`}
+                    >
+                      <span className="font-mono truncate max-w-[220px]" title={file.path}>
+                        {file.path}
+                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase ${badgeClass}`}>
+                          {file.status[0]}
+                        </span>
+                        <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isActive ? 'rotate-90 text-sky-400' : 'text-slate-600'}`} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+    )
+  }
+
+  return (
+    <aside
+      className="bg-surface border-l border-surface-border flex flex-col shrink-0 text-slate-300"
+      style={{ width: `${width}px` }}
+    >
+      {/* Diff Modal / Flyout if active working tree file is clicked */}
+      {activeFile && (
+        renderFileDiffViewer(
+          activeFile.path,
+          activeDiff,
+          isDiffLoading,
+          () => setActiveFile(null),
+          false
+        )
       )}
 
       {/* Staged & Unstaged Lists */}

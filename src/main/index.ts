@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -148,8 +148,30 @@ ipcMain.handle('git:exec', async (_, args: string[]) => {
   return await gitService.execGit(args)
 })
 
+ipcMain.handle('app:openExternal', async (_, targetUrl: string) => {
+  if (targetUrl.startsWith('https://') || targetUrl.startsWith('http://')) {
+    await shell.openExternal(targetUrl)
+  }
+})
+
 ipcMain.handle('git:getDiff', async (_, filePath: string, staged?: boolean) => {
   return await gitService.getFileDiff(filePath, staged)
+})
+
+ipcMain.handle('git:getCommitFiles', async (_, hash: string) => {
+  return await gitService.getCommitFiles(hash)
+})
+
+ipcMain.handle('git:getRangeDiff', async (_, baseHash: string, headHash: string) => {
+  return await gitService.getRangeDiff(baseHash, headHash)
+})
+
+ipcMain.handle('git:getCommitFileDiff', async (_, baseHash: string, headHash: string, filePath: string) => {
+  return await gitService.getCommitFileDiff(baseHash, headHash, filePath)
+})
+
+ipcMain.handle('git:getRemoteInfo', async (_, remoteName?: string) => {
+  return await gitService.getRemoteProviderInfo(remoteName)
 })
 
 ipcMain.handle('git:getReflog', async (_, count?: number) => {
@@ -240,12 +262,8 @@ ipcMain.handle('git:pull', async (_, remoteName?: string, branchName?: string) =
   await gitService.execGit(args)
 })
 
-ipcMain.handle('git:push', async (_, remoteName?: string, branchName?: string, setUpstream?: boolean) => {
-  const args = ['push']
-  if (setUpstream) args.push('-u')
-  if (remoteName) args.push(remoteName)
-  if (branchName) args.push(branchName)
-  await gitService.execGit(args)
+ipcMain.handle('git:push', async (_, remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => {
+  return await gitService.pushRemote(remoteName, branchName, setUpstream, forceWithLease)
 })
 
 ipcMain.handle('git:createStash', async (_, message?: string, includeUntracked?: boolean) => {

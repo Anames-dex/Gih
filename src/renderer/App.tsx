@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import type { RepositoryState, GitCommit, CommandLogEntry } from '../shared/types'
-import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import type { RepositoryState, GitCommit, CommandLogEntry, RemoteProviderInfo } from '../shared/types'
+import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink } from 'lucide-react'
 import { AppHeader } from './components/layout/AppHeader'
 import { Sidebar } from './components/layout/Sidebar'
 import { CommitGraph } from './components/graph/CommitGraph'
@@ -21,7 +21,9 @@ interface ToastNotice {
 
 export const App: React.FC = () => {
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
-  const [selectedCommit, setSelectedCommit] = useState<GitCommit | null>(null)
+  const [selectedCommits, setSelectedCommits] = useState<GitCommit[]>([])
+  const [anchorCommit, setAnchorCommit] = useState<GitCommit | null>(null)
+  const [remoteInfo, setRemoteInfo] = useState<RemoteProviderInfo | null>(null)
   const [isTerminalOpen, setIsTerminalOpen] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isRebaseModalOpen, setIsRebaseModalOpen] = useState(false)
@@ -101,6 +103,10 @@ export const App: React.FC = () => {
       setRepoState(state)
       const history = await gih.getCommandHistory()
       setCommandHistory(history)
+      if (gih.getRemoteInfo) {
+        const rInfo = await gih.getRemoteInfo()
+        setRemoteInfo(rInfo)
+      }
     } catch (e: any) {
       console.error('Failed to refresh repository state:', e)
     } finally {
@@ -185,25 +191,76 @@ export const App: React.FC = () => {
     }
   }
 
-  const handlePush = async () => {
+  const handlePush = async (forceWithLease: boolean = false) => {
     if (!gih) return
     setIsPushing(true)
     const t0 = performance.now()
+    const cmdStr = forceWithLease ? 'git push --force-with-lease' : 'git push -u origin'
     try {
-      await gih.pushRemote(undefined, undefined, true)
+      const res = await gih.pushRemote(undefined, undefined, !forceWithLease, forceWithLease)
       await refreshState()
-      showToast({
-        type: 'success',
-        command: 'git push -u origin',
-        message: 'Pushed commits to remote',
-        durationMs: Math.round(performance.now() - t0),
-      })
+      if (res && res.exitCode !== 0) {
+        showToast({
+          type: 'error',
+          command: cmdStr,
+          message: res.stderr || 'Push rejected by remote host',
+        })
+      } else {
+        showToast({
+          type: 'success',
+          command: cmdStr,
+          message: forceWithLease ? 'Force-pushed (with lease) to remote' : 'Pushed commits to remote',
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
     } catch (e: any) {
-      showToast({ type: 'error', command: 'git push', message: e.message })
+      showToast({ type: 'error', command: cmdStr, message: e.message })
     } finally {
       setIsPushing(false)
     }
   }
+
+  const handleSelectCommit = useCallback(
+    (commit: GitCommit, multiSelect?: boolean, rangeSelect?: boolean) => {
+      if (!repoState?.commits) return
+
+      if (rangeSelect && anchorCommit) {
+        const anchorIdx = repoState.commits.findIndex((c) => c.hash === anchorCommit.hash)
+        const targetIdx = repoState.commits.findIndex((c) => c.hash === commit.hash)
+
+        if (anchorIdx !== -1 && targetIdx !== -1) {
+          const start = Math.min(anchorIdx, targetIdx)
+          const end = Math.max(anchorIdx, targetIdx)
+          const slice = repoState.commits.slice(start, end + 1)
+          setSelectedCommits(slice)
+          return
+        }
+      }
+
+      if (multiSelect) {
+        setSelectedCommits((prev) => {
+          const exists = prev.some((c) => c.hash === commit.hash)
+          if (exists) {
+            const next = prev.filter((c) => c.hash !== commit.hash)
+            if (next.length === 0) setAnchorCommit(null)
+            return next
+          } else {
+            setAnchorCommit(commit)
+            return [...prev, commit]
+          }
+        })
+      } else {
+        setSelectedCommits([commit])
+        setAnchorCommit(commit)
+      }
+    },
+    [repoState?.commits, anchorCommit]
+  )
+
+  const handleClearSelectedCommits = useCallback(() => {
+    setSelectedCommits([])
+    setAnchorCommit(null)
+  }, [])
 
   const handleNewBranch = async () => {
     if (!gih) return
@@ -680,9 +737,11 @@ export const App: React.FC = () => {
       <AppHeader
         repoName={repoState?.name || 'Gih'}
         currentBranch={repoState?.currentBranch || null}
+        remoteInfo={remoteInfo}
         onFetch={handleFetch}
         onPull={handlePull}
         onPush={handlePush}
+        onOpenRemoteUrl={(url) => gih?.openExternal(url)}
         onNewBranch={handleNewBranch}
         onStash={handleStash}
         onOpenRepo={handleOpenRepo}
@@ -804,8 +863,9 @@ export const App: React.FC = () => {
           <main className="flex-1 flex flex-col overflow-hidden relative">
             <CommitGraph
               commits={repoState?.commits || []}
-              selectedCommit={selectedCommit}
-              onSelectCommit={(c) => setSelectedCommit(c)}
+              selectedCommits={selectedCommits}
+              onSelectCommit={handleSelectCommit}
+              onClearSelection={handleClearSelectedCommits}
               onContextMenu={(e, commit) => {
                 e.preventDefault()
                 setContextMenu({ x: e.clientX, y: e.clientY, commit })
@@ -818,7 +878,7 @@ export const App: React.FC = () => {
             {/* Context Menu */}
             {contextMenu && (
               <div
-                className="fixed z-50 bg-surface border border-surface-border rounded-lg shadow-2xl py-1 text-xs text-slate-200 min-w-[200px]"
+                className="fixed z-50 bg-surface border border-surface-border rounded-lg shadow-2xl py-1 text-xs text-slate-200 min-w-[210px]"
                 style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -864,6 +924,37 @@ export const App: React.FC = () => {
                 >
                   Interactive rebase onto here...
                 </button>
+
+                {remoteInfo && (
+                  <>
+                    <div className="border-t border-surface-border my-1" />
+                    <button
+                      onClick={() => {
+                        const url = remoteInfo.commitUrlTemplate.replace('{hash}', contextMenu.commit.hash)
+                        gih?.openExternal(url)
+                        setContextMenu(null)
+                      }}
+                      className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sky-400 flex items-center justify-between"
+                    >
+                      <span className="capitalize">View on {remoteInfo.name}</span>
+                      <ExternalLink className="w-3 h-3 text-sky-400" />
+                    </button>
+                    {repoState?.currentBranch && (
+                      <button
+                        onClick={() => {
+                          const prUrl = remoteInfo.prUrlTemplate.replace('{branch}', encodeURIComponent(repoState.currentBranch || ''))
+                          gih?.openExternal(prUrl)
+                          setContextMenu(null)
+                        }}
+                        className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-indigo-400 flex items-center justify-between"
+                      >
+                        <span>Create Pull Request</span>
+                        <ExternalLink className="w-3 h-3 text-indigo-400" />
+                      </button>
+                    )}
+                  </>
+                )}
+
                 <div className="border-t border-surface-border my-1" />
                 <button
                   onClick={() => {
@@ -891,8 +982,8 @@ export const App: React.FC = () => {
           <StagingArea
             width={stagingWidth}
             files={repoState?.files || []}
-            selectedCommit={selectedCommit}
-            onClearSelectedCommit={() => setSelectedCommit(null)}
+            selectedCommits={selectedCommits}
+            onClearSelectedCommits={handleClearSelectedCommits}
             onStageFile={(path) => gih?.stageFile(path).then(refreshState)}
             onUnstageFile={(path) => gih?.unstageFile(path).then(refreshState)}
             onStageAll={() => gih?.stageAll().then(refreshState)}
@@ -900,6 +991,9 @@ export const App: React.FC = () => {
             onDiscardChanges={(path) => gih?.discardChanges(path).then(refreshState)}
             onCommit={handleCommit}
             onGetDiff={(path, staged) => gih?.getDiff(path, staged)}
+            onGetCommitFiles={(hash) => gih?.getCommitFiles(hash)}
+            onGetRangeDiff={(base, head) => gih?.getRangeDiff(base, head)}
+            onGetCommitFileDiff={(base, head, path) => gih?.getCommitFileDiff(base, head, path)}
             onApplyHunkPatch={handleApplyHunkPatch}
             onResolveConflict={handleResolveConflict}
             headCommit={repoState?.commits.find((c) => c.isHead) || repoState?.commits[0] || null}
@@ -937,7 +1031,10 @@ export const App: React.FC = () => {
         branches={repoState?.branches || []}
         commits={repoState?.commits || []}
         onCheckoutBranch={handleCheckoutBranch}
-        onSelectCommit={(c) => setSelectedCommit(c)}
+        onSelectCommit={(c) => {
+          setSelectedCommits([c])
+          setAnchorCommit(c)
+        }}
         onAction={(id) => {
           if (id === 'fetch') handleFetch()
           if (id === 'pull') handlePull()

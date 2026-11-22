@@ -99,6 +99,21 @@ export interface CommandLogEntry {
   isError: boolean
 }
 
+export interface CommitRangeDiff {
+  baseHash: string
+  headHash: string
+  statSummary: string
+  files: GitFileStatus[]
+}
+
+export interface RemoteProviderInfo {
+  name: 'github' | 'gitlab' | 'bitbucket' | 'generic'
+  webUrl: string
+  commitUrlTemplate: string
+  prUrlTemplate: string
+  branchUrlTemplate: string
+}
+
 export type GitOperationType = 'none' | 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'bisect'
 
 export interface GitOperationState {

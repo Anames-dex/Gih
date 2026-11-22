@@ -14,8 +14,9 @@ import {
 
 interface CommitGraphProps {
   commits: GitCommit[]
-  selectedCommit: GitCommit | null
-  onSelectCommit: (commit: GitCommit) => void
+  selectedCommits: GitCommit[]
+  onSelectCommit: (commit: GitCommit, multiSelect?: boolean, rangeSelect?: boolean) => void
+  onClearSelection?: () => void
   onContextMenu: (e: React.MouseEvent, commit: GitCommit) => void
   onMergeBranch?: (sourceBranch: string, targetRef: string) => void
   onRebaseBranch?: (sourceBranch: string, upstreamRef: string) => void
@@ -25,11 +26,13 @@ interface CommitGraphProps {
 const ROW_HEIGHT = 44
 const LANE_WIDTH = 22
 const GRAPH_PADDING_LEFT = 24
+const OVERSCAN_ROWS = 12
 
 export const CommitGraph: React.FC<CommitGraphProps> = ({
   commits,
-  selectedCommit,
+  selectedCommits,
   onSelectCommit,
+  onClearSelection,
   onContextMenu,
   onMergeBranch,
   onRebaseBranch,
@@ -44,7 +47,34 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
     x: number
     y: number
   } | null>(null)
+
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState(800)
+
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    setViewportHeight(container.clientHeight || 800)
+
+    const handleScroll = () => {
+      setScrollTop(container.scrollTop)
+    }
+
+    const handleResize = () => {
+      setViewportHeight(container.clientHeight || 800)
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -77,9 +107,28 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
     return set
   }, [commits, searchQuery])
 
+  const selectedCommitHashes = useMemo(() => {
+    return new Set(selectedCommits.map((c) => c.hash))
+  }, [selectedCommits])
+
   const { nodes, edges, maxLane } = useMemo(() => {
     return computeDagLayout(commits)
   }, [commits])
+
+  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN_ROWS)
+  const endIndex = Math.min(commits.length, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN_ROWS)
+
+  const visibleNodes = useMemo(() => {
+    return nodes.slice(startIndex, endIndex)
+  }, [nodes, startIndex, endIndex])
+
+  const visibleEdges = useMemo(() => {
+    return edges.filter(
+      (edge) =>
+        Math.max(edge.fromRow, edge.toRow) >= startIndex &&
+        Math.min(edge.fromRow, edge.toRow) <= endIndex
+    )
+  }, [edges, startIndex, endIndex])
 
   const graphWidth = Math.max(120, GRAPH_PADDING_LEFT + (maxLane + 1) * LANE_WIDTH + 24)
 
@@ -120,14 +169,35 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
           )}
         </div>
 
-        {searchQuery.trim() && (
-          <span className="text-[11px] font-medium text-sky-300 bg-sky-950/60 px-2 py-0.5 rounded border border-sky-800/40 font-mono">
-            {matchingCommitHashes.size} / {commits.length} matching
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {selectedCommits.length > 1 && (
+            <div className="flex items-center gap-1.5 mr-2">
+              <span className="text-[11px] font-semibold text-sky-300 bg-sky-950/70 px-2 py-0.5 rounded border border-sky-700/50 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                {selectedCommits.length} commits selected
+              </span>
+              {onClearSelection && (
+                <button
+                  type="button"
+                  onClick={() => onClearSelection()}
+                  className="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-surface-hover transition-colors"
+                  title="Clear multi-selection (Esc)"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
+          {searchQuery.trim() && (
+            <span className="text-[11px] font-medium text-sky-300 bg-sky-950/60 px-2 py-0.5 rounded border border-sky-800/40 font-mono">
+              {matchingCommitHashes.size} / {commits.length} matching
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-auto relative">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto relative">
         <div
           className="relative"
           style={{ height: `${commits.length * ROW_HEIGHT}px`, minWidth: '100%' }}
@@ -140,7 +210,7 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
               height: `${commits.length * ROW_HEIGHT}px`,
             }}
           >
-            {edges.map((edge, idx) => {
+            {visibleEdges.map((edge, idx) => {
               const x1 = GRAPH_PADDING_LEFT + edge.fromLane * LANE_WIDTH
               const y1 = edge.fromRow * ROW_HEIGHT + ROW_HEIGHT / 2
               const x2 = GRAPH_PADDING_LEFT + edge.toLane * LANE_WIDTH
@@ -153,7 +223,7 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
 
               return (
                 <path
-                  key={`edge-${idx}`}
+                  key={`edge-${idx}-${edge.fromRow}-${edge.toRow}`}
                   d={pathData}
                   fill="none"
                   stroke={edge.color}
@@ -165,10 +235,10 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
             })}
 
             {/* Commit Nodes (Circles) */}
-            {nodes.map((node) => {
+            {visibleNodes.map((node) => {
               const cx = GRAPH_PADDING_LEFT + node.lane * LANE_WIDTH
               const cy = node.row * ROW_HEIGHT + ROW_HEIGHT / 2
-              const isSelected = selectedCommit?.hash === node.commit.hash
+              const isSelected = selectedCommitHashes.has(node.commit.hash)
               const isSearchActive = searchQuery.trim().length > 0
               const isMatch = isSearchActive ? matchingCommitHashes.has(node.commit.hash) : true
 
@@ -225,11 +295,11 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
             })}
           </svg>
 
-          {/* Commit List Rows */}
-          <div className="absolute top-0 left-0 right-0 z-10">
-            {nodes.map((node) => {
+          {/* Commit List Rows (Virtual Windowed) */}
+          <div className="absolute top-0 left-0 right-0 z-10" style={{ height: `${commits.length * ROW_HEIGHT}px` }}>
+            {visibleNodes.map((node) => {
               const commit = node.commit
-              const isSelected = selectedCommit?.hash === commit.hash
+              const isSelected = selectedCommitHashes.has(commit.hash)
               const isSearchActive = searchQuery.trim().length > 0
               const isMatch = isSearchActive ? matchingCommitHashes.has(commit.hash) : true
 
@@ -238,7 +308,15 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
               return (
                 <div
                   key={commit.hash}
-                  onClick={() => onSelectCommit(commit)}
+                  onClick={(e) => {
+                    if (e.shiftKey) {
+                      onSelectCommit(commit, false, true)
+                    } else if (e.ctrlKey || e.metaKey) {
+                      onSelectCommit(commit, true, false)
+                    } else {
+                      onSelectCommit(commit, false, false)
+                    }
+                  }}
                   onContextMenu={(e) => onContextMenu(e, commit)}
                   onDragOver={(e) => {
                     if (draggedItem && draggedItem.hash !== commit.hash) {
@@ -263,16 +341,23 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
                       })
                     }
                   }}
-                  className={`flex items-center h-[44px] px-3 cursor-pointer border-b border-surface-border/40 transition-all ${
+                  className={`flex items-center px-3 cursor-pointer border-b border-surface-border/40 transition-all ${
                     isDragTarget
                       ? 'bg-sky-500/20 ring-2 ring-inset ring-sky-400'
                       : isSelected
-                      ? 'bg-surface-subtle/90 border-l-2 border-l-brand'
+                      ? 'bg-sky-500/15 border-l-2 border-l-brand text-white shadow-xs'
                       : isSearchActive && isMatch
                       ? 'bg-sky-950/20 hover:bg-sky-950/30'
                       : 'hover:bg-surface/50'
                   } ${isSearchActive && !isMatch ? 'opacity-30' : 'opacity-100'}`}
-                  style={{ paddingLeft: `${graphWidth + 12}px` }}
+                  style={{
+                    position: 'absolute',
+                    top: `${node.row * ROW_HEIGHT}px`,
+                    left: 0,
+                    right: 0,
+                    height: `${ROW_HEIGHT}px`,
+                    paddingLeft: `${graphWidth + 12}px`,
+                  }}
                 >
                 {/* Branch / Tag Badges */}
                 <div className="flex items-center gap-1.5 mr-3 shrink-0">

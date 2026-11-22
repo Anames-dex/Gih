@@ -14,7 +14,9 @@ import type {
   CommandLogEntry,
   RepositoryState,
   GitOperationState,
-  GitOperationType
+  GitOperationType,
+  CommitRangeDiff,
+  RemoteProviderInfo
 } from '../shared/types'
 
 export class GitService {
@@ -625,6 +627,162 @@ export class GitService {
       case 'R': return 'renamed'
       default: return 'modified'
     }
+  }
+
+  /**
+   * Push changes to remote repository with optional upstream tracking and safe force-with-lease
+   */
+  public async pushRemote(
+    remoteName?: string,
+    branchName?: string,
+    setUpstream?: boolean,
+    forceWithLease?: boolean
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const args = ['push']
+    if (setUpstream) args.push('-u')
+    if (forceWithLease) args.push('--force-with-lease')
+    if (remoteName) args.push(remoteName)
+    if (branchName) args.push(branchName)
+    return await this.execGit(args)
+  }
+
+  /**
+   * Detects remote hosting provider (GitHub, GitLab, Bitbucket) and constructs deep-links
+   */
+  public async getRemoteProviderInfo(remoteName: string = 'origin'): Promise<RemoteProviderInfo | null> {
+    const { stdout, exitCode } = await this.execGit(['remote', 'get-url', remoteName])
+    if (exitCode !== 0 || !stdout.trim()) {
+      return null
+    }
+    return this.parseRemoteUrl(stdout.trim())
+  }
+
+  public parseRemoteUrl(url: string): RemoteProviderInfo | null {
+    if (!url) return null
+    let webUrl = ''
+    let name: RemoteProviderInfo['name'] = 'generic'
+
+    const sshMatch = url.match(/^git@([^:]+):([^\/]+)\/(.+?)(?:\.git)?$/)
+    const httpsMatch = url.match(/^https?:\/\/([^@\/]+@)?([^\/]+)\/([^\/]+)\/(.+?)(?:\.git)?$/)
+
+    if (sshMatch) {
+      const [, host, owner, repo] = sshMatch
+      webUrl = `https://${host}/${owner}/${repo}`
+      if (host.includes('github.com')) name = 'github'
+      else if (host.includes('gitlab.com')) name = 'gitlab'
+      else if (host.includes('bitbucket.org')) name = 'bitbucket'
+    } else if (httpsMatch) {
+      const [, , host, owner, repo] = httpsMatch
+      webUrl = `https://${host}/${owner}/${repo}`
+      if (host.includes('github.com')) name = 'github'
+      else if (host.includes('gitlab.com')) name = 'gitlab'
+      else if (host.includes('bitbucket.org')) name = 'bitbucket'
+    } else {
+      webUrl = url.replace(/\.git$/, '')
+    }
+
+    let commitUrlTemplate = `${webUrl}/commit/{hash}`
+    let prUrlTemplate = `${webUrl}/compare/{branch}?expand=1`
+    let branchUrlTemplate = `${webUrl}/tree/{branch}`
+
+    if (name === 'gitlab') {
+      commitUrlTemplate = `${webUrl}/-/commit/{hash}`
+      prUrlTemplate = `${webUrl}/-/merge_requests/new?merge_request%5Bsource_branch%5D={branch}`
+      branchUrlTemplate = `${webUrl}/-/tree/{branch}`
+    } else if (name === 'bitbucket') {
+      commitUrlTemplate = `${webUrl}/commits/{hash}`
+      prUrlTemplate = `${webUrl}/pull-requests/new?source={branch}`
+      branchUrlTemplate = `${webUrl}/src/{branch}`
+    }
+
+    return {
+      name,
+      webUrl,
+      commitUrlTemplate,
+      prUrlTemplate,
+      branchUrlTemplate,
+    }
+  }
+
+  /**
+   * Get files changed in a single commit and overall stat summary
+   */
+  public async getCommitFiles(hash: string): Promise<{ files: GitFileStatus[]; statSummary: string }> {
+    const { stdout } = await this.execGit(['diff-tree', '--no-commit-id', '--name-status', '-r', '--root', hash])
+    const statRes = await this.execGit(['diff-tree', '--no-commit-id', '--stat', '-r', '--root', hash])
+    const files = this.parseNameStatusOutput(stdout)
+    const statSummary = statRes.stdout.trim().split('\n').pop() || ''
+    return { files, statSummary }
+  }
+
+  /**
+   * Get files changed and stat summary across a range of commits (from base to head)
+   */
+  public async getRangeDiff(baseHash: string, headHash: string): Promise<CommitRangeDiff> {
+    if (baseHash === headHash) {
+      const res = await this.getCommitFiles(headHash)
+      return {
+        baseHash,
+        headHash,
+        statSummary: res.statSummary,
+        files: res.files,
+      }
+    }
+
+    const revRes = await this.execGit(['rev-parse', '--verify', `${baseHash}~1`])
+    const baseRef = revRes.exitCode === 0 ? `${baseHash}~1` : baseHash
+
+    const { stdout } = await this.execGit(['diff', '--name-status', baseRef, headHash])
+    const statRes = await this.execGit(['diff', '--stat', baseRef, headHash])
+    const files = this.parseNameStatusOutput(stdout)
+    const statSummary = statRes.stdout.trim().split('\n').pop() || ''
+
+    return {
+      baseHash,
+      headHash,
+      statSummary,
+      files,
+    }
+  }
+
+  /**
+   * Get parsed unified diff for a single file within a commit or commit range
+   */
+  public async getCommitFileDiff(baseHash: string, headHash: string, filePath: string): Promise<FileDiff> {
+    if (baseHash === headHash) {
+      const { stdout } = await this.execGit(['diff-tree', '-p', '--no-color', '-U3', headHash, '--', filePath])
+      return this.parseUnifiedDiff(stdout, filePath)
+    }
+
+    const revRes = await this.execGit(['rev-parse', '--verify', `${baseHash}~1`])
+    const baseRef = revRes.exitCode === 0 ? `${baseHash}~1` : baseHash
+
+    const { stdout } = await this.execGit(['diff', '--no-color', '-U3', baseRef, headHash, '--', filePath])
+    return this.parseUnifiedDiff(stdout, filePath)
+  }
+
+  private parseNameStatusOutput(output: string): GitFileStatus[] {
+    if (!output.trim()) return []
+    const files: GitFileStatus[] = []
+    const lines = output.trim().split('\n')
+    for (const line of lines) {
+      const parts = line.split('\t')
+      if (parts.length < 2) continue
+      const statusCode = parts[0].trim()[0]
+      let path = parts[1].trim()
+      let oldPath: string | undefined
+      if (parts.length >= 3) {
+        oldPath = parts[1].trim()
+        path = parts[2].trim()
+      }
+      files.push({
+        path,
+        oldPath,
+        status: this.parseStatusCode(statusCode),
+        staged: false,
+      })
+    }
+    return files
   }
 
   /**
