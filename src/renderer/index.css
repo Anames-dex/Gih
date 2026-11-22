@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-slate-100 select-none overflow-hidden m-0 p-0 antialiased font-sans;
+  }
+
+  /* Custom sleek scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #23293b;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #333d56;
+  }
+}
+
+/* Branch lane neon palette */
+:root {
+  --lane-0: #38bdf8; /* Cyan */
+  --lane-1: #a855f7; /* Purple */
+  --lane-2: #22c55e; /* Emerald */
+  --lane-3: #f59e0b; /* Amber */
+  --lane-4: #ec4899; /* Pink */
+  --lane-5: #3b82f6; /* Blue */
+  --lane-6: #14b8a6; /* Teal */
+  --lane-7: #f97316; /* Orange */
+}

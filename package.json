@@ -1,0 +1,52 @@
+{
+  "name": "gih",
+  "version": "0.1.0",
+  "description": "Visual Git workstation and interactive graph shell",
+  "main": "dist-electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && electron-builder",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Anames-dex/Gih.git"
+  },
+  "keywords": [
+    "git",
+    "git-gui",
+    "developer-tools",
+    "graph",
+    "visual-git",
+    "open-source"
+  ],
+  "author": "Anames-dex",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Anames-dex/Gih/issues"
+  },
+  "homepage": "https://github.com/Anames-dex/Gih#readme",
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.16.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  }
+}
