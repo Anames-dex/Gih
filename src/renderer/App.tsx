@@ -9,6 +9,7 @@ import { BottomPanel } from './components/terminal/BottomPanel'
 import { CommandPalette } from './components/modals/CommandPalette'
 import { InteractiveRebaseModal, RebaseStep } from './components/modals/InteractiveRebaseModal'
 import { ResetBranchModal, ResetMode } from './components/modals/ResetBranchModal'
+import { CloneRepositoryModal } from './components/modals/CloneRepositoryModal'
 
 interface ToastNotice {
   id: string
@@ -25,6 +26,7 @@ export const App: React.FC = () => {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isRebaseModalOpen, setIsRebaseModalOpen] = useState(false)
   const [resetModalCommit, setResetModalCommit] = useState<GitCommit | null>(null)
+  const [isCloneModalOpen, setIsCloneModalOpen] = useState(false)
   const [commandHistory, setCommandHistory] = useState<CommandLogEntry[]>([])
   const [isFetching, setIsFetching] = useState(false)
   const [isPulling, setIsPulling] = useState(false)
@@ -588,6 +590,7 @@ export const App: React.FC = () => {
         onNewBranch={handleNewBranch}
         onStash={handleStash}
         onOpenRepo={handleOpenRepo}
+        onCloneRepo={() => setIsCloneModalOpen(true)}
         onToggleTerminal={() => setIsTerminalOpen((prev) => !prev)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         isFetching={isFetching}
@@ -857,6 +860,25 @@ export const App: React.FC = () => {
         currentBranch={repoState?.currentBranch || null}
         onClose={() => setResetModalCommit(null)}
         onConfirmReset={handleExecuteReset}
+      />
+
+      <CloneRepositoryModal
+        isOpen={isCloneModalOpen}
+        onClose={() => setIsCloneModalOpen(false)}
+        onBrowseFolder={() => gih?.openDirectoryDialog() || Promise.resolve(null)}
+        onExecuteClone={(url, path) =>
+          gih?.cloneRepository(url, path) || Promise.resolve({ stdout: '', stderr: 'API unavailable', exitCode: 1 })
+        }
+        onCloneSuccess={async (targetPath) => {
+          if (gih) {
+            await gih.setRepoPath(targetPath)
+            await refreshState()
+            showToast({
+              type: 'success',
+              message: `Cloned and opened: ${targetPath.split(/[\\/]/).pop()}`,
+            })
+          }
+        }}
       />
 
       {/* Top-Center Command Feedback Island */}

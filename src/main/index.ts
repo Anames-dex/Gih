@@ -140,6 +140,10 @@ ipcMain.handle('app:openDirectoryDialog', async () => {
   return result.filePaths[0]
 })
 
+ipcMain.handle('git:clone', async (_, url: string, targetPath: string) => {
+  return await gitService.cloneRepository(url, targetPath)
+})
+
 ipcMain.handle('git:exec', async (_, args: string[]) => {
   return await gitService.execGit(args)
 })

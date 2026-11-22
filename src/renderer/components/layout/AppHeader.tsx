@@ -9,7 +9,8 @@ import {
   Terminal,
   Search,
   FolderOpen,
-  Loader2
+  Loader2,
+  Download
 } from 'lucide-react'
 
 interface AppHeaderProps {
@@ -21,6 +22,7 @@ interface AppHeaderProps {
   onNewBranch: () => void
   onStash: () => void
   onOpenRepo: () => void
+  onCloneRepo?: () => void
   onToggleTerminal: () => void
   onOpenCommandPalette: () => void
   isFetching?: boolean
@@ -38,6 +40,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onNewBranch,
   onStash,
   onOpenRepo,
+  onCloneRepo,
   onToggleTerminal,
   onOpenCommandPalette,
   isFetching = false,
@@ -67,6 +70,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <span className="max-w-[140px] truncate">{repoName || 'Select Repo'}</span>
           <FolderOpen className="w-3 h-3 text-slate-500 ml-1" />
         </button>
+
+        {onCloneRepo && (
+          <button
+            onClick={onCloneRepo}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-subtle hover:bg-surface-hover active:scale-95 border border-surface-border text-xs text-slate-300 font-medium transition-all shadow-sm"
+            title="Clone a remote repository from URL"
+          >
+            <Download className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Clone</span>
+          </button>
+        )}
 
         {currentBranch && (
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-mono">

@@ -5,6 +5,7 @@ export interface GihAPI {
   getState: () => Promise<RepositoryState>
   setRepoPath: (repoPath: string) => Promise<RepositoryState>
   initRepository: (branchName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  cloneRepository: (url: string, targetPath: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   openDirectoryDialog: () => Promise<string | null>
   execCommand: (args: string[]) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   getDiff: (filePath: string, staged?: boolean) => Promise<FileDiff>
@@ -43,6 +44,7 @@ const api: GihAPI = {
   getState: () => ipcRenderer.invoke('git:getState'),
   setRepoPath: (path: string) => ipcRenderer.invoke('git:setRepoPath', path),
   initRepository: (branchName?: string) => ipcRenderer.invoke('git:init', branchName),
+  cloneRepository: (url: string, targetPath: string) => ipcRenderer.invoke('git:clone', url, targetPath),
   openDirectoryDialog: () => ipcRenderer.invoke('app:openDirectoryDialog'),
   execCommand: (args: string[]) => ipcRenderer.invoke('git:exec', args),
   getDiff: (filePath: string, staged?: boolean) => ipcRenderer.invoke('git:getDiff', filePath, staged),

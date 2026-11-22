@@ -474,6 +474,14 @@ export class GitService {
     return await this.execGit(['branch', '-m', oldName, newName])
   }
 
+  public async cloneRepository(
+    url: string,
+    targetPath: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const parentDir = path.dirname(targetPath)
+    return await this.execGit(['clone', '--progress', url, targetPath], parentDir)
+  }
+
   /**
    * List stashes
    */
