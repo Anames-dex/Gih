@@ -30,6 +30,9 @@ export interface GihAPI {
   getStashDiff: (index?: number) => Promise<string>
   createTag: (name: string, message?: string, targetHash?: string) => Promise<void>
   deleteTag: (name: string) => Promise<void>
+  continueOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  abortOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  skipOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   onRepoChanged: (callback: () => void) => () => void
 }
 
@@ -62,6 +65,9 @@ const api: GihAPI = {
   getStashDiff: (index?: number) => ipcRenderer.invoke('git:getStashDiff', index),
   createTag: (name: string, message?: string, targetHash?: string) => ipcRenderer.invoke('git:createTag', name, message, targetHash),
   deleteTag: (name: string) => ipcRenderer.invoke('git:deleteTag', name),
+  continueOperation: (type: string) => ipcRenderer.invoke('git:continueOperation', type),
+  abortOperation: (type: string) => ipcRenderer.invoke('git:abortOperation', type),
+  skipOperation: (type: string) => ipcRenderer.invoke('git:skipOperation', type),
   onRepoChanged: (callback: () => void) => {
     const handler = () => callback()
     ipcRenderer.on('git:changed', handler)

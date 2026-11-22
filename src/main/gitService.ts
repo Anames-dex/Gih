@@ -12,7 +12,9 @@ import type {
   ReflogEntry,
   GitWorktree,
   CommandLogEntry,
-  RepositoryState
+  RepositoryState,
+  GitOperationState,
+  GitOperationType
 } from '../shared/types'
 
 export class GitService {
@@ -91,13 +93,15 @@ export class GitService {
    */
   public async getRepositoryState(): Promise<RepositoryState> {
     const repoName = path.basename(this.currentRepoPath)
-    const isGitRepo = fs.existsSync(path.join(this.currentRepoPath, '.git'))
+    const gitDir = path.join(this.currentRepoPath, '.git')
+    const isGitRepo = fs.existsSync(gitDir)
 
     if (!isGitRepo) {
       return {
         path: this.currentRepoPath,
         name: repoName,
         isGitRepo: false,
+        operation: { type: 'none' },
         currentBranch: null,
         isDetached: false,
         branches: [],
@@ -120,11 +124,13 @@ export class GitService {
 
     const currentBranch = branches.find((b) => b.isCurrent)?.name || null
     const isDetached = currentBranch === null && commits.length > 0
+    const operation = this.getOperationState(gitDir)
 
     return {
       path: this.currentRepoPath,
       name: repoName,
       isGitRepo: true,
+      operation,
       currentBranch,
       isDetached,
       branches,
@@ -134,6 +140,47 @@ export class GitService {
       files,
       worktrees,
     }
+  }
+
+  private getOperationState(gitDir: string): GitOperationState {
+    if (fs.existsSync(path.join(gitDir, 'rebase-merge')) || fs.existsSync(path.join(gitDir, 'rebase-apply'))) {
+      return { type: 'rebase', message: 'Interactive rebase in progress', canContinue: true, canSkip: true, canAbort: true }
+    }
+    if (fs.existsSync(path.join(gitDir, 'MERGE_HEAD'))) {
+      return { type: 'merge', message: 'Merge conflict in progress', canContinue: true, canAbort: true }
+    }
+    if (fs.existsSync(path.join(gitDir, 'CHERRY_PICK_HEAD'))) {
+      return { type: 'cherry-pick', message: 'Cherry-pick in progress', canContinue: true, canSkip: true, canAbort: true }
+    }
+    if (fs.existsSync(path.join(gitDir, 'REVERT_HEAD'))) {
+      return { type: 'revert', message: 'Revert in progress', canContinue: true, canAbort: true }
+    }
+    if (fs.existsSync(path.join(gitDir, 'BISECT_LOG'))) {
+      return { type: 'bisect', message: 'Git bisect in progress', canAbort: true }
+    }
+    return { type: 'none' }
+  }
+
+  public async continueOperation(type: GitOperationType): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    if (type === 'rebase') return await this.execGit(['rebase', '--continue'])
+    if (type === 'cherry-pick') return await this.execGit(['cherry-pick', '--continue'])
+    if (type === 'merge') return await this.execGit(['commit', '--no-edit'])
+    return { stdout: '', stderr: 'No operation to continue', exitCode: 1 }
+  }
+
+  public async abortOperation(type: GitOperationType): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    if (type === 'rebase') return await this.execGit(['rebase', '--abort'])
+    if (type === 'cherry-pick') return await this.execGit(['cherry-pick', '--abort'])
+    if (type === 'merge') return await this.execGit(['merge', '--abort'])
+    if (type === 'revert') return await this.execGit(['revert', '--abort'])
+    if (type === 'bisect') return await this.execGit(['bisect', 'reset'])
+    return { stdout: '', stderr: 'No operation to abort', exitCode: 1 }
+  }
+
+  public async skipOperation(type: GitOperationType): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    if (type === 'rebase') return await this.execGit(['rebase', '--skip'])
+    if (type === 'cherry-pick') return await this.execGit(['cherry-pick', '--skip'])
+    return { stdout: '', stderr: 'No operation to skip', exitCode: 1 }
   }
 
   public async initRepository(branchName: string = 'main'): Promise<{ stdout: string; stderr: string; exitCode: number }> {

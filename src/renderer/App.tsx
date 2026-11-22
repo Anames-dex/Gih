@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import type { RepositoryState, GitCommit, CommandLogEntry } from '../shared/types'
-import { FolderGit2 } from 'lucide-react'
+import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { AppHeader } from './components/layout/AppHeader'
 import { Sidebar } from './components/layout/Sidebar'
 import { CommitGraph } from './components/graph/CommitGraph'
@@ -8,6 +8,14 @@ import { StagingArea } from './components/staging/StagingArea'
 import { BottomPanel } from './components/terminal/BottomPanel'
 import { CommandPalette } from './components/modals/CommandPalette'
 import { InteractiveRebaseModal, RebaseStep } from './components/modals/InteractiveRebaseModal'
+
+interface ToastNotice {
+  id: string
+  type: 'success' | 'error' | 'info'
+  command?: string
+  message: string
+  durationMs?: number
+}
 
 export const App: React.FC = () => {
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
@@ -17,7 +25,7 @@ export const App: React.FC = () => {
   const [isRebaseModalOpen, setIsRebaseModalOpen] = useState(false)
   const [commandHistory, setCommandHistory] = useState<CommandLogEntry[]>([])
   const [isFetching, setIsFetching] = useState(false)
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [toasts, setToasts] = useState<ToastNotice[]>([])
 
   // Resizable Panes Dimensions
   const [sidebarWidth, setSidebarWidth] = useState(260)
@@ -65,10 +73,13 @@ export const App: React.FC = () => {
   const isRefreshingRef = useRef(false)
   const refreshPendingRef = useRef(false)
 
-  const showStatus = (msg: string) => {
-    setStatusMessage(msg)
-    setTimeout(() => setStatusMessage(null), 4000)
-  }
+  const showToast = useCallback((toast: Omit<ToastNotice, 'id'>) => {
+    const id = `${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+    setToasts((prev) => [...prev, { ...toast, id }])
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id))
+    }, 4500)
+  }, [])
 
   const refreshState = useCallback(async () => {
     if (!gih) return
@@ -130,12 +141,18 @@ export const App: React.FC = () => {
   const handleFetch = async () => {
     if (!gih) return
     setIsFetching(true)
+    const t0 = performance.now()
     try {
       await gih.fetchRemote()
       await refreshState()
-      showStatus('Fetched from remotes successfully.')
+      showToast({
+        type: 'success',
+        command: 'git fetch --prune',
+        message: 'Fetched all remote branches',
+        durationMs: Math.round(performance.now() - t0),
+      })
     } catch (e: any) {
-      showStatus(`Fetch error: ${e.message}`)
+      showToast({ type: 'error', command: 'git fetch', message: e.message })
     } finally {
       setIsFetching(false)
     }
@@ -143,23 +160,35 @@ export const App: React.FC = () => {
 
   const handlePull = async () => {
     if (!gih) return
+    const t0 = performance.now()
     try {
       await gih.pullRemote()
       await refreshState()
-      showStatus('Pulled updates.')
+      showToast({
+        type: 'success',
+        command: 'git pull',
+        message: 'Pulled upstream updates',
+        durationMs: Math.round(performance.now() - t0),
+      })
     } catch (e: any) {
-      showStatus(`Pull error: ${e.message}`)
+      showToast({ type: 'error', command: 'git pull', message: e.message })
     }
   }
 
   const handlePush = async () => {
     if (!gih) return
+    const t0 = performance.now()
     try {
       await gih.pushRemote(undefined, undefined, true)
       await refreshState()
-      showStatus('Pushed to remote.')
+      showToast({
+        type: 'success',
+        command: 'git push -u origin',
+        message: 'Pushed commits to remote',
+        durationMs: Math.round(performance.now() - t0),
+      })
     } catch (e: any) {
-      showStatus(`Push error: ${e.message}`)
+      showToast({ type: 'error', command: 'git push', message: e.message })
     }
   }
 
@@ -167,36 +196,54 @@ export const App: React.FC = () => {
     if (!gih) return
     const name = window.prompt('Enter new branch name:')
     if (name?.trim()) {
+      const t0 = performance.now()
       try {
         await gih.createBranch(name.trim())
         await refreshState()
-        showStatus(`Created and checked out branch '${name.trim()}'.`)
+        showToast({
+          type: 'success',
+          command: `git checkout -b ${name.trim()}`,
+          message: `Created and checked out '${name.trim()}'`,
+          durationMs: Math.round(performance.now() - t0),
+        })
       } catch (e: any) {
-        showStatus(`Error creating branch: ${e.message}`)
+        showToast({ type: 'error', command: `git checkout -b ${name.trim()}`, message: e.message })
       }
     }
   }
 
   const handleCheckoutBranch = async (branchName: string) => {
     if (!gih) return
+    const t0 = performance.now()
     try {
       await gih.checkoutBranch(branchName)
       await refreshState()
-      showStatus(`Checked out branch '${branchName}'.`)
+      showToast({
+        type: 'success',
+        command: `git checkout ${branchName}`,
+        message: `Switched to branch '${branchName}'`,
+        durationMs: Math.round(performance.now() - t0),
+      })
     } catch (e: any) {
-      showStatus(`Checkout failed: ${e.message}`)
+      showToast({ type: 'error', command: `git checkout ${branchName}`, message: e.message })
     }
   }
 
   const handleDeleteBranch = async (branchName: string) => {
     if (!gih) return
     if (window.confirm(`Delete branch '${branchName}'?`)) {
+      const t0 = performance.now()
       try {
         await gih.deleteBranch(branchName, true)
         await refreshState()
-        showStatus(`Deleted branch '${branchName}'.`)
+        showToast({
+          type: 'info',
+          command: `git branch -D ${branchName}`,
+          message: `Deleted branch '${branchName}'`,
+          durationMs: Math.round(performance.now() - t0),
+        })
       } catch (e: any) {
-        showStatus(`Delete failed: ${e.message}`)
+        showToast({ type: 'error', command: `git branch -D ${branchName}`, message: e.message })
       }
     }
   }
@@ -207,52 +254,76 @@ export const App: React.FC = () => {
     if (dir) {
       await gih.setRepoPath(dir)
       await refreshState()
-      showStatus(`Opened repository: ${dir}`)
+      showToast({ type: 'info', message: `Opened ${dir}` })
     }
   }
 
   const handleInitRepo = async () => {
     if (!gih) return
+    const t0 = performance.now()
     try {
       await gih.initRepository('main')
       await refreshState()
-      showStatus('Initialized empty Git repository on branch main.')
+      showToast({
+        type: 'success',
+        command: 'git init -b main',
+        message: 'Initialized empty Git repository',
+        durationMs: Math.round(performance.now() - t0),
+      })
     } catch (e: any) {
-      showStatus(`Failed to initialize: ${e.message}`)
+      showToast({ type: 'error', command: 'git init', message: e.message })
     }
   }
 
   const handleStash = async () => {
     if (!gih) return
     const msg = window.prompt('Stash message (optional):')
+    const t0 = performance.now()
     try {
       await gih.createStash(msg || undefined, true)
       await refreshState()
-      showStatus('Changes stashed.')
+      showToast({
+        type: 'success',
+        command: 'git stash push -u',
+        message: 'Working changes saved to stash',
+        durationMs: Math.round(performance.now() - t0),
+      })
     } catch (e: any) {
-      showStatus(`Stash failed: ${e.message}`)
+      showToast({ type: 'error', command: 'git stash', message: e.message })
     }
   }
 
   const handlePopStash = async (index: number) => {
     if (!gih) return
+    const t0 = performance.now()
     try {
       await gih.popStash(index)
       await refreshState()
-      showStatus(`Popped stash@{${index}}.`)
+      showToast({
+        type: 'success',
+        command: `git stash pop stash@{${index}}`,
+        message: `Applied and dropped stash@{${index}}`,
+        durationMs: Math.round(performance.now() - t0),
+      })
     } catch (e: any) {
-      showStatus(`Pop stash failed: ${e.message}`)
+      showToast({ type: 'error', command: `git stash pop`, message: e.message })
     }
   }
 
   const handleDropStash = async (index: number) => {
     if (!gih) return
+    const t0 = performance.now()
     try {
       await gih.dropStash(index)
       await refreshState()
-      showStatus(`Dropped stash@{${index}}.`)
+      showToast({
+        type: 'info',
+        command: `git stash drop stash@{${index}}`,
+        message: `Dropped stash@{${index}}`,
+        durationMs: Math.round(performance.now() - t0),
+      })
     } catch (e: any) {
-      showStatus(`Drop stash failed: ${e.message}`)
+      showToast({ type: 'error', command: `git stash drop`, message: e.message })
     }
   }
 
@@ -261,47 +332,134 @@ export const App: React.FC = () => {
     const name = window.prompt('Tag name:')
     if (!name?.trim()) return
     const msg = window.prompt('Tag message (optional):')
+    const t0 = performance.now()
     try {
       await gih.createTag(name.trim(), msg || undefined)
       await refreshState()
-      showStatus(`Created tag '${name.trim()}'.`)
+      showToast({
+        type: 'success',
+        command: `git tag ${name.trim()}`,
+        message: `Created tag '${name.trim()}'`,
+        durationMs: Math.round(performance.now() - t0),
+      })
     } catch (e: any) {
-      showStatus(`Tag creation failed: ${e.message}`)
+      showToast({ type: 'error', command: `git tag ${name.trim()}`, message: e.message })
     }
   }
 
   const handleDeleteTag = async (tagName: string) => {
     if (!gih) return
     if (window.confirm(`Delete tag '${tagName}'?`)) {
+      const t0 = performance.now()
       try {
         await gih.deleteTag(tagName)
         await refreshState()
-        showStatus(`Deleted tag '${tagName}'.`)
+        showToast({
+          type: 'info',
+          command: `git tag -d ${tagName}`,
+          message: `Deleted tag '${tagName}'`,
+          durationMs: Math.round(performance.now() - t0),
+        })
       } catch (e: any) {
-        showStatus(`Delete tag failed: ${e.message}`)
+        showToast({ type: 'error', command: `git tag -d`, message: e.message })
       }
     }
   }
 
   const handleBranchFromStash = async (branchName: string, index: number) => {
     if (!gih) return
+    const t0 = performance.now()
     try {
       await gih.branchFromStash(branchName, index)
       await refreshState()
-      showStatus(`Created and checked out '${branchName}' from stash@{${index}}.`)
+      showToast({
+        type: 'success',
+        command: `git stash branch ${branchName} stash@{${index}}`,
+        message: `Created and checked out '${branchName}' from stash`,
+        durationMs: Math.round(performance.now() - t0),
+      })
     } catch (e: any) {
-      showStatus(`Branch from stash failed: ${e.message}`)
+      showToast({ type: 'error', command: `git stash branch`, message: e.message })
     }
   }
 
   const handleCommit = async (message: string, signOff?: boolean) => {
     if (!gih) return
+    const t0 = performance.now()
     try {
       await gih.createCommit(message, signOff)
       await refreshState()
-      showStatus('Commit created.')
+      showToast({
+        type: 'success',
+        command: `git commit -m "${message.slice(0, 25)}..."`,
+        message: 'Commit created',
+        durationMs: Math.round(performance.now() - t0),
+      })
     } catch (e: any) {
-      showStatus(`Commit failed: ${e.message}`)
+      showToast({ type: 'error', command: `git commit`, message: e.message })
+    }
+  }
+
+  const handleContinueOperation = async () => {
+    if (!gih || !repoState?.operation) return
+    const op = repoState.operation.type
+    const t0 = performance.now()
+    try {
+      const res = await gih.continueOperation(op)
+      await refreshState()
+      if (res.exitCode === 0) {
+        showToast({
+          type: 'success',
+          command: `git ${op} --continue`,
+          message: `${op} step continued successfully`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      } else {
+        showToast({
+          type: 'error',
+          command: `git ${op} --continue`,
+          message: res.stderr || 'Continue failed. Check conflicts in staging.',
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', message: e.message })
+    }
+  }
+
+  const handleAbortOperation = async () => {
+    if (!gih || !repoState?.operation) return
+    const op = repoState.operation.type
+    if (!window.confirm(`Abort current ${op} operation and discard in-progress steps?`)) return
+    const t0 = performance.now()
+    try {
+      await gih.abortOperation(op)
+      await refreshState()
+      showToast({
+        type: 'info',
+        command: `git ${op} --abort`,
+        message: `Aborted ${op} operation`,
+        durationMs: Math.round(performance.now() - t0),
+      })
+    } catch (e: any) {
+      showToast({ type: 'error', message: e.message })
+    }
+  }
+
+  const handleSkipOperation = async () => {
+    if (!gih || !repoState?.operation) return
+    const op = repoState.operation.type
+    const t0 = performance.now()
+    try {
+      await gih.skipOperation(op)
+      await refreshState()
+      showToast({
+        type: 'info',
+        command: `git ${op} --skip`,
+        message: `Skipped commit in ${op}`,
+        durationMs: Math.round(performance.now() - t0),
+      })
+    } catch (e: any) {
+      showToast({ type: 'error', message: e.message })
     }
   }
 
@@ -315,15 +473,25 @@ export const App: React.FC = () => {
   const handleResetToReflog = async (hash: string) => {
     if (!gih) return
     if (window.confirm(`Reset repository HEAD to ${hash}?`)) {
+      const t0 = performance.now()
       await gih.execCommand(['reset', '--hard', hash])
       await refreshState()
-      showStatus(`Reset HEAD to ${hash}.`)
+      showToast({
+        type: 'info',
+        command: `git reset --hard ${hash.slice(0, 7)}`,
+        message: `Reset HEAD to ${hash.slice(0, 7)}`,
+        durationMs: Math.round(performance.now() - t0),
+      })
     }
   }
 
   const handleExecuteRebase = async (_steps: RebaseStep[]) => {
     if (!gih) return
-    showStatus('Rebase sequence triggered.')
+    showToast({
+      type: 'info',
+      command: 'git rebase -i',
+      message: 'Rebase sequence triggered',
+    })
     await refreshState()
   }
 
@@ -343,6 +511,48 @@ export const App: React.FC = () => {
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         isFetching={isFetching}
       />
+
+      {/* In-Progress Git Operation HUD Banner (Rebase / Merge / Cherry-Pick / Bisect) */}
+      {repoState?.operation && repoState.operation.type !== 'none' && (
+        <div className="h-10 px-4 bg-amber-500/10 border-b border-amber-500/30 flex items-center justify-between text-xs select-none shrink-0 z-30">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-400 animate-pulse" />
+            <span className="font-bold uppercase tracking-wider text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
+              {repoState.operation.type} in progress
+            </span>
+            <span className="text-slate-200 font-medium">
+              {repoState.operation.message}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {repoState.operation.canContinue && (
+              <button
+                onClick={handleContinueOperation}
+                className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded text-xs transition-colors shadow-sm"
+              >
+                Continue
+              </button>
+            )}
+            {repoState.operation.canSkip && (
+              <button
+                onClick={handleSkipOperation}
+                className="px-2.5 py-1 bg-surface-subtle hover:bg-surface-hover border border-surface-border text-slate-200 font-medium rounded text-xs transition-colors"
+              >
+                Skip
+              </button>
+            )}
+            {repoState.operation.canAbort && (
+              <button
+                onClick={handleAbortOperation}
+                className="px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/50 text-rose-300 font-medium rounded text-xs transition-colors"
+              >
+                Abort
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main Workspace (Sidebar + DAG Graph + Staging / Inspector) */}
       {repoState && !repoState.isGitRepo ? (
@@ -556,13 +766,43 @@ export const App: React.FC = () => {
         onExecuteRebase={handleExecuteRebase}
       />
 
-      {/* Floating Status Notification */}
-      {statusMessage && (
-        <div className="fixed bottom-4 right-4 z-50 px-4 py-2 bg-surface-subtle border border-surface-border text-slate-200 text-xs rounded-lg shadow-xl animate-fade-in flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-brand animate-pulse" />
-          <span>{statusMessage}</span>
-        </div>
-      )}
+      {/* Toast Notification Stack */}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-md w-full">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto px-3.5 py-2.5 rounded-xl border shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in transition-all ${
+              toast.type === 'error'
+                ? 'bg-[#1e1014]/95 border-rose-800/80 text-rose-100'
+                : toast.type === 'info'
+                ? 'bg-surface/95 border-surface-border text-slate-100'
+                : 'bg-[#0f1923]/95 border-emerald-500/30 text-slate-100'
+            }`}
+          >
+            {toast.type === 'error' ? (
+              <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            )}
+
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-xs font-semibold truncate">{toast.message}</span>
+              {toast.command && (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[11px] font-mono text-sky-400 truncate">
+                    ${toast.command.startsWith(' ') ? '' : ' '}{toast.command}
+                  </span>
+                  {toast.durationMs !== undefined && (
+                    <span className="text-[10px] font-mono text-slate-400 bg-surface-subtle px-1 rounded shrink-0">
+                      {toast.durationMs}ms
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

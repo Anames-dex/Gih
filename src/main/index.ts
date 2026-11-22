@@ -254,3 +254,15 @@ ipcMain.handle('git:createTag', async (_, name: string, message?: string, target
 ipcMain.handle('git:deleteTag', async (_, name: string) => {
   await gitService.deleteTag(name)
 })
+
+ipcMain.handle('git:continueOperation', async (_, type: any) => {
+  return await gitService.continueOperation(type)
+})
+
+ipcMain.handle('git:abortOperation', async (_, type: any) => {
+  return await gitService.abortOperation(type)
+})
+
+ipcMain.handle('git:skipOperation', async (_, type: any) => {
+  return await gitService.skipOperation(type)
+})

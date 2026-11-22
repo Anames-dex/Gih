@@ -98,10 +98,21 @@ export interface CommandLogEntry {
   isError: boolean
 }
 
+export type GitOperationType = 'none' | 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'bisect'
+
+export interface GitOperationState {
+  type: GitOperationType
+  message?: string
+  canContinue?: boolean
+  canAbort?: boolean
+  canSkip?: boolean
+}
+
 export interface RepositoryState {
   path: string
   name: string
   isGitRepo: boolean
+  operation: GitOperationState
   currentBranch: string | null
   isDetached: boolean
   branches: GitBranch[]
