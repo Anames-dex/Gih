@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 interface BottomPanelProps {
+  height?: number
   isOpen: boolean
   onClose: () => void
   commandHistory: CommandLogEntry[]
@@ -21,6 +22,7 @@ interface BottomPanelProps {
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
+  height = 260,
   isOpen,
   onClose,
   commandHistory,
@@ -28,10 +30,16 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   onGetReflog,
   onResetToReflog,
 }) => {
+  const [tabsOrder, setTabsOrder] = useState<('terminal' | 'log' | 'reflog')[]>([
+    'terminal',
+    'log',
+    'reflog',
+  ])
   const [activeTab, setActiveTab] = useState<'terminal' | 'log' | 'reflog'>('terminal')
   const [cliInput, setCliInput] = useState('')
   const [reflogEntries, setReflogEntries] = useState<ReflogEntry[]>([])
   const [isExecuting, setIsExecuting] = useState(false)
+  const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (activeTab === 'reflog' && isOpen) {
@@ -59,51 +67,101 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
 
   if (!isOpen) return null
 
+  const handleTabDragStart = (idx: number) => {
+    setDraggedTabIndex(idx)
+  }
+
+  const handleTabDrop = (targetIdx: number) => {
+    if (draggedTabIndex === null || draggedTabIndex === targetIdx) return
+    setTabsOrder((prev) => {
+      const copy = [...prev]
+      const [item] = copy.splice(draggedTabIndex, 1)
+      copy.splice(targetIdx, 0, item)
+      return copy
+    })
+    setDraggedTabIndex(null)
+  }
+
   return (
-    <div className="h-64 bg-surface border-t border-surface-border flex flex-col shrink-0 select-none">
+    <div
+      className="bg-surface border-t border-surface-border flex flex-col shrink-0 select-none"
+      style={{ height: `${height}px` }}
+    >
       {/* Panel Tab Bar */}
       <div className="h-9 bg-surface-subtle border-b border-surface-border flex items-center justify-between px-3">
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setActiveTab('terminal')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-colors ${
-              activeTab === 'terminal'
-                ? 'bg-surface text-brand border border-surface-border'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <TerminalIcon className="w-3.5 h-3.5" />
-            <span>Visual CLI</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('log')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-colors ${
-              activeTab === 'log'
-                ? 'bg-surface text-brand border border-surface-border'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>Command Stream</span>
-            {commandHistory.length > 0 && (
-              <span className="text-[10px] bg-surface-border px-1.5 rounded-full text-slate-300">
-                {commandHistory.length}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('reflog')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-colors ${
-              activeTab === 'reflog'
-                ? 'bg-surface text-brand border border-surface-border'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <History className="w-3.5 h-3.5 text-amber-400" />
-            <span>Reflog & Undo</span>
-          </button>
+          {tabsOrder.map((tabId, idx) => {
+            const isActive = activeTab === tabId
+            if (tabId === 'terminal') {
+              return (
+                <button
+                  key="terminal"
+                  draggable
+                  onDragStart={() => handleTabDragStart(idx)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleTabDrop(idx)}
+                  onClick={() => setActiveTab('terminal')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium cursor-grab active:cursor-grabbing transition-colors ${
+                    isActive
+                      ? 'bg-surface text-brand border border-surface-border'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Drag tab to reorder"
+                >
+                  <TerminalIcon className="w-3.5 h-3.5" />
+                  <span>Visual CLI</span>
+                </button>
+              )
+            }
+            if (tabId === 'log') {
+              return (
+                <button
+                  key="log"
+                  draggable
+                  onDragStart={() => handleTabDragStart(idx)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleTabDrop(idx)}
+                  onClick={() => setActiveTab('log')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium cursor-grab active:cursor-grabbing transition-colors ${
+                    isActive
+                      ? 'bg-surface text-brand border border-surface-border'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Drag tab to reorder"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Command Stream</span>
+                  {commandHistory.length > 0 && (
+                    <span className="text-[10px] bg-surface-border px-1.5 rounded-full text-slate-300">
+                      {commandHistory.length}
+                    </span>
+                  )}
+                </button>
+              )
+            }
+            if (tabId === 'reflog') {
+              return (
+                <button
+                  key="reflog"
+                  draggable
+                  onDragStart={() => handleTabDragStart(idx)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleTabDrop(idx)}
+                  onClick={() => setActiveTab('reflog')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium cursor-grab active:cursor-grabbing transition-colors ${
+                    isActive
+                      ? 'bg-surface text-brand border border-surface-border'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Drag tab to reorder"
+                >
+                  <History className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Reflog & Undo</span>
+                </button>
+              )
+            }
+            return null
+          })}
         </div>
 
         <button

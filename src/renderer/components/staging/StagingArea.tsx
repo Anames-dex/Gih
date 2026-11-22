@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 interface StagingAreaProps {
+  width?: number
   files: GitFileStatus[]
   selectedCommit: GitCommit | null
   onClearSelectedCommit: () => void
@@ -25,6 +26,7 @@ interface StagingAreaProps {
 }
 
 export const StagingArea: React.FC<StagingAreaProps> = ({
+  width = 380,
   files,
   selectedCommit,
   onClearSelectedCommit,
@@ -70,7 +72,10 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   // If a commit is selected from the graph, show its inspector
   if (selectedCommit) {
     return (
-      <aside className="w-96 bg-surface border-l border-surface-border flex flex-col shrink-0 text-slate-300">
+      <aside
+        className="bg-surface border-l border-surface-border flex flex-col shrink-0 text-slate-300"
+        style={{ width: `${width}px` }}
+      >
         <div className="p-3 border-b border-surface-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CommitIcon className="w-4 h-4 text-sky-400" />
@@ -126,7 +131,10 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   }
 
   return (
-    <aside className="w-96 bg-surface border-l border-surface-border flex flex-col shrink-0 text-slate-300">
+    <aside
+      className="bg-surface border-l border-surface-border flex flex-col shrink-0 text-slate-300"
+      style={{ width: `${width}px` }}
+    >
       {/* Diff Modal / Flyout if active file is clicked */}
       {activeFile && (
         <div className="border-b border-surface-border bg-surface-subtle/50 p-2">

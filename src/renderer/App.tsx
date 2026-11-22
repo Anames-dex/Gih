@@ -18,6 +18,41 @@ export const App: React.FC = () => {
   const [isFetching, setIsFetching] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
+  // Resizable Panes Dimensions
+  const [sidebarWidth, setSidebarWidth] = useState(260)
+  const [stagingWidth, setStagingWidth] = useState(380)
+  const [bottomHeight, setBottomHeight] = useState(260)
+
+  const isDraggingSidebar = useRef(false)
+  const isDraggingStaging = useRef(false)
+  const isDraggingBottom = useRef(false)
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDraggingSidebar.current) {
+        setSidebarWidth(Math.max(180, Math.min(500, e.clientX)))
+      } else if (isDraggingStaging.current) {
+        setStagingWidth(Math.max(260, Math.min(650, window.innerWidth - e.clientX)))
+      } else if (isDraggingBottom.current) {
+        setBottomHeight(Math.max(120, Math.min(600, window.innerHeight - e.clientY)))
+      }
+    }
+
+    const handleMouseUp = () => {
+      isDraggingSidebar.current = false
+      isDraggingStaging.current = false
+      isDraggingBottom.current = false
+      document.body.style.cursor = 'default'
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
+
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -300,6 +335,7 @@ export const App: React.FC = () => {
       {/* Main Workspace (Sidebar + DAG Graph + Staging / Inspector) */}
       <div className="flex-1 flex overflow-hidden relative">
         <Sidebar
+          width={sidebarWidth}
           branches={repoState?.branches || []}
           tags={repoState?.tags || []}
           stashes={repoState?.stashes || []}
@@ -314,6 +350,16 @@ export const App: React.FC = () => {
           onCreateTag={handleCreateTag}
           onDeleteTag={handleDeleteTag}
           onBranchFromStash={handleBranchFromStash}
+        />
+
+        {/* Drag Splitter: Sidebar -> Graph */}
+        <div
+          onMouseDown={() => {
+            isDraggingSidebar.current = true
+            document.body.style.cursor = 'col-resize'
+          }}
+          className="w-1 hover:w-1.5 z-20 cursor-col-resize hover:bg-brand active:bg-brand transition-colors bg-surface-border/60 select-none shrink-0"
+          title="Drag to resize sidebar"
         />
 
         <main className="flex-1 flex flex-col overflow-hidden relative">
@@ -392,7 +438,18 @@ export const App: React.FC = () => {
           )}
         </main>
 
+        {/* Drag Splitter: Graph -> Staging */}
+        <div
+          onMouseDown={() => {
+            isDraggingStaging.current = true
+            document.body.style.cursor = 'col-resize'
+          }}
+          className="w-1 hover:w-1.5 z-20 cursor-col-resize hover:bg-brand active:bg-brand transition-colors bg-surface-border/60 select-none shrink-0"
+          title="Drag to resize staging panel"
+        />
+
         <StagingArea
+          width={stagingWidth}
           files={repoState?.files || []}
           selectedCommit={selectedCommit}
           onClearSelectedCommit={() => setSelectedCommit(null)}
@@ -406,8 +463,21 @@ export const App: React.FC = () => {
         />
       </div>
 
+      {/* Drag Splitter: Workspace -> Bottom Dock */}
+      {isTerminalOpen && (
+        <div
+          onMouseDown={() => {
+            isDraggingBottom.current = true
+            document.body.style.cursor = 'row-resize'
+          }}
+          className="h-1 hover:h-1.5 z-20 cursor-row-resize hover:bg-brand active:bg-brand transition-colors bg-surface-border/60 select-none shrink-0"
+          title="Drag to resize terminal panel"
+        />
+      )}
+
       {/* Collapsible Bottom Panel */}
       <BottomPanel
+        height={bottomHeight}
         isOpen={isTerminalOpen}
         onClose={() => setIsTerminalOpen(false)}
         commandHistory={commandHistory}
