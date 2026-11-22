@@ -43,10 +43,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       {/* Left: App Brand & Repository Switcher */}
       <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as any}>
         <div className="flex items-center gap-2 pr-2 border-r border-surface-border">
-          <div className="w-6 h-6 rounded bg-gradient-to-tr from-sky-500 to-indigo-500 flex items-center justify-center font-bold text-xs text-white shadow-sm shadow-sky-500/20">
-            G
-          </div>
-          <span className="font-semibold text-sm tracking-tight text-white">Gih</span>
+          <img
+            src="/logo.png"
+            alt="Gih"
+            className="w-7 h-7 object-contain rounded drop-shadow-sm select-none"
+          />
+          <span className="font-bold text-sm tracking-tight text-white">Gih</span>
         </div>
 
         <button
