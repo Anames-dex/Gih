@@ -28,30 +28,42 @@ Gih takes the opposite approach: **every visual interaction in Gih corresponds t
 
 ## 3. Core Capabilities Walkthrough
 
-### 3.1. Interactive DAG Graph
+### 3.1. Interactive DAG Graph & Virtual Windowing
 - Renders branch lanes, merge arcs, and commit topology using an analytical topological sorting engine.
+- Virtual windowing renders only in-viewport rows and bezier splines, maintaining fluid 60 FPS scrolling on 50,000+ commit repositories.
+- Direct Drag-and-Drop Git actions: drag branch badges onto target commit rows to merge, rebase, or cherry-pick.
 - Instant search filter (`Ctrl+F`) highlighting matching commits across message, author, short-hash, and branch/tag badges.
-- Right-click context menus for cherry-picking, interactive rebasing, and branch resets.
+- Right-click context menus for cherry-picking, interactive rebasing, branch resets, and remote provider deep links.
 
-### 3.2. Precision Staging & Diff Viewer
-- Unified diff viewer displaying hunk headers and colored addition/deletion lines.
-- Individual hunk actions: `Stage Hunk`, `Unstage Hunk`, and `Discard Hunk`.
+### 3.2. Intra-Line Word Diffs & Split/Unified Viewer
+- Character- and word-level diffing powered by longest common subsequence (LCS) tokenization.
+- Segmented toggle to switch instantly between **Unified** (single column) and **Split** (side-by-side) views.
+- Individual hunk actions: `Stage Hunk`, `Unstage Hunk`, and `Discard Hunk` via native `git apply`.
 - Quick-toggle commit `Amend (HEAD)` checkbox that auto-populates the last commit message for rapid corrections.
 
-### 3.3. 3-Way Merge Conflict Studio
+### 3.3. Multi-Commit Selection & Range Diff Engine
+- Multi-commit selection via `Ctrl+Click` / `Cmd+Click` and continuous range selection via `Shift+Click`.
+- Aggregated diff view showing files changed across the entire selection range with intra-line word diffs.
+- Quick-action buttons to copy commit hashes and inspect statistics.
+
+### 3.4. Safe Force-Push & Remote Provider Deep-Links
+- Dropdown push split-button supporting standard `git push` alongside `--force-with-lease` to safely guard against overwriting teammate commits.
+- Automatic detection of GitHub, GitLab, and Bitbucket origin remotes with one-click links to view repositories, commits, and open pull requests.
+
+### 3.5. 3-Way Merge Conflict Studio
 - Identifies unmerged files (`status: conflicted`) automatically during merges or rebases.
 - Provides immediate resolution actions:
   - `Keep Ours`: Checks out current branch version and stages into index.
   - `Keep Theirs`: Checks out incoming branch version and stages into index.
   - `Mark Resolved`: Stages the file once manual adjustments are complete.
 
-### 3.4. Granular Reset Engine
+### 3.6. Granular Reset Engine
 - Replace ambiguous reset dialogs with explicit mode selection:
   - `--soft`: Moves branch pointer; keeps all changes staged in index.
   - `--mixed`: Default; moves branch pointer and keeps working directory intact as unstaged changes.
   - `--hard`: Discards working tree modifications with safety prompts.
 
-### 3.5. Branch Management & Cloning
+### 3.7. Branch Management & Cloning
 - Inline branch renaming (`git branch -m`) directly from the sidebar.
 - Built-in **Clone Repository** modal with URL parsing, destination browsing, and automatic project opening.
 - Stash manager with stash inspect, pop, apply, drop, and branch-from-stash support.

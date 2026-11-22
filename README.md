@@ -26,11 +26,16 @@ Unlike tools that simplify Git by hiding its internals, Gih keeps you connected 
 
 ## Features at a Glance
 
-- **Interactive Topological DAG**: Multi-lane commit graph with cubic bezier routing, active branch badges, and real-time refresh.
+- **Interactive Topological DAG & Virtual Windowing**: Multi-lane commit graph with cubic bezier routing, active branch badges, and virtual row windowing sustaining 60 FPS on 50,000+ commit repositories.
+- **Drag-and-Drop Git Actions**: Drag branch badges directly onto target commits in the graph to trigger context menus for Merge, Rebase, or Cherry-Pick.
+- **Multi-Commit Selection & Range Diff**: `Shift+Click` commit ranges or `Ctrl+Click` multi-commit sets to inspect aggregate files changed and statistics across commit boundaries.
+- **Intra-Line Token Diffs & Split/Unified View**: Character- and word-level diffing powered by longest common subsequence (LCS) tokenization, with a segmented control to switch between Unified and Side-by-Side Split views.
 - **Commit Graph Search (`Ctrl+F`)**: Instant search across commit messages, authors, short hashes, and branch/tag labels with focused highlighting.
-- **Precision Hunk Staging**: Unified diff viewer with single-click `[ Stage Hunk ]`, `[ Unstage Hunk ]`, and `[ Discard Hunk ]` powered by `git apply`.
+- **Precision Hunk Staging**: Unified and split diff viewer with single-click `[ Stage Hunk ]`, `[ Unstage Hunk ]`, and `[ Discard Hunk ]` powered by `git apply`.
 - **Commit Amend Toggle**: Quick-amend mode in the staging panel that auto-populates previous commit messages for fast fixes.
 - **Granular Reset Studio**: Interactive `--soft`, `--mixed`, and `--hard` reset options with clear safety explanations.
+- **Safe Force-Push (`--force-with-lease`)**: Dropdown push control offering standard push alongside `--force-with-lease` to prevent overwriting teammates' upstream work.
+- **Remote Provider Deep-Links**: Auto-detects GitHub, GitLab, and Bitbucket origin remotes with one-click links to view repositories, commits, and create pull requests in your default browser.
 - **3-Way Merge Conflict Studio**: Automatic detection of conflicted files with one-click `Keep Ours`, `Keep Theirs`, and `Mark Resolved` actions.
 - **Visual Rebase & Reflog**: Interactive rebase modal (`pick`, `reword`, `edit`, `squash`, `fixup`, `drop`) and reflog restoration.
 - **Remote Repository Clone**: Built-in clone dialog with destination browsing and automatic workspace transition.

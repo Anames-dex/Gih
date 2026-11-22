@@ -62,14 +62,16 @@ To ensure the UI is in sync with external terminal actions without manual refres
 
 ---
 
-## 4. Directed Acyclic Graph (DAG) Layout (`dagLayout.ts`)
+## 4. Directed Acyclic Graph (DAG) Layout & Virtual Windowing
 
-The commit visualizer renders branches, merges, and commit topology using an analytical topological sorting algorithm:
+The commit visualizer renders branches, merges, and commit topology using an analytical topological sorting algorithm paired with virtual row windowing:
 
 1. **Topological Row Assignment**: Commits are sorted chronologically by commit date and parent traversal.
 2. **Lane Reservation**: Branch heads claim dedicated horizontal lanes. As branches merge back into parent streams, lanes are reclaimed to prevent horizontal sprawl.
 3. **Cubic Bezier Splines**: Branching arcs and merges are drawn on an SVG canvas layer behind the commit list, calculating control points between parent and child coordinates.
-4. **Interactive Highlighting**: Search queries (`Ctrl+F`) compute an index of matching hashes, dimming non-matching rows and rendering cyan focus rings on matching nodes.
+4. **Virtual Row Windowing (`OVERSCAN_ROWS = 12`)**: Only commits and bezier edges currently visible within the user's viewport plus an overscan buffer are rendered to the DOM, preserving constant 60 FPS scrolling and low memory usage even across repositories with 50,000+ commits.
+5. **Interactive Highlighting**: Search queries (`Ctrl+F`) compute an index of matching hashes, dimming non-matching rows and rendering cyan focus rings on matching nodes.
+6. **Drag-and-Drop Operations**: Dragging branch badges onto commit rows dynamically renders targeting rings and prompts a drop popover offering Merge, Rebase, or Cherry-Pick.
 
 ---
 
@@ -81,3 +83,31 @@ The commit visualizer renders branches, merges, and commit topology using an ana
   - `Keep Theirs`: `git checkout --theirs -- <file> && git add <file>`
   - `Mark Resolved`: `git add <file>`
 - **Granular Reset**: Supports `--soft`, `--mixed`, and `--hard` reset modes from the visual commit graph context menu.
+
+---
+
+## 6. Diff Engine & Intra-Line Word Tokenization (`diffUtils.ts`)
+
+- **Word & Punctuation Tokenizer**: Tokenizes lines using regular expressions into alphanumeric tokens, punctuation, and whitespace chunks.
+- **Longest Common Subsequence (LCS)**: Computes word-level diffs between deleted and added lines with a $40,000$ matrix size guard against minified assets.
+- **Dual Display Modes**:
+  - `Unified`: Single-column diff showing additions and deletions inline with green/red word token highlights.
+  - `Split (Side-by-Side)`: Contiguous delete lines are paired with contiguous addition lines in a 2-column layout. Unpaired lines span empty space on the opposite side.
+
+---
+
+## 7. Multi-Commit Selection & Range Diff Engine
+
+- **Selection Modifiers**:
+  - `Click`: Single-commit selection.
+  - `Ctrl + Click` / `Cmd + Click`: Multi-commit toggle.
+  - `Shift + Click`: Continuous commit range selection between anchor and target commits.
+- **Aggregated Diff Inspection**: Queries `git diff --name-status base~1 head` and `git diff --stat base~1 head`, surfacing all files changed across the range with intra-line word diffs on demand.
+
+---
+
+## 8. Remote Hosting Deep-Links & Safe Force-Push
+
+- **Remote URL Parsing**: Automatically parses SSH and HTTPS remote URLs for GitHub, GitLab, and Bitbucket.
+- **Deep-Links**: Exposes one-click links to view repositories, specific commits (`/commit/{hash}`), and create pull requests (`/compare/{branch}`).
+- **Safe Force-Push**: Provides `--force-with-lease` to update upstream branches safely without risking overwriting teammates' pushes.
