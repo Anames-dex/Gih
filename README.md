@@ -1,43 +1,96 @@
+<div align="center">
+
+<img src="public/logo.png" alt="Gih Logo" width="120" />
+
 # Gih
 
-An open-source, visual-first Git workstation and interactive shell built for developers who want the speed of a GUI with the full depth of the Git command line.
+### A high-craft visual Git workstation and interactive graph shell.
+
+[![License](https://img.shields.io/badge/license-Community%20%26%20Commercial-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Cross--Platform-lightgrey.svg)]()
+[![TypeScript](https://img.shields.io/badge/built%20with-TypeScript%20%7C%20React%2019-blue.svg)]()
+
+[**Overview**](OVERVIEW.md) • [**Architecture**](ARCHITECTURE.md) • [**Contributing**](CONTRIBUTIONS.md) • [**Security**](SECURITY.md) • [**License**](LICENSE)
+
+</div>
 
 ---
 
-## Highlights
+## What is Gih?
 
-- **Visual Commit DAG**: Interactive branch lanes, merge arcs, and commit topology with real-time updates.
-- **Full Git CLI Parity**: Interactive rebase (`git rebase -i`), reflog recovery, worktrees, submodules, bisect, and hunk/line-level patch staging.
-- **Bidirectional Shell**: Visual actions print the exact Git command being executed; commands run in the integrated terminal reflect on the graph instantly.
-- **3-Way Merge Studio**: Side-by-side conflict resolution with semantic difference highlighting.
-- **Reflog & Visual Undo**: Rewind accidental hard resets or dropped stashes with reflog snapshots.
+**Gih** is an open-source, visual-first Git workstation designed for developers who want the speed and clarity of a graphical commit graph without losing the full, unconstrained depth of the Git command-line interface.
+
+Unlike tools that simplify Git by hiding its internals, Gih keeps you connected to raw Git operations. Every click, drag, and toggle shows the exact Git CLI command executed with millisecond telemetry feedback.
 
 ---
 
-## Architecture
+## Features at a Glance
 
-- **Runtime**: Electron on Windows (x64)
-- **Frontend**: React 19, TypeScript, Tailwind CSS
-- **Icons**: Lucide React
-- **Git Engine**: Direct child-process pipeline streaming stdout/stderr with filesystem watchers on `.git/`
+- **Interactive Topological DAG**: Multi-lane commit graph with cubic bezier routing, active branch badges, and real-time refresh.
+- **Commit Graph Search (`Ctrl+F`)**: Instant search across commit messages, authors, short hashes, and branch/tag labels with focused highlighting.
+- **Precision Hunk Staging**: Unified diff viewer with single-click `[ Stage Hunk ]`, `[ Unstage Hunk ]`, and `[ Discard Hunk ]` powered by `git apply`.
+- **Commit Amend Toggle**: Quick-amend mode in the staging panel that auto-populates previous commit messages for fast fixes.
+- **Granular Reset Studio**: Interactive `--soft`, `--mixed`, and `--hard` reset options with clear safety explanations.
+- **3-Way Merge Conflict Studio**: Automatic detection of conflicted files with one-click `Keep Ours`, `Keep Theirs`, and `Mark Resolved` actions.
+- **Visual Rebase & Reflog**: Interactive rebase modal (`pick`, `reword`, `edit`, `squash`, `fixup`, `drop`) and reflog restoration.
+- **Remote Repository Clone**: Built-in clone dialog with destination browsing and automatic workspace transition.
+- **Tactile Command Island**: Top-center HUD notifications showing command timing and results within natural foveal focus.
+- **Draggable & Resizable Panes**: Customizable sidebar sections and smooth split panes for staging and terminal views.
 
 ---
 
-## Development
+## Quickstart
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) v20 or higher
+- [Git](https://git-scm.com/) installed and available in `$PATH`
+
+### Installation & Development
 
 ```bash
+# Clone the repository
+git clone https://github.com/Anames-dex/Gih.git
+cd Gih
+
 # Install dependencies
 npm install
 
-# Start in development mode (Vite + Electron)
+# Start in development mode (Vite HMR + Electron)
 npm run dev
 
-# Package for Windows
+# Compile TypeScript and build production bundle
 npm run build
 ```
 
 ---
 
-## License
+## Documentation
 
-MIT © 2026 Anames-dex
+- [**OVERVIEW.md**](OVERVIEW.md): Comprehensive feature breakdown and comparative matrix.
+- [**ARCHITECTURE.md**](ARCHITECTURE.md): Deep dive into the process model, Git execution engine, watcher deduplication, and DAG layout algorithms.
+- [**CONTRIBUTIONS.md**](CONTRIBUTIONS.md): Developer guide, code style standards, and conventional commit workflow.
+- [**SECURITY.md**](SECURITY.md): Responsible disclosure policy and contact procedures.
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl + K` / `Cmd + K` | Open Command Palette |
+| `Ctrl + F` / `Cmd + F` | Search Commit Graph |
+| `Ctrl + Enter` | Submit Commit in Staging Panel |
+| `Esc` | Clear active search or close dialog |
+
+---
+
+## License & Commercial Inquiries
+
+Gih is distributed under the **Gih Community & Commercial License**:
+
+- **Individual Use**: Free of charge for personal, non-commercial, and open-source contribution purposes.
+- **Commercial & Enterprise Use**: Use by or on behalf of commercial companies requires an authorized commercial license.
+
+For commercial licensing and enterprise inquiries, contact:
+**natelligence.ai@gmail.com**

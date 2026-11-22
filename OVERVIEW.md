@@ -1,0 +1,64 @@
+# Gih — Product Overview
+
+## 1. What is Gih?
+
+**Gih** is an open-source, visual Git workstation and interactive shell designed for developers who demand the full expressive depth of the Git command-line interface, combined with the spatial clarity and speed of a modern visual client.
+
+Most graphical Git clients create an artificial abstraction layer over Git. In doing so, they obscure what Git is actually doing, introduce non-standard terms, or strip away advanced features such as interactive rebasing, selective hunk application, reflog restoration, and granular resets.
+
+Gih takes the opposite approach: **every visual interaction in Gih corresponds to an authentic Git CLI operation**, complete with transparent command logging, millisecond timing feedback, and instant bidirectional state synchronization.
+
+---
+
+## 2. Feature Comparison Matrix
+
+| Capability | Git CLI | Traditional Git GUIs | Gih Workstation |
+|---|:---:|:---:|:---:|
+| **Full CLI Parity** | 100% | ~40–60% | **100%** |
+| **Interactive Commit DAG** | Graph ASCII (`--graph`) | Static Tree | **Fluid Bezier Graph with Multi-Lane Routing** |
+| **Hunk & Line Staging** | `git add -p` (Console) | Varies | **One-Click Hunk Stage, Unstage & Discard** |
+| **Interactive Rebase** | Terminal Text Editor | Paid Feature | **Visual Reorder, Squash, Edit & Drop Cards** |
+| **Merge Conflict Resolver** | Manual Edit | Limited | **3-Way Conflict Studio (`--ours`, `--theirs`)** |
+| **Reflog Recovery** | `git reflog` | Not Available | **Visual Reflog Timeline with One-Click Reset** |
+| **Granular Reset Control** | Complex Flags | Binary Reset | **Soft, Mixed & Hard Interactive Modes** |
+| **Command Visibility** | Native | Hidden / Obscured | **Real-Time Telemetry & Command Island** |
+| **Licensing** | GPLv2 | Proprietary / Subscription | **Free for Individuals (Commercial on request)** |
+
+---
+
+## 3. Core Capabilities Walkthrough
+
+### 3.1. Interactive DAG Graph
+- Renders branch lanes, merge arcs, and commit topology using an analytical topological sorting engine.
+- Instant search filter (`Ctrl+F`) highlighting matching commits across message, author, short-hash, and branch/tag badges.
+- Right-click context menus for cherry-picking, interactive rebasing, and branch resets.
+
+### 3.2. Precision Staging & Diff Viewer
+- Unified diff viewer displaying hunk headers and colored addition/deletion lines.
+- Individual hunk actions: `Stage Hunk`, `Unstage Hunk`, and `Discard Hunk`.
+- Quick-toggle commit `Amend (HEAD)` checkbox that auto-populates the last commit message for rapid corrections.
+
+### 3.3. 3-Way Merge Conflict Studio
+- Identifies unmerged files (`status: conflicted`) automatically during merges or rebases.
+- Provides immediate resolution actions:
+  - `Keep Ours`: Checks out current branch version and stages into index.
+  - `Keep Theirs`: Checks out incoming branch version and stages into index.
+  - `Mark Resolved`: Stages the file once manual adjustments are complete.
+
+### 3.4. Granular Reset Engine
+- Replace ambiguous reset dialogs with explicit mode selection:
+  - `--soft`: Moves branch pointer; keeps all changes staged in index.
+  - `--mixed`: Default; moves branch pointer and keeps working directory intact as unstaged changes.
+  - `--hard`: Discards working tree modifications with safety prompts.
+
+### 3.5. Branch Management & Cloning
+- Inline branch renaming (`git branch -m`) directly from the sidebar.
+- Built-in **Clone Repository** modal with URL parsing, destination browsing, and automatic project opening.
+- Stash manager with stash inspect, pop, apply, drop, and branch-from-stash support.
+
+---
+
+## 4. Contact & Inquiries
+
+For enterprise licensing, questions, or commercial partnerships, contact:
+**natelligence.ai@gmail.com**
