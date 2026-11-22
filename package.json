@@ -2,7 +2,7 @@
   "name": "gih",
   "version": "0.1.0",
   "description": "Visual Git workstation and interactive graph shell",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/index.js",
   "type": "module",
   "scripts": {
     "dev": "vite",
