@@ -562,6 +562,14 @@ export class GitService {
           status: 'renamed',
           staged: stagedCode !== '.',
         })
+      } else if (type === 'u') {
+        // Unmerged/conflicted file: "u <xy> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>"
+        const filePath = parts.slice(10).join(' ')
+        files.push({
+          path: filePath,
+          status: 'conflicted',
+          staged: false,
+        })
       } else if (type === '?') {
         // Untracked file
         const filePath = parts.slice(1).join(' ')
@@ -574,6 +582,21 @@ export class GitService {
     }
 
     return files
+  }
+
+  public async resolveConflict(
+    filePath: string,
+    resolution: 'ours' | 'theirs' | 'mark-resolved'
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    if (resolution === 'ours') {
+      await this.execGit(['checkout', '--ours', '--', filePath])
+      return await this.execGit(['add', '--', filePath])
+    } else if (resolution === 'theirs') {
+      await this.execGit(['checkout', '--theirs', '--', filePath])
+      return await this.execGit(['add', '--', filePath])
+    } else {
+      return await this.execGit(['add', '--', filePath])
+    }
   }
 
   private parseStatusCode(code: string): 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' {

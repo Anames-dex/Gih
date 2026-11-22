@@ -330,6 +330,27 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleResolveConflict = async (filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => {
+    if (!gih) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.resolveConflict(filePath, resolution)
+      if (res.exitCode !== 0) {
+        showToast({ type: 'error', command: `git checkout --${resolution}`, message: res.stderr || 'Conflict resolution failed' })
+      } else {
+        await refreshState()
+        showToast({
+          type: 'success',
+          command: resolution === 'mark-resolved' ? `git add ${filePath}` : `git checkout --${resolution} ${filePath}`,
+          message: `Resolved conflict for ${filePath.split(/[\\/]/).pop()} (${resolution})`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', message: e.message })
+    }
+  }
+
   const handleApplyHunkPatch = async (patch: string, options: { cached?: boolean; reverse?: boolean }) => {
     if (!gih) return
     const t0 = performance.now()
@@ -802,6 +823,7 @@ export const App: React.FC = () => {
             onCommit={handleCommit}
             onGetDiff={(path, staged) => gih?.getDiff(path, staged)}
             onApplyHunkPatch={handleApplyHunkPatch}
+            onResolveConflict={handleResolveConflict}
             headCommit={repoState?.commits.find((c) => c.isHead) || repoState?.commits[0] || null}
           />
         </div>

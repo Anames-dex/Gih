@@ -16,6 +16,7 @@ export interface GihAPI {
   stageAll: () => Promise<void>
   unstageAll: () => Promise<void>
   discardChanges: (filePath: string) => Promise<void>
+  resolveConflict: (filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => Promise<{ stdout: string; stderr: string; exitCode: number }>
   applyPatch: (patch: string, options?: { cached?: boolean; reverse?: boolean }) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   createCommit: (message: string, signOff?: boolean, amend?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   resetBranch: (targetHash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<{ stdout: string; stderr: string; exitCode: number }>
@@ -55,6 +56,7 @@ const api: GihAPI = {
   stageAll: () => ipcRenderer.invoke('git:stageAll'),
   unstageAll: () => ipcRenderer.invoke('git:unstageAll'),
   discardChanges: (filePath: string) => ipcRenderer.invoke('git:discardChanges', filePath),
+  resolveConflict: (filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => ipcRenderer.invoke('git:resolveConflict', filePath, resolution),
   applyPatch: (patch: string, options?: { cached?: boolean; reverse?: boolean }) => ipcRenderer.invoke('git:applyPatch', patch, options),
   createCommit: (message: string, signOff?: boolean, amend?: boolean) => ipcRenderer.invoke('git:createCommit', message, signOff, amend),
   resetBranch: (targetHash: string, mode: 'soft' | 'mixed' | 'hard') => ipcRenderer.invoke('git:resetBranch', targetHash, mode),

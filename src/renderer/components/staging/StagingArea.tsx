@@ -8,7 +8,8 @@ import {
   RotateCcw,
   GitCommit as CommitIcon,
   X,
-  FileDiff as DiffIcon
+  FileDiff as DiffIcon,
+  AlertTriangle
 } from 'lucide-react'
 
 export function buildHunkPatch(filePath: string, hunk: DiffHunk): string {
@@ -35,6 +36,7 @@ interface StagingAreaProps {
   onCommit: (message: string, signOff?: boolean, amend?: boolean) => void
   onGetDiff: (path: string, staged: boolean) => Promise<FileDiff>
   onApplyHunkPatch?: (patch: string, options: { cached?: boolean; reverse?: boolean }) => Promise<void>
+  onResolveConflict?: (filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => void
   headCommit?: GitCommit | null
 }
 
@@ -51,6 +53,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   onCommit,
   onGetDiff,
   onApplyHunkPatch,
+  onResolveConflict,
   headCommit,
 }) => {
   const [activeFile, setActiveFile] = useState<GitFileStatus | null>(null)
@@ -61,8 +64,9 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const [isDiffLoading, setIsDiffLoading] = useState(false)
   const [isApplyingHunk, setIsApplyingHunk] = useState(false)
 
+  const conflictedFiles = files.filter((f) => f.status === 'conflicted')
   const stagedFiles = files.filter((f) => f.staged)
-  const unstagedFiles = files.filter((f) => !f.staged)
+  const unstagedFiles = files.filter((f) => !f.staged && f.status !== 'conflicted')
 
   const handleStageHunk = async (hunk: DiffHunk) => {
     if (!activeFile || !onApplyHunkPatch) return
@@ -283,6 +287,56 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
 
       {/* Staged & Unstaged Lists */}
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        {/* Conflicted Section (Shown during merge / rebase conflicts) */}
+        {conflictedFiles.length > 0 && (
+          <div className="p-3 rounded-lg bg-rose-950/30 border border-rose-800/60 space-y-2.5">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-rose-400">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+                <span>Conflicts ({conflictedFiles.length})</span>
+              </div>
+              <span className="text-[10px] text-rose-300/80 font-normal">Resolve to proceed</span>
+            </div>
+
+            <div className="space-y-1.5">
+              {conflictedFiles.map((file) => (
+                <div key={file.path} className="p-2 rounded bg-[#090b10] border border-rose-900/40 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-white truncate max-w-[200px]" title={file.path}>{file.path}</span>
+                    <span className="text-[10px] uppercase font-bold text-rose-400">Unmerged</span>
+                  </div>
+                  <div className="flex items-center gap-1 font-sans">
+                    <button
+                      type="button"
+                      onClick={() => onResolveConflict && onResolveConflict(file.path, 'ours')}
+                      className="px-2 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-medium border border-sky-500/30 active:scale-95 transition-all"
+                      title="Keep current branch version (--ours)"
+                    >
+                      Keep Ours
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onResolveConflict && onResolveConflict(file.path, 'theirs')}
+                      className="px-2 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-medium border border-indigo-500/30 active:scale-95 transition-all"
+                      title="Keep incoming branch version (--theirs)"
+                    >
+                      Keep Theirs
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onResolveConflict && onResolveConflict(file.path, 'mark-resolved')}
+                      className="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[10px] font-medium border border-emerald-500/30 active:scale-95 transition-all"
+                      title="Mark file resolved and stage into index"
+                    >
+                      Mark Resolved
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Staged Section */}
         <div>
           <div className="flex items-center justify-between mb-1.5">

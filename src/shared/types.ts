@@ -46,7 +46,7 @@ export interface GitStash {
 export interface GitFileStatus {
   path: string
   oldPath?: string
-  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' | 'copied'
+  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' | 'copied' | 'conflicted'
   staged: boolean
 }
 

@@ -180,6 +180,10 @@ ipcMain.handle('git:discardChanges', async (_, filePath: string) => {
   await gitService.execGit(['restore', '--', filePath])
 })
 
+ipcMain.handle('git:resolveConflict', async (_, filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => {
+  return await gitService.resolveConflict(filePath, resolution)
+})
+
 ipcMain.handle('git:applyPatch', async (_, patch: string, options?: { cached?: boolean; reverse?: boolean }) => {
   return await gitService.applyPatch(patch, options)
 })
