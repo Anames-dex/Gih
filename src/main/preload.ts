@@ -15,6 +15,7 @@ export interface GihAPI {
   stageAll: () => Promise<void>
   unstageAll: () => Promise<void>
   discardChanges: (filePath: string) => Promise<void>
+  applyPatch: (patch: string, options?: { cached?: boolean; reverse?: boolean }) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   createCommit: (message: string, signOff?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   checkoutBranch: (branchName: string) => Promise<void>
   createBranch: (branchName: string, startPoint?: string) => Promise<void>
@@ -50,6 +51,7 @@ const api: GihAPI = {
   stageAll: () => ipcRenderer.invoke('git:stageAll'),
   unstageAll: () => ipcRenderer.invoke('git:unstageAll'),
   discardChanges: (filePath: string) => ipcRenderer.invoke('git:discardChanges', filePath),
+  applyPatch: (patch: string, options?: { cached?: boolean; reverse?: boolean }) => ipcRenderer.invoke('git:applyPatch', patch, options),
   createCommit: (message: string, signOff?: boolean) => ipcRenderer.invoke('git:createCommit', message, signOff),
   checkoutBranch: (branchName: string) => ipcRenderer.invoke('git:checkoutBranch', branchName),
   createBranch: (branchName: string, startPoint?: string) => ipcRenderer.invoke('git:createBranch', branchName, startPoint),

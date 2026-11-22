@@ -176,6 +176,10 @@ ipcMain.handle('git:discardChanges', async (_, filePath: string) => {
   await gitService.execGit(['restore', '--', filePath])
 })
 
+ipcMain.handle('git:applyPatch', async (_, patch: string, options?: { cached?: boolean; reverse?: boolean }) => {
+  return await gitService.applyPatch(patch, options)
+})
+
 ipcMain.handle('git:createCommit', async (_, message: string, signOff?: boolean) => {
   const args = ['commit', '-m', message]
   if (signOff) {

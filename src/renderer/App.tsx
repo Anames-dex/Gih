@@ -305,6 +305,27 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleApplyHunkPatch = async (patch: string, options: { cached?: boolean; reverse?: boolean }) => {
+    if (!gih) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.applyPatch(patch, options)
+      if (res.exitCode !== 0) {
+        showToast({ type: 'error', command: 'git apply', message: res.stderr || 'Failed to apply hunk patch' })
+      } else {
+        await refreshState()
+        showToast({
+          type: 'success',
+          command: `git apply ${options.cached ? '--cached ' : ''}${options.reverse ? '--reverse' : ''}`.trim(),
+          message: options.reverse ? 'Discarded hunk' : options.cached ? 'Staged hunk' : 'Applied hunk',
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (err: any) {
+      showToast({ type: 'error', command: 'git apply', message: err.message })
+    }
+  }
+
   const handlePopStash = async (index: number) => {
     if (!gih) return
     const t0 = performance.now()
@@ -730,6 +751,7 @@ export const App: React.FC = () => {
             onDiscardChanges={(path) => gih?.discardChanges(path).then(refreshState)}
             onCommit={handleCommit}
             onGetDiff={(path, staged) => gih?.getDiff(path, staged)}
+            onApplyHunkPatch={handleApplyHunkPatch}
           />
         </div>
       )}

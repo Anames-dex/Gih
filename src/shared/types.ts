@@ -64,6 +64,7 @@ export interface DiffHunk {
   newStart: number
   newLines: number
   lines: DiffLine[]
+  rawHunk?: string
 }
 
 export interface FileDiff {

@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import type {
@@ -86,6 +86,86 @@ export class GitService {
         }
       )
     })
+  }
+
+  /**
+   * Fast native git execution with stdin streaming (e.g. git apply)
+   */
+  public async execGitWithStdin(
+    args: string[],
+    stdinInput: string,
+    cwd: string = this.currentRepoPath
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const commandStr = `git ${args.join(' ')}`
+    const startTime = Date.now()
+    this.activeExecutions++
+
+    return new Promise((resolve) => {
+      const child = spawn('git', args, {
+        cwd,
+        windowsHide: true,
+        env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' },
+      })
+
+      let stdout = ''
+      let stderr = ''
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString()
+      })
+      child.stderr.on('data', (data) => {
+        stderr += data.toString()
+      })
+
+      child.on('error', (err) => {
+        stderr += err.message
+      })
+
+      child.on('close', (code) => {
+        this.activeExecutions--
+        const exitCode = code ?? (stderr ? 1 : 0)
+        const entry: CommandLogEntry = {
+          id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          command: commandStr,
+          timestamp: startTime,
+          exitCode,
+          output: stdout || stderr,
+          isError: exitCode !== 0,
+        }
+        this.commandHistory.unshift(entry)
+        if (this.commandHistory.length > 500) {
+          this.commandHistory.pop()
+        }
+
+        resolve({
+          stdout,
+          stderr,
+          exitCode,
+        })
+      })
+
+      try {
+        child.stdin.write(stdinInput)
+        child.stdin.end()
+      } catch (err: any) {
+        stderr += err.message
+      }
+    })
+  }
+
+  /**
+   * Apply a unified diff patch to index, working tree, or in reverse
+   */
+  public async applyPatch(
+    patch: string,
+    options: { cached?: boolean; reverse?: boolean } = {}
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const args = ['apply', '--whitespace=nowarn', '--recount']
+    if (options.cached) args.push('--cached')
+    if (options.reverse) args.push('--reverse')
+    args.push('-')
+
+    return await this.execGitWithStdin(args, patch)
   }
 
   /**
@@ -491,11 +571,20 @@ export class GitService {
     const hunks: DiffHunk[] = []
     const lines = rawDiff.split('\n')
     let currentHunk: DiffHunk | null = null
+    let currentHunkRawLines: string[] = []
     let oldLine = 0
     let newLine = 0
 
+    const finalizeHunk = () => {
+      if (currentHunk) {
+        currentHunk.rawHunk = currentHunkRawLines.join('\n') + '\n'
+      }
+    }
+
     for (const line of lines) {
       if (line.startsWith('@@')) {
+        finalizeHunk()
+        currentHunkRawLines = [line]
         const match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/)
         if (match) {
           oldLine = parseInt(match[1], 10)
@@ -517,6 +606,7 @@ export class GitService {
       }
 
       if (!currentHunk) continue
+      currentHunkRawLines.push(line)
 
       if (line.startsWith('+')) {
         currentHunk.lines.push({
@@ -539,6 +629,8 @@ export class GitService {
         })
       }
     }
+
+    finalizeHunk()
 
     return {
       path: filePath,

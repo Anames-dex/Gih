@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import type { GitFileStatus, FileDiff, GitCommit } from '@/shared/types'
+import type { GitFileStatus, FileDiff, DiffHunk, GitCommit } from '@/shared/types'
 import {
   FileText,
   Plus,
@@ -10,6 +10,17 @@ import {
   X,
   FileDiff as DiffIcon
 } from 'lucide-react'
+
+export function buildHunkPatch(filePath: string, hunk: DiffHunk): string {
+  const normPath = filePath.replace(/\\/g, '/')
+  if (hunk.rawHunk) {
+    return `diff --git a/${normPath} b/${normPath}\n--- a/${normPath}\n+++ b/${normPath}\n${hunk.rawHunk}`
+  }
+  const linesText = hunk.lines
+    .map((l) => (l.type === 'add' ? `+${l.content}` : l.type === 'delete' ? `-${l.content}` : ` ${l.content}`))
+    .join('\n')
+  return `diff --git a/${normPath} b/${normPath}\n--- a/${normPath}\n+++ b/${normPath}\n${hunk.header}\n${linesText}\n`
+}
 
 interface StagingAreaProps {
   width?: number
@@ -23,6 +34,7 @@ interface StagingAreaProps {
   onDiscardChanges: (path: string) => void
   onCommit: (message: string, signOff?: boolean) => void
   onGetDiff: (path: string, staged: boolean) => Promise<FileDiff>
+  onApplyHunkPatch?: (patch: string, options: { cached?: boolean; reverse?: boolean }) => Promise<void>
 }
 
 export const StagingArea: React.FC<StagingAreaProps> = ({
@@ -37,15 +49,57 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   onDiscardChanges,
   onCommit,
   onGetDiff,
+  onApplyHunkPatch,
 }) => {
   const [activeFile, setActiveFile] = useState<GitFileStatus | null>(null)
   const [activeDiff, setActiveDiff] = useState<FileDiff | null>(null)
   const [commitMessage, setCommitMessage] = useState('')
   const [signOff, setSignOff] = useState(false)
   const [isDiffLoading, setIsDiffLoading] = useState(false)
+  const [isApplyingHunk, setIsApplyingHunk] = useState(false)
 
   const stagedFiles = files.filter((f) => f.staged)
   const unstagedFiles = files.filter((f) => !f.staged)
+
+  const handleStageHunk = async (hunk: DiffHunk) => {
+    if (!activeFile || !onApplyHunkPatch) return
+    setIsApplyingHunk(true)
+    try {
+      const patch = buildHunkPatch(activeFile.path, hunk)
+      await onApplyHunkPatch(patch, { cached: true })
+      const updated = await onGetDiff(activeFile.path, activeFile.staged)
+      setActiveDiff(updated)
+    } finally {
+      setIsApplyingHunk(false)
+    }
+  }
+
+  const handleUnstageHunk = async (hunk: DiffHunk) => {
+    if (!activeFile || !onApplyHunkPatch) return
+    setIsApplyingHunk(true)
+    try {
+      const patch = buildHunkPatch(activeFile.path, hunk)
+      await onApplyHunkPatch(patch, { cached: true, reverse: true })
+      const updated = await onGetDiff(activeFile.path, activeFile.staged)
+      setActiveDiff(updated)
+    } finally {
+      setIsApplyingHunk(false)
+    }
+  }
+
+  const handleDiscardHunk = async (hunk: DiffHunk) => {
+    if (!activeFile || !onApplyHunkPatch) return
+    if (!window.confirm('Discard this hunk changes from working directory?')) return
+    setIsApplyingHunk(true)
+    try {
+      const patch = buildHunkPatch(activeFile.path, hunk)
+      await onApplyHunkPatch(patch, { reverse: true })
+      const updated = await onGetDiff(activeFile.path, activeFile.staged)
+      setActiveDiff(updated)
+    } finally {
+      setIsApplyingHunk(false)
+    }
+  }
 
   useEffect(() => {
     if (activeFile) {
@@ -151,33 +205,72 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
             </button>
           </div>
 
-          <div className="max-h-48 overflow-y-auto text-xs font-mono bg-[#0c0e14] p-2 rounded border border-surface-border/40">
-            {isDiffLoading && <p className="text-slate-500">Loading diff...</p>}
+          <div className="max-h-72 overflow-y-auto text-xs font-mono bg-[#090b10] p-2 rounded border border-surface-border/40 space-y-2.5">
+            {isDiffLoading && <p className="text-slate-500 py-2">Loading diff...</p>}
             {activeDiff && activeDiff.hunks.length === 0 && !isDiffLoading && (
-              <p className="text-slate-500">No text differences found.</p>
+              <p className="text-slate-500 py-2">No text differences found.</p>
             )}
             {activeDiff?.hunks.map((hunk, hIdx) => (
-              <div key={hIdx} className="mb-2 last:mb-0">
-                <div className="text-[10px] text-indigo-400 bg-indigo-950/30 px-1 py-0.5 rounded">
-                  {hunk.header}
-                </div>
-                {hunk.lines.map((line, lIdx) => (
-                  <div
-                    key={lIdx}
-                    className={`leading-tight px-1 ${
-                      line.type === 'add'
-                        ? 'bg-emerald-950/40 text-emerald-300'
-                        : line.type === 'delete'
-                        ? 'bg-rose-950/40 text-rose-300'
-                        : 'text-slate-400'
-                    }`}
-                  >
-                    <span className="inline-block w-4 text-slate-600 select-none">
-                      {line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '}
-                    </span>
-                    {line.content}
+              <div key={hIdx} className="rounded border border-surface-border/50 overflow-hidden bg-[#0c0e14]">
+                <div className="flex items-center justify-between text-[11px] text-indigo-300 bg-indigo-950/40 px-2 py-1 border-b border-surface-border/40 font-mono">
+                  <span className="truncate max-w-[200px]" title={hunk.header}>{hunk.header}</span>
+                  <div className="flex items-center gap-1.5 font-sans shrink-0">
+                    {!activeFile.staged ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isApplyingHunk}
+                          onClick={() => handleStageHunk(hunk)}
+                          className="px-1.5 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-emerald-200 text-[10px] font-medium flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
+                          title="Stage this hunk only"
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                          <span>Stage Hunk</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isApplyingHunk}
+                          onClick={() => handleDiscardHunk(hunk)}
+                          className="px-1.5 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 text-[10px] font-medium flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
+                          title="Discard this hunk from working directory"
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          <span>Discard Hunk</span>
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isApplyingHunk}
+                        onClick={() => handleUnstageHunk(hunk)}
+                        className="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 text-[10px] font-medium flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
+                        title="Unstage this hunk"
+                      >
+                        <Minus className="w-2.5 h-2.5" />
+                        <span>Unstage Hunk</span>
+                      </button>
+                    )}
                   </div>
-                ))}
+                </div>
+                <div className="overflow-x-auto p-1 text-[11px] leading-tight">
+                  {hunk.lines.map((line, lIdx) => (
+                    <div
+                      key={lIdx}
+                      className={`px-1 rounded-sm ${
+                        line.type === 'add'
+                          ? 'bg-emerald-950/40 text-emerald-300'
+                          : line.type === 'delete'
+                          ? 'bg-rose-950/40 text-rose-300'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      <span className="inline-block w-4 text-slate-600 select-none">
+                        {line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '}
+                      </span>
+                      {line.content}
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
