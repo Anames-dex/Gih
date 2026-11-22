@@ -11,7 +11,9 @@ import {
   Plus,
   Trash2,
   Play,
-  GripVertical
+  GripVertical,
+  Pencil,
+  Check
 } from 'lucide-react'
 
 type SidebarSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'worktrees'
@@ -32,6 +34,7 @@ interface SidebarProps {
   onCreateTag?: () => void
   onDeleteTag?: (name: string) => void
   onBranchFromStash?: (name: string, index: number) => void
+  onRenameBranch?: (oldName: string, newName: string) => void
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -49,7 +52,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCreateTag,
   onDeleteTag,
   onBranchFromStash,
+  onRenameBranch,
 }) => {
+  const [renamingBranch, setRenamingBranch] = useState<string | null>(null)
+  const [renamingValue, setRenamingValue] = useState('')
   const [sectionOrder, setSectionOrder] = useState<SidebarSection[]>([
     'branches',
     'remotes',
@@ -134,6 +140,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="pl-4 mt-0.5 space-y-0.5">
                 {filteredLocal.map((b) => {
                   const isActive = b.name === currentBranch
+                  const isRenaming = renamingBranch === b.name
+
+                  if (isRenaming) {
+                    return (
+                      <div key={b.name} className="flex items-center gap-1.5 px-2 py-1 bg-surface-hover rounded text-xs">
+                        <BranchIcon className="w-3 h-3 text-brand shrink-0" />
+                        <input
+                          autoFocus
+                          value={renamingValue}
+                          onChange={(e) => setRenamingValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              if (renamingValue.trim() && renamingValue.trim() !== b.name && onRenameBranch) {
+                                onRenameBranch(b.name, renamingValue.trim())
+                              }
+                              setRenamingBranch(null)
+                            } else if (e.key === 'Escape') {
+                              setRenamingBranch(null)
+                            }
+                          }}
+                          onBlur={() => {
+                            if (renamingValue.trim() && renamingValue.trim() !== b.name && onRenameBranch) {
+                              onRenameBranch(b.name, renamingValue.trim())
+                            }
+                            setRenamingBranch(null)
+                          }}
+                          className="w-full bg-[#0c0e14] border border-brand rounded px-1.5 py-0.5 text-xs text-white focus:outline-none"
+                        />
+                      </div>
+                    )
+                  }
+
                   return (
                     <div
                       key={b.name}
@@ -150,6 +188,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       </div>
 
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setRenamingBranch(b.name)
+                            setRenamingValue(b.name)
+                          }}
+                          className="p-1 hover:text-amber-300"
+                          title="Rename branch"
+                        >
+                          <Pencil className="w-2.5 h-2.5" />
+                        </button>
+
                         {!isActive && (
                           <>
                             <button

@@ -467,6 +467,13 @@ export class GitService {
     return await this.execGit(['reset', `--${mode}`, targetHash])
   }
 
+  public async renameBranch(
+    oldName: string,
+    newName: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return await this.execGit(['branch', '-m', oldName, newName])
+  }
+
   /**
    * List stashes
    */

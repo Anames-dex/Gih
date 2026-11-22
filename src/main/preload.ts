@@ -21,6 +21,7 @@ export interface GihAPI {
   checkoutBranch: (branchName: string) => Promise<void>
   createBranch: (branchName: string, startPoint?: string) => Promise<void>
   deleteBranch: (branchName: string, force?: boolean) => Promise<void>
+  renameBranch: (oldName: string, newName: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   fetchRemote: (remoteName?: string) => Promise<void>
   pullRemote: (remoteName?: string, branchName?: string) => Promise<void>
   pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean) => Promise<void>
@@ -58,6 +59,7 @@ const api: GihAPI = {
   checkoutBranch: (branchName: string) => ipcRenderer.invoke('git:checkoutBranch', branchName),
   createBranch: (branchName: string, startPoint?: string) => ipcRenderer.invoke('git:createBranch', branchName, startPoint),
   deleteBranch: (branchName: string, force?: boolean) => ipcRenderer.invoke('git:deleteBranch', branchName, force),
+  renameBranch: (oldName: string, newName: string) => ipcRenderer.invoke('git:renameBranch', oldName, newName),
   fetchRemote: (remoteName?: string) => ipcRenderer.invoke('git:fetch', remoteName),
   pullRemote: (remoteName?: string, branchName?: string) => ipcRenderer.invoke('git:pull', remoteName, branchName),
   pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean) => ipcRenderer.invoke('git:push', remoteName, branchName, setUpstream),

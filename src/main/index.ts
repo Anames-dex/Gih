@@ -203,6 +203,10 @@ ipcMain.handle('git:deleteBranch', async (_, branchName: string, force?: boolean
   await gitService.execGit(['branch', flag, branchName])
 })
 
+ipcMain.handle('git:renameBranch', async (_, oldName: string, newName: string) => {
+  return await gitService.renameBranch(oldName, newName)
+})
+
 ipcMain.handle('git:fetch', async (_, remoteName?: string) => {
   const args = ['fetch', '--prune']
   if (remoteName) args.push(remoteName)

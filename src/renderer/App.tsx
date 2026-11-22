@@ -259,6 +259,27 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleRenameBranch = async (oldName: string, newName: string) => {
+    if (!gih || !newName.trim() || oldName === newName.trim()) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.renameBranch(oldName, newName.trim())
+      if (res.exitCode !== 0) {
+        showToast({ type: 'error', command: `git branch -m ${oldName} ${newName.trim()}`, message: res.stderr || 'Rename failed' })
+      } else {
+        await refreshState()
+        showToast({
+          type: 'success',
+          command: `git branch -m ${oldName} ${newName.trim()}`,
+          message: `Renamed branch to '${newName.trim()}'`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: `git branch -m`, message: e.message })
+    }
+  }
+
   const handleOpenRepo = async () => {
     if (!gih) return
     const dir = await gih.openDirectoryDialog()
@@ -668,6 +689,7 @@ export const App: React.FC = () => {
             onCreateTag={handleCreateTag}
             onDeleteTag={handleDeleteTag}
             onBranchFromStash={handleBranchFromStash}
+            onRenameBranch={handleRenameBranch}
           />
 
           {/* Drag Splitter: Sidebar -> Graph */}
