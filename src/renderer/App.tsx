@@ -8,6 +8,7 @@ import { StagingArea } from './components/staging/StagingArea'
 import { BottomPanel } from './components/terminal/BottomPanel'
 import { CommandPalette } from './components/modals/CommandPalette'
 import { InteractiveRebaseModal, RebaseStep } from './components/modals/InteractiveRebaseModal'
+import { ResetBranchModal, ResetMode } from './components/modals/ResetBranchModal'
 
 interface ToastNotice {
   id: string
@@ -23,6 +24,7 @@ export const App: React.FC = () => {
   const [isTerminalOpen, setIsTerminalOpen] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isRebaseModalOpen, setIsRebaseModalOpen] = useState(false)
+  const [resetModalCommit, setResetModalCommit] = useState<GitCommit | null>(null)
   const [commandHistory, setCommandHistory] = useState<CommandLogEntry[]>([])
   const [isFetching, setIsFetching] = useState(false)
   const [isPulling, setIsPulling] = useState(false)
@@ -416,20 +418,45 @@ export const App: React.FC = () => {
     }
   }
 
-  const handleCommit = async (message: string, signOff?: boolean) => {
+  const handleCommit = async (message: string, signOff?: boolean, amend?: boolean) => {
     if (!gih) return
     const t0 = performance.now()
     try {
-      await gih.createCommit(message, signOff)
-      await refreshState()
-      showToast({
-        type: 'success',
-        command: `git commit -m "${message.slice(0, 25)}..."`,
-        message: 'Commit created',
-        durationMs: Math.round(performance.now() - t0),
-      })
+      const res = await gih.createCommit(message, signOff, amend)
+      if (res.exitCode !== 0) {
+        showToast({ type: 'error', command: 'git commit', message: res.stderr || 'Commit failed' })
+      } else {
+        await refreshState()
+        showToast({
+          type: 'success',
+          command: `git commit ${amend ? '--amend ' : ''}${signOff ? '-s ' : ''}-m "${message.slice(0, 20)}..."`.trim(),
+          message: amend ? 'Amended HEAD commit' : 'Commit created',
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
     } catch (e: any) {
-      showToast({ type: 'error', command: `git commit`, message: e.message })
+      showToast({ type: 'error', command: 'git commit', message: e.message })
+    }
+  }
+
+  const handleExecuteReset = async (commit: GitCommit, mode: ResetMode) => {
+    if (!gih) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.resetBranch(commit.hash, mode)
+      if (res.exitCode !== 0) {
+        showToast({ type: 'error', command: `git reset --${mode}`, message: res.stderr || 'Reset failed' })
+      } else {
+        await refreshState()
+        showToast({
+          type: 'info',
+          command: `git reset --${mode} ${commit.shortHash}`,
+          message: `Reset branch to ${commit.shortHash} (--${mode})`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: `git reset --${mode}`, message: e.message })
     }
   }
 
@@ -716,14 +743,12 @@ export const App: React.FC = () => {
                 <div className="border-t border-surface-border my-1" />
                 <button
                   onClick={() => {
-                    if (window.confirm(`Reset current branch to ${contextMenu.commit.shortHash}?`)) {
-                      gih?.execCommand(['reset', '--hard', contextMenu.commit.hash]).then(refreshState)
-                    }
+                    setResetModalCommit(contextMenu.commit)
                     setContextMenu(null)
                   }}
                   className="w-full text-left px-3 py-1.5 hover:bg-rose-950/60 text-rose-300"
                 >
-                  Reset current branch to here
+                  Reset branch to here...
                 </button>
               </div>
             )}
@@ -752,6 +777,7 @@ export const App: React.FC = () => {
             onCommit={handleCommit}
             onGetDiff={(path, staged) => gih?.getDiff(path, staged)}
             onApplyHunkPatch={handleApplyHunkPatch}
+            headCommit={repoState?.commits.find((c) => c.isHead) || repoState?.commits[0] || null}
           />
         </div>
       )}
@@ -801,6 +827,14 @@ export const App: React.FC = () => {
         onClose={() => setIsRebaseModalOpen(false)}
         commits={repoState?.commits || []}
         onExecuteRebase={handleExecuteRebase}
+      />
+
+      <ResetBranchModal
+        isOpen={Boolean(resetModalCommit)}
+        commit={resetModalCommit}
+        currentBranch={repoState?.currentBranch || null}
+        onClose={() => setResetModalCommit(null)}
+        onConfirmReset={handleExecuteReset}
       />
 
       {/* Top-Center Command Feedback Island */}

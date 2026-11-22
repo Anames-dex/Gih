@@ -32,9 +32,10 @@ interface StagingAreaProps {
   onStageAll: () => void
   onUnstageAll: () => void
   onDiscardChanges: (path: string) => void
-  onCommit: (message: string, signOff?: boolean) => void
+  onCommit: (message: string, signOff?: boolean, amend?: boolean) => void
   onGetDiff: (path: string, staged: boolean) => Promise<FileDiff>
   onApplyHunkPatch?: (patch: string, options: { cached?: boolean; reverse?: boolean }) => Promise<void>
+  headCommit?: GitCommit | null
 }
 
 export const StagingArea: React.FC<StagingAreaProps> = ({
@@ -50,11 +51,13 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   onCommit,
   onGetDiff,
   onApplyHunkPatch,
+  headCommit,
 }) => {
   const [activeFile, setActiveFile] = useState<GitFileStatus | null>(null)
   const [activeDiff, setActiveDiff] = useState<FileDiff | null>(null)
   const [commitMessage, setCommitMessage] = useState('')
   const [signOff, setSignOff] = useState(false)
+  const [isAmend, setIsAmend] = useState(false)
   const [isDiffLoading, setIsDiffLoading] = useState(false)
   const [isApplyingHunk, setIsApplyingHunk] = useState(false)
 
@@ -118,9 +121,10 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
 
   const handleCommitSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!commitMessage.trim() || stagedFiles.length === 0) return
-    onCommit(commitMessage.trim(), signOff)
+    if (!commitMessage.trim() || (!isAmend && stagedFiles.length === 0)) return
+    onCommit(commitMessage.trim(), signOff, isAmend)
     setCommitMessage('')
+    setIsAmend(false)
   }
 
   // If a commit is selected from the graph, show its inspector
@@ -415,24 +419,46 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
           className="w-full bg-[#0c0e14] border border-surface-border rounded-lg p-2.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-brand resize-none font-sans"
         />
 
-        <div className="flex items-center justify-between mt-2">
-          <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={signOff}
-              onChange={(e) => setSignOff(e.target.checked)}
-              className="rounded bg-surface-border border-surface-border text-brand focus:ring-0"
-            />
-            <span>Sign-off (-s)</span>
-          </label>
+        <div className="flex items-center justify-between mt-2.5">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer hover:text-slate-200">
+              <input
+                type="checkbox"
+                checked={signOff}
+                onChange={(e) => setSignOff(e.target.checked)}
+                className="rounded bg-surface-border border-surface-border text-brand focus:ring-0"
+              />
+              <span>Sign-off (-s)</span>
+            </label>
+
+            <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer hover:text-slate-200" title="Amend previous commit (HEAD)">
+              <input
+                type="checkbox"
+                checked={isAmend}
+                onChange={(e) => {
+                  const checked = e.target.checked
+                  setIsAmend(checked)
+                  if (checked && !commitMessage.trim() && headCommit) {
+                    setCommitMessage(headCommit.message)
+                  }
+                }}
+                className="rounded bg-surface-border border-surface-border text-amber-400 focus:ring-0"
+              />
+              <span className={isAmend ? 'text-amber-400 font-semibold' : ''}>Amend</span>
+            </label>
+          </div>
 
           <button
             type="submit"
-            disabled={stagedFiles.length === 0 || !commitMessage.trim()}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand hover:bg-brand-hover text-slate-950 font-semibold rounded text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+            disabled={!commitMessage.trim() || (!isAmend && stagedFiles.length === 0)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 font-semibold rounded text-xs transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm ${
+              isAmend
+                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                : 'bg-brand hover:bg-brand-hover text-slate-950'
+            }`}
           >
             <Check className="w-3.5 h-3.5" />
-            <span>Commit ({stagedFiles.length})</span>
+            <span>{isAmend ? 'Amend Commit' : `Commit (${stagedFiles.length})`}</span>
           </button>
         </div>
       </form>

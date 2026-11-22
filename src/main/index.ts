@@ -180,12 +180,12 @@ ipcMain.handle('git:applyPatch', async (_, patch: string, options?: { cached?: b
   return await gitService.applyPatch(patch, options)
 })
 
-ipcMain.handle('git:createCommit', async (_, message: string, signOff?: boolean) => {
-  const args = ['commit', '-m', message]
-  if (signOff) {
-    args.push('-s')
-  }
-  return await gitService.execGit(args)
+ipcMain.handle('git:createCommit', async (_, message: string, signOff?: boolean, amend?: boolean) => {
+  return await gitService.createCommit(message, signOff, amend)
+})
+
+ipcMain.handle('git:resetBranch', async (_, targetHash: string, mode: 'soft' | 'mixed' | 'hard') => {
+  return await gitService.resetBranch(targetHash, mode)
 })
 
 ipcMain.handle('git:checkoutBranch', async (_, branchName: string) => {

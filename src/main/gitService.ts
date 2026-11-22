@@ -449,6 +449,24 @@ export class GitService {
     return stdout
   }
 
+  public async createCommit(
+    message: string,
+    signOff?: boolean,
+    amend?: boolean
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const args = ['commit', '-m', message]
+    if (signOff) args.push('-s')
+    if (amend) args.push('--amend')
+    return await this.execGit(args)
+  }
+
+  public async resetBranch(
+    targetHash: string,
+    mode: 'soft' | 'mixed' | 'hard' = 'mixed'
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return await this.execGit(['reset', `--${mode}`, targetHash])
+  }
+
   /**
    * List stashes
    */
