@@ -25,6 +25,9 @@ export const App: React.FC = () => {
   const [isRebaseModalOpen, setIsRebaseModalOpen] = useState(false)
   const [commandHistory, setCommandHistory] = useState<CommandLogEntry[]>([])
   const [isFetching, setIsFetching] = useState(false)
+  const [isPulling, setIsPulling] = useState(false)
+  const [isPushing, setIsPushing] = useState(false)
+  const [isStashing, setIsStashing] = useState(false)
   const [toasts, setToasts] = useState<ToastNotice[]>([])
 
   // Resizable Panes Dimensions
@@ -160,6 +163,7 @@ export const App: React.FC = () => {
 
   const handlePull = async () => {
     if (!gih) return
+    setIsPulling(true)
     const t0 = performance.now()
     try {
       await gih.pullRemote()
@@ -172,11 +176,14 @@ export const App: React.FC = () => {
       })
     } catch (e: any) {
       showToast({ type: 'error', command: 'git pull', message: e.message })
+    } finally {
+      setIsPulling(false)
     }
   }
 
   const handlePush = async () => {
     if (!gih) return
+    setIsPushing(true)
     const t0 = performance.now()
     try {
       await gih.pushRemote(undefined, undefined, true)
@@ -189,6 +196,8 @@ export const App: React.FC = () => {
       })
     } catch (e: any) {
       showToast({ type: 'error', command: 'git push', message: e.message })
+    } finally {
+      setIsPushing(false)
     }
   }
 
@@ -278,6 +287,7 @@ export const App: React.FC = () => {
   const handleStash = async () => {
     if (!gih) return
     const msg = window.prompt('Stash message (optional):')
+    setIsStashing(true)
     const t0 = performance.now()
     try {
       await gih.createStash(msg || undefined, true)
@@ -290,6 +300,8 @@ export const App: React.FC = () => {
       })
     } catch (e: any) {
       showToast({ type: 'error', command: 'git stash', message: e.message })
+    } finally {
+      setIsStashing(false)
     }
   }
 
@@ -510,6 +522,9 @@ export const App: React.FC = () => {
         onToggleTerminal={() => setIsTerminalOpen((prev) => !prev)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         isFetching={isFetching}
+        isPulling={isPulling}
+        isPushing={isPushing}
+        isStashing={isStashing}
       />
 
       {/* In-Progress Git Operation HUD Banner (Rebase / Merge / Cherry-Pick / Bisect) */}
@@ -766,17 +781,17 @@ export const App: React.FC = () => {
         onExecuteRebase={handleExecuteRebase}
       />
 
-      {/* Toast Notification Stack */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-md w-full">
+      {/* Top-Center Command Feedback Island */}
+      <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5 pointer-events-none max-w-lg w-full px-4">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto px-3.5 py-2.5 rounded-xl border shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in transition-all ${
+            className={`pointer-events-auto px-4 py-2 rounded-full border shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in transition-all ${
               toast.type === 'error'
-                ? 'bg-[#1e1014]/95 border-rose-800/80 text-rose-100'
+                ? 'bg-[#1e1014]/95 border-rose-800/80 text-rose-100 shadow-rose-950/40'
                 : toast.type === 'info'
                 ? 'bg-surface/95 border-surface-border text-slate-100'
-                : 'bg-[#0f1923]/95 border-emerald-500/30 text-slate-100'
+                : 'bg-[#0f1923]/95 border-emerald-500/40 text-slate-100 shadow-emerald-950/30'
             }`}
           >
             {toast.type === 'error' ? (
@@ -785,19 +800,20 @@ export const App: React.FC = () => {
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             )}
 
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-xs font-semibold truncate">{toast.message}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-semibold whitespace-nowrap">{toast.message}</span>
               {toast.command && (
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[11px] font-mono text-sky-400 truncate">
+                <>
+                  <span className="text-slate-600 text-xs">•</span>
+                  <span className="text-[11px] font-mono text-sky-400 truncate max-w-[220px]">
                     ${toast.command.startsWith(' ') ? '' : ' '}{toast.command}
                   </span>
-                  {toast.durationMs !== undefined && (
-                    <span className="text-[10px] font-mono text-slate-400 bg-surface-subtle px-1 rounded shrink-0">
-                      {toast.durationMs}ms
-                    </span>
-                  )}
-                </div>
+                </>
+              )}
+              {toast.durationMs !== undefined && (
+                <span className="text-[10px] font-mono text-slate-400 bg-surface-subtle px-1.5 py-0.5 rounded-full shrink-0">
+                  {toast.durationMs}ms
+                </span>
               )}
             </div>
           </div>

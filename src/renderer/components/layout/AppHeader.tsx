@@ -8,7 +8,8 @@ import {
   Archive,
   Terminal,
   Search,
-  FolderOpen
+  FolderOpen,
+  Loader2
 } from 'lucide-react'
 
 interface AppHeaderProps {
@@ -23,6 +24,9 @@ interface AppHeaderProps {
   onToggleTerminal: () => void
   onOpenCommandPalette: () => void
   isFetching?: boolean
+  isPulling?: boolean
+  isPushing?: boolean
+  isStashing?: boolean
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -37,6 +41,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onToggleTerminal,
   onOpenCommandPalette,
   isFetching = false,
+  isPulling = false,
+  isPushing = false,
+  isStashing = false,
 }) => {
   return (
     <header className="h-12 bg-surface border-b border-surface-border flex items-center justify-between px-3 select-none shrink-0" style={{ WebkitAppRegion: 'drag' } as any}>
@@ -46,14 +53,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <img
             src="/logo.png"
             alt="Gih"
-            className="h-9 w-auto object-contain drop-shadow select-none"
+            className="h-9 w-auto object-contain drop-shadow select-none cursor-pointer active:scale-95 transition-transform"
             title="Gih"
           />
         </div>
 
         <button
           onClick={onOpenRepo}
-          className="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-subtle hover:bg-surface-hover border border-surface-border text-xs text-slate-300 font-medium transition-colors"
+          className="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-subtle hover:bg-surface-hover active:scale-95 border border-surface-border text-xs text-slate-300 font-medium transition-all shadow-sm"
           title="Open another repository"
         >
           <FolderGit2 className="w-3.5 h-3.5 text-sky-400" />
@@ -70,40 +77,54 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       </div>
 
       {/* Center: Quick Action Toolbar */}
-      <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
+      <div className="flex items-center gap-1.5" style={{ WebkitAppRegion: 'no-drag' } as any}>
         <button
           onClick={onFetch}
           disabled={isFetching}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-hover transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-hover active:scale-95 transition-all disabled:opacity-50 border border-transparent hover:border-surface-border/50"
           title="Fetch from all remotes"
         >
-          <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isFetching ? 'animate-spin' : ''}`} />
-          <span>Fetch</span>
+          {isFetching ? (
+            <Loader2 className="w-3.5 h-3.5 text-sky-400 animate-spin" />
+          ) : (
+            <RefreshCw className="w-3.5 h-3.5 text-sky-400" />
+          )}
+          <span>{isFetching ? 'Fetching...' : 'Fetch'}</span>
         </button>
 
         <button
           onClick={onPull}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-hover transition-colors"
+          disabled={isPulling}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-hover active:scale-95 transition-all disabled:opacity-50 border border-transparent hover:border-surface-border/50"
           title="Pull from upstream"
         >
-          <ArrowDown className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Pull</span>
+          {isPulling ? (
+            <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+          ) : (
+            <ArrowDown className="w-3.5 h-3.5 text-emerald-400" />
+          )}
+          <span>{isPulling ? 'Pulling...' : 'Pull'}</span>
         </button>
 
         <button
           onClick={onPush}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-hover transition-colors"
+          disabled={isPushing}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-hover active:scale-95 transition-all disabled:opacity-50 border border-transparent hover:border-surface-border/50"
           title="Push to upstream"
         >
-          <ArrowUp className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Push</span>
+          {isPushing ? (
+            <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin" />
+          ) : (
+            <ArrowUp className="w-3.5 h-3.5 text-indigo-400" />
+          )}
+          <span>{isPushing ? 'Pushing...' : 'Push'}</span>
         </button>
 
         <div className="w-px h-4 bg-surface-border mx-1" />
 
         <button
           onClick={onNewBranch}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-hover transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-hover active:scale-95 transition-all border border-transparent hover:border-surface-border/50"
           title="Create new branch"
         >
           <GitBranch className="w-3.5 h-3.5 text-amber-400" />
@@ -112,11 +133,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
         <button
           onClick={onStash}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-hover transition-colors"
+          disabled={isStashing}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-hover active:scale-95 transition-all disabled:opacity-50 border border-transparent hover:border-surface-border/50"
           title="Stash uncommitted changes"
         >
-          <Archive className="w-3.5 h-3.5 text-purple-400" />
-          <span>Stash</span>
+          {isStashing ? (
+            <Loader2 className="w-3.5 h-3.5 text-purple-400 animate-spin" />
+          ) : (
+            <Archive className="w-3.5 h-3.5 text-purple-400" />
+          )}
+          <span>{isStashing ? 'Stashing...' : 'Stash'}</span>
         </button>
       </div>
 
@@ -124,7 +150,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <div className="flex items-center gap-2 pr-32" style={{ WebkitAppRegion: 'no-drag' } as any}>
         <button
           onClick={onOpenCommandPalette}
-          className="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-subtle hover:bg-surface-hover border border-surface-border text-xs text-slate-400 transition-colors"
+          className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-surface-subtle hover:bg-surface-hover active:scale-95 border border-surface-border text-xs text-slate-400 transition-all shadow-sm"
           title="Open Command Palette (Ctrl+K)"
         >
           <Search className="w-3.5 h-3.5 text-slate-400" />
@@ -136,7 +162,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
         <button
           onClick={onToggleTerminal}
-          className="p-1.5 rounded hover:bg-surface-hover text-slate-400 hover:text-white transition-colors"
+          className="p-1.5 rounded-md hover:bg-surface-hover active:scale-95 text-slate-400 hover:text-white transition-all border border-transparent hover:border-surface-border/50"
           title="Toggle Terminal & Visual Shell"
         >
           <Terminal className="w-4 h-4 text-slate-400" />
