@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import type { RepositoryState, GitCommit, CommandLogEntry } from '../shared/types'
 import { AppHeader } from './components/layout/AppHeader'
 import { Sidebar } from './components/layout/Sidebar'
@@ -26,6 +26,8 @@ export const App: React.FC = () => {
   } | null>(null)
 
   const gih = (window as any).gih
+  const isRefreshingRef = useRef(false)
+  const refreshPendingRef = useRef(false)
 
   const showStatus = (msg: string) => {
     setStatusMessage(msg)
@@ -34,6 +36,12 @@ export const App: React.FC = () => {
 
   const refreshState = useCallback(async () => {
     if (!gih) return
+    if (isRefreshingRef.current) {
+      refreshPendingRef.current = true
+      return
+    }
+    isRefreshingRef.current = true
+
     try {
       const state = await gih.getState()
       setRepoState(state)
@@ -41,6 +49,12 @@ export const App: React.FC = () => {
       setCommandHistory(history)
     } catch (e: any) {
       console.error('Failed to refresh repository state:', e)
+    } finally {
+      isRefreshingRef.current = false
+      if (refreshPendingRef.current) {
+        refreshPendingRef.current = false
+        refreshState()
+      }
     }
   }, [gih])
 

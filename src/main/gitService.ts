@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import path from 'node:path'
 import type {
   GitCommit,
@@ -17,6 +17,7 @@ import type {
 export class GitService {
   private currentRepoPath: string = process.cwd()
   private commandHistory: CommandLogEntry[] = []
+  private activeExecutions: number = 0
 
   constructor(repoPath?: string) {
     if (repoPath) {
@@ -36,61 +37,51 @@ export class GitService {
     return this.commandHistory
   }
 
+  public isExecuting(): boolean {
+    return this.activeExecutions > 0
+  }
+
   /**
-   * Execute any raw git command with streaming output & logging
+   * Fast native git execution with direct child process, output buffering & telemetry
    */
   public async execGit(args: string[], cwd: string = this.currentRepoPath): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const commandStr = `git ${args.join(' ')}`
     const startTime = Date.now()
+    this.activeExecutions++
 
     return new Promise((resolve) => {
-      const proc = spawn('git', args, {
-        cwd,
-        env: { ...process.env, LANG: 'en_US.UTF-8' },
-        windowsHide: true,
-      })
+      execFile(
+        'git',
+        args,
+        {
+          cwd,
+          maxBuffer: 32 * 1024 * 1024,
+          windowsHide: true,
+          env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' },
+        },
+        (error, stdout, stderr) => {
+          this.activeExecutions--
+          const exitCode = error ? (error.code ? Number(error.code) : 1) : 0
+          const entry: CommandLogEntry = {
+            id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            command: commandStr,
+            timestamp: startTime,
+            exitCode,
+            output: stdout || stderr || (error ? error.message : ''),
+            isError: exitCode !== 0,
+          }
+          this.commandHistory.unshift(entry)
+          if (this.commandHistory.length > 500) {
+            this.commandHistory.pop()
+          }
 
-      let stdout = ''
-      let stderr = ''
-
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString('utf-8')
-      })
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString('utf-8')
-      })
-
-      proc.on('close', (code) => {
-        const exitCode = code ?? 0
-        const entry: CommandLogEntry = {
-          id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          command: commandStr,
-          timestamp: startTime,
-          exitCode,
-          output: stdout || stderr,
-          isError: exitCode !== 0,
+          resolve({
+            stdout: stdout || '',
+            stderr: stderr || (error && exitCode !== 0 ? error.message : ''),
+            exitCode,
+          })
         }
-        this.commandHistory.unshift(entry)
-        if (this.commandHistory.length > 500) {
-          this.commandHistory.pop()
-        }
-
-        resolve({ stdout, stderr, exitCode })
-      })
-
-      proc.on('error', (err) => {
-        const entry: CommandLogEntry = {
-          id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          command: commandStr,
-          timestamp: startTime,
-          exitCode: -1,
-          output: err.message,
-          isError: true,
-        }
-        this.commandHistory.unshift(entry)
-        resolve({ stdout: '', stderr: err.message, exitCode: -1 })
-      })
+      )
     })
   }
 

@@ -18,6 +18,7 @@ const indexHtml = path.join(process.env.DIST, 'index.html')
 
 const gitService = new GitService(process.cwd())
 let gitWatcher: fs.FSWatcher | null = null
+let watcherDebounceTimer: NodeJS.Timeout | null = null
 
 function setupGitWatcher(repoPath: string) {
   if (gitWatcher) {
@@ -32,10 +33,29 @@ function setupGitWatcher(repoPath: string) {
   const gitDir = path.join(repoPath, '.git')
   if (fs.existsSync(gitDir)) {
     try {
-      gitWatcher = fs.watch(gitDir, { recursive: true }, () => {
-        if (win && !win.isDestroyed()) {
-          win.webContents.send('git:changed')
+      gitWatcher = fs.watch(gitDir, { recursive: true }, (_, filename) => {
+        // Filter out noisy internal git temporary / lock files
+        if (filename) {
+          const lower = filename.toLowerCase()
+          if (
+            lower.endsWith('.lock') ||
+            lower.includes('commit_editmsg') ||
+            lower.includes('orig_head') ||
+            lower.includes('fetch_head')
+          ) {
+            return
+          }
         }
+
+        // Debounce by 350ms and do not notify if Gih itself is executing a git command
+        if (watcherDebounceTimer) {
+          clearTimeout(watcherDebounceTimer)
+        }
+        watcherDebounceTimer = setTimeout(() => {
+          if (win && !win.isDestroyed() && !gitService.isExecuting()) {
+            win.webContents.send('git:changed')
+          }
+        }, 350)
       })
     } catch (e) {
       console.warn('Failed to watch .git directory:', e)
@@ -44,12 +64,15 @@ function setupGitWatcher(repoPath: string) {
 }
 
 function createWindow() {
+  const iconPath = path.join(process.cwd(), 'GIH_LOGO.png')
+
   win = new BrowserWindow({
     title: 'Gih — Visual Git Shell',
     width: 1440,
     height: 900,
     minWidth: 1024,
     minHeight: 640,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     backgroundColor: '#0c0e14',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
@@ -101,8 +124,7 @@ ipcMain.handle('git:setRepoPath', async (_, repoPath: string) => {
 })
 
 ipcMain.handle('app:openDirectoryDialog', async () => {
-  if (!win) return null
-  const result = await dialog.showOpenDialog(win, {
+  const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],
     title: 'Select Git Repository',
   })
