@@ -13,7 +13,8 @@ import {
   Copy,
   GitCompare,
   Layers,
-  ChevronRight
+  ChevronRight,
+  EyeOff
 } from 'lucide-react'
 import { buildSplitRows, buildUnifiedRows, buildHunkPatch } from './diffUtils'
 
@@ -27,6 +28,7 @@ interface StagingAreaProps {
   onStageAll: () => void
   onUnstageAll: () => void
   onDiscardChanges: (path: string) => void
+  onIgnorePattern?: (pattern: string) => void
   onCommit: (message: string, signOff?: boolean, amend?: boolean) => void
   onGetDiff: (path: string, staged: boolean) => Promise<FileDiff>
   onGetCommitFiles?: (hash: string) => Promise<{ files: GitFileStatus[]; statSummary: string }>
@@ -47,6 +49,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   onStageAll,
   onUnstageAll,
   onDiscardChanges,
+  onIgnorePattern,
   onCommit,
   onGetDiff,
   onGetCommitFiles,
@@ -58,6 +61,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
 }) => {
   const [activeFile, setActiveFile] = useState<GitFileStatus | null>(null)
   const [activeDiff, setActiveDiff] = useState<FileDiff | null>(null)
+  const [ignoreMenuFile, setIgnoreMenuFile] = useState<GitFileStatus | null>(null)
   const [commitMessage, setCommitMessage] = useState('')
   const [signOff, setSignOff] = useState(false)
   const [isAmend, setIsAmend] = useState(false)
@@ -783,45 +787,120 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
           </div>
 
           <div className="space-y-0.5">
-            {unstagedFiles.map((file) => (
-              <div
-                key={file.path}
-                onClick={() => setActiveFile(file)}
-                className={`flex items-center justify-between p-1.5 rounded text-xs cursor-pointer group ${
-                  activeFile?.path === file.path ? 'bg-surface-hover' : 'hover:bg-surface-subtle'
-                }`}
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="truncate text-slate-200">{file.path}</span>
+            {unstagedFiles.map((file) => {
+              const ext = file.path.includes('.') ? file.path.split('.').pop() : null
+              const dir = file.path.includes('/') ? file.path.split('/')[0] : file.path.includes('\\') ? file.path.split('\\')[0] : null
+
+              return (
+                <div
+                  key={file.path}
+                  onClick={() => setActiveFile(file)}
+                  className={`relative flex items-center justify-between p-1.5 rounded text-xs cursor-pointer group ${
+                    activeFile?.path === file.path ? 'bg-surface-hover' : 'hover:bg-surface-subtle'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="truncate text-slate-200">{file.path}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] font-mono font-bold text-amber-400 uppercase">
+                      {file.status[0]}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onStageFile(file.path)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-emerald-400"
+                      title="Stage file"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    {onIgnorePattern && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIgnoreMenuFile((prev) => (prev?.path === file.path ? null : file))
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-amber-400"
+                        title="Add to .gitignore"
+                      >
+                        <EyeOff className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDiscardChanges(file.path)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400"
+                      title="Discard changes"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Quick .gitignore Popover */}
+                  {ignoreMenuFile?.path === file.path && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIgnoreMenuFile(null)
+                        }}
+                      />
+                      <div
+                        className="absolute right-0 top-full mt-1 z-50 bg-[#0f172a] border border-surface-border rounded-xl shadow-2xl p-1.5 min-w-[200px] text-xs space-y-1 backdrop-blur-md animate-fade-in"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="px-2 py-1 text-[10px] uppercase font-bold text-slate-400 tracking-wider border-b border-surface-border/50">
+                          Add to .gitignore
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIgnoreMenuFile(null)
+                            onIgnorePattern?.(file.path)
+                          }}
+                          className="w-full text-left px-2 py-1 rounded hover:bg-surface-hover text-slate-200 transition-colors truncate"
+                          title={`Ignore ${file.path}`}
+                        >
+                          <span className="font-mono text-[11px] text-sky-400">{file.path}</span>
+                        </button>
+                        {ext && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIgnoreMenuFile(null)
+                              onIgnorePattern?.(`*.${ext}`)
+                            }}
+                            className="w-full text-left px-2 py-1 rounded hover:bg-surface-hover text-slate-200 transition-colors truncate"
+                            title={`Ignore all *${ext} files`}
+                          >
+                            <span className="font-mono text-[11px] text-amber-400">*.{ext}</span>
+                          </button>
+                        )}
+                        {dir && dir !== '.' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIgnoreMenuFile(null)
+                              onIgnorePattern?.(`${dir}/`)
+                            }}
+                            className="w-full text-left px-2 py-1 rounded hover:bg-surface-hover text-slate-200 transition-colors truncate"
+                            title={`Ignore folder ${dir}/`}
+                          >
+                            <span className="font-mono text-[11px] text-emerald-400">{dir}/</span>
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[10px] font-mono font-bold text-amber-400 uppercase">
-                    {file.status[0]}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onStageFile(file.path)
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-emerald-400"
-                    title="Stage file"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onDiscardChanges(file.path)
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400"
-                    title="Discard changes"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
             {unstagedFiles.length === 0 && (
               <p className="text-xs text-slate-500 italic p-2 bg-surface-subtle/40 rounded border border-surface-border/40 text-center">
                 Working tree clean

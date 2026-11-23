@@ -1124,6 +1124,20 @@ export const App: React.FC = () => {
             onStageAll={() => gih?.stageAll().then(refreshState)}
             onUnstageAll={() => gih?.unstageAll().then(refreshState)}
             onDiscardChanges={(path) => gih?.discardChanges(path).then(refreshState)}
+            onIgnorePattern={async (pattern) => {
+              if (!gih?.addToGitIgnore) return
+              const res = await gih.addToGitIgnore(pattern)
+              if (res.success) {
+                showToast({
+                  type: 'success',
+                  command: `echo ${pattern} >> .gitignore`,
+                  message: `Added '${pattern}' to .gitignore`,
+                })
+                refreshState()
+              } else {
+                showToast({ type: 'error', message: res.error || 'Failed to update .gitignore' })
+              }
+            }}
             onCommit={handleCommit}
             onGetDiff={(path, staged) => gih?.getDiff(path, staged)}
             onGetCommitFiles={(hash) => gih?.getCommitFiles(hash)}

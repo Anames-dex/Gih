@@ -72,6 +72,31 @@ export class GitService {
   }
 
   /**
+   * Appends a file pattern or path to .gitignore
+   */
+  public async addToGitIgnore(pattern: string): Promise<{ success: boolean; pattern: string; error?: string }> {
+    const trimmed = pattern.trim().replace(/\\/g, '/')
+    if (!trimmed) {
+      return { success: false, pattern: '', error: 'Pattern cannot be empty' }
+    }
+    const gitignorePath = path.join(this.currentRepoPath, '.gitignore')
+    try {
+      let content = ''
+      if (fs.existsSync(gitignorePath)) {
+        content = fs.readFileSync(gitignorePath, 'utf8')
+      }
+      const lines = content.split(/\r?\n/).map((l) => l.trim())
+      if (!lines.includes(trimmed)) {
+        const ending = content.endsWith('\n') || content.length === 0 ? '' : '\n'
+        fs.writeFileSync(gitignorePath, content + ending + trimmed + '\n', 'utf8')
+      }
+      return { success: true, pattern: trimmed }
+    } catch (err: any) {
+      return { success: false, pattern: trimmed, error: err?.message || 'Failed to update .gitignore' }
+    }
+  }
+
+  /**
    * Checks whether Git is installed and accessible on PATH
    */
   public async checkGitInstallation(): Promise<{

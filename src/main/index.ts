@@ -301,6 +301,10 @@ ipcMain.handle('git:setAuthorConfig', async (_, name: string, email: string, isG
   return await gitService.setAuthorConfig(name, email, isGlobal)
 })
 
+ipcMain.handle('git:addToGitIgnore', async (_, pattern: string) => {
+  return await gitService.addToGitIgnore(pattern)
+})
+
 ipcMain.handle('git:setRepoPath', async (_, repoPath: string) => {
   if (typeof repoPath === 'string' && fs.existsSync(repoPath)) {
     const resolved = path.resolve(repoPath)

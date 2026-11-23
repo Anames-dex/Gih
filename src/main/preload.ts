@@ -37,6 +37,7 @@ export interface GihAPI {
   stageAll: () => Promise<void>
   unstageAll: () => Promise<void>
   discardChanges: (filePath: string) => Promise<void>
+  addToGitIgnore: (pattern: string) => Promise<{ success: boolean; pattern: string; error?: string }>
   resolveConflict: (filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => Promise<{ stdout: string; stderr: string; exitCode: number }>
   applyPatch: (patch: string, options?: { cached?: boolean; reverse?: boolean }) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   createCommit: (message: string, signOff?: boolean, amend?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
@@ -91,6 +92,7 @@ const api: GihAPI = {
   stageAll: () => ipcRenderer.invoke('git:stageAll'),
   unstageAll: () => ipcRenderer.invoke('git:unstageAll'),
   discardChanges: (filePath: string) => ipcRenderer.invoke('git:discardChanges', filePath),
+  addToGitIgnore: (pattern: string) => ipcRenderer.invoke('git:addToGitIgnore', pattern),
   resolveConflict: (filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => ipcRenderer.invoke('git:resolveConflict', filePath, resolution),
   applyPatch: (patch: string, options?: { cached?: boolean; reverse?: boolean }) => ipcRenderer.invoke('git:applyPatch', patch, options),
   createCommit: (message: string, signOff?: boolean, amend?: boolean) => ipcRenderer.invoke('git:createCommit', message, signOff, amend),
