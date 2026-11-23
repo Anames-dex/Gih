@@ -6,7 +6,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
+    "build": "tsc && vite build",
+    "package": "tsc && vite build && electron-builder",
+    "package:win": "tsc && vite build && electron-builder --win",
+    "package:portable": "tsc && vite build && electron-builder --win portable",
+    "package:mac": "tsc && vite build && electron-builder --mac",
+    "package:linux": "tsc && vite build && electron-builder --linux",
     "preview": "vite preview"
   },
   "repository": {
@@ -48,5 +53,72 @@
     "vite": "^6.1.0",
     "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "build": {
+    "appId": "com.anamesdex.gih",
+    "productName": "Gih",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "public/**/*"
+    ],
+    "win": {
+      "icon": "public/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Gih",
+      "artifactName": "Gih-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Gih-Portable-${version}.${ext}"
+    },
+    "mac": {
+      "icon": "public/logo.png",
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "artifactName": "Gih-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "icon": "public/logo.png",
+      "category": "Development",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "Gih-${version}.${ext}"
+    }
   }
 }
