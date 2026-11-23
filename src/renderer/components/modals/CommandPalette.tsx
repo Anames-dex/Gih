@@ -8,7 +8,9 @@ import {
   ArrowDown,
   ArrowUp,
   RefreshCw,
-  Archive
+  Archive,
+  User,
+  FolderGit2
 } from 'lucide-react'
 
 interface CommandPaletteProps {
@@ -48,6 +50,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     { id: 'pull', label: 'Git: Pull (Fast-forward or merge)', icon: ArrowDown, type: 'action' },
     { id: 'push', label: 'Git: Push to Remote', icon: ArrowUp, type: 'action' },
     { id: 'stash', label: 'Git: Stash All Changes', icon: Archive, type: 'action' },
+    { id: 'author-identity', label: 'Git: Configure Author Name & Email', icon: User, type: 'action' },
+    { id: 'context-menu', label: 'System: Toggle Explorer "Open with Gih" Context Menu', icon: FolderGit2, type: 'action' },
     { id: 'terminal', label: 'View: Toggle Visual Shell & Terminal', icon: Terminal, type: 'action' },
   ]
 

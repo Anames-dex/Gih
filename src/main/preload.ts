@@ -16,6 +16,8 @@ export interface GihAPI {
   installGit: (method?: string) => Promise<{ success: boolean; message: string }>
   getAuthorConfig: () => Promise<GitAuthorConfig>
   setAuthorConfig: (name: string, email: string, isGlobal?: boolean) => Promise<{ success: boolean; error?: string }>
+  toggleExplorerContextMenu: (enable: boolean) => Promise<{ success: boolean; enabled: boolean; error?: string }>
+  isExplorerContextMenuRegistered: () => Promise<boolean>
   getState: () => Promise<RepositoryState>
   setRepoPath: (repoPath: string) => Promise<RepositoryState>
   initRepository: (branchName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
@@ -68,6 +70,8 @@ const api: GihAPI = {
   installGit: (method?: string) => ipcRenderer.invoke('git:installGit', method),
   getAuthorConfig: () => ipcRenderer.invoke('git:getAuthorConfig'),
   setAuthorConfig: (name: string, email: string, isGlobal?: boolean) => ipcRenderer.invoke('git:setAuthorConfig', name, email, isGlobal),
+  toggleExplorerContextMenu: (enable: boolean) => ipcRenderer.invoke('app:toggleExplorerContextMenu', enable),
+  isExplorerContextMenuRegistered: () => ipcRenderer.invoke('app:isExplorerContextMenuRegistered'),
   getState: () => ipcRenderer.invoke('git:getState'),
   setRepoPath: (path: string) => ipcRenderer.invoke('git:setRepoPath', path),
   initRepository: (branchName?: string) => ipcRenderer.invoke('git:init', branchName),

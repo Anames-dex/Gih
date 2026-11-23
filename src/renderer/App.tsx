@@ -1170,11 +1170,30 @@ export const App: React.FC = () => {
           setSelectedCommits([c])
           setAnchorCommit(c)
         }}
-        onAction={(id) => {
+        onAction={async (id) => {
           if (id === 'fetch') handleFetch()
           if (id === 'pull') handlePull()
           if (id === 'push') handlePush()
           if (id === 'stash') handleStash()
+          if (id === 'author-identity') setIsAuthorModalOpen(true)
+          if (id === 'context-menu') {
+            if (gih?.isExplorerContextMenuRegistered && gih?.toggleExplorerContextMenu) {
+              const isRegistered = await gih.isExplorerContextMenuRegistered()
+              const res = await gih.toggleExplorerContextMenu(!isRegistered)
+              if (res.success) {
+                showToast({
+                  type: 'success',
+                  message: res.enabled
+                    ? 'Added "Open with Gih" to Windows Explorer right-click menu'
+                    : 'Removed "Open with Gih" from Windows Explorer right-click menu',
+                })
+              } else {
+                showToast({ type: 'error', message: res.error || 'Failed to update Explorer menu' })
+              }
+            } else {
+              showToast({ type: 'info', message: 'Context menu integration is only available on Windows' })
+            }
+          }
           if (id === 'terminal') setIsTerminalOpen((p) => !p)
         }}
       />

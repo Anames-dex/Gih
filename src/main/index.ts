@@ -22,12 +22,36 @@ process.env.VITE_PUBLIC = app.isPackaged
   ? process.env.DIST
   : path.join(process.env.DIST, '../public')
 
+function parseLaunchDirectory(args: string[]): string | null {
+  const relevantArgs = args.slice(app.isPackaged ? 1 : 2)
+  for (const arg of relevantArgs) {
+    if (arg && !arg.startsWith('-') && !arg.startsWith('--')) {
+      const candidate = path.resolve(arg)
+      if (fs.existsSync(candidate)) {
+        try {
+          const stat = fs.statSync(candidate)
+          if (stat.isDirectory()) {
+            return candidate
+          }
+          if (stat.isFile()) {
+            return path.dirname(candidate)
+          }
+        } catch {
+          // ignore invalid paths
+        }
+      }
+    }
+  }
+  return null
+}
+
 let win: BrowserWindow | null = null
 const preload = path.join(__dirname, 'preload.mjs')
 const url = process.env.VITE_DEV_SERVER_URL
 const indexHtml = path.join(process.env.DIST, 'index.html')
 
-const gitService = new GitService(process.cwd())
+const initialRepoPath = parseLaunchDirectory(process.argv) || process.cwd()
+const gitService = new GitService(initialRepoPath)
 let gitWatcher: fs.FSWatcher | null = null
 let watcherDebounceTimer: NodeJS.Timeout | null = null
 
@@ -145,20 +169,75 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
-  createWindow()
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+if (!gotSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_, commandLine) => {
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.focus()
+
+      const targetDir = parseLaunchDirectory(commandLine)
+      if (targetDir) {
+        gitService.setRepositoryPath(targetDir)
+        setupGitWatcher(targetDir)
+        win.webContents.send('git:changed')
+      }
     }
   })
-})
+
+  app.whenReady().then(() => {
+    createWindow()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow()
+      }
+    })
+  })
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+// IPC Handlers
+ipcMain.handle('app:toggleExplorerContextMenu', async (_, enable: boolean) => {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'Context menu integration is only applicable on Windows' }
+  }
+  const exePath = app.getPath('exe')
+
+  return new Promise((resolve) => {
+    if (enable) {
+      // Add "Open with Gih" for directories and directory backgrounds in HKCU (no admin required)
+      const cmd = `reg add "HKCU\\Software\\Classes\\Directory\\shell\\Gih" /ve /d "Open with Gih" /f && reg add "HKCU\\Software\\Classes\\Directory\\shell\\Gih" /v "Icon" /d "\\"${exePath}\\"" /f && reg add "HKCU\\Software\\Classes\\Directory\\shell\\Gih\\command" /ve /d "\\"${exePath}\\" \\"%V\\"" /f && reg add "HKCU\\Software\\Classes\\Directory\\Background\\shell\\Gih" /ve /d "Open with Gih" /f && reg add "HKCU\\Software\\Classes\\Directory\\Background\\shell\\Gih" /v "Icon" /d "\\"${exePath}\\"" /f && reg add "HKCU\\Software\\Classes\\Directory\\Background\\shell\\Gih\\command" /ve /d "\\"${exePath}\\" \\"%V\\"" /f`
+      const child = spawn('cmd.exe', ['/c', cmd], { windowsHide: true })
+      child.on('close', (code) => {
+        resolve({ success: code === 0, enabled: true })
+      })
+    } else {
+      const cmd = `reg delete "HKCU\\Software\\Classes\\Directory\\shell\\Gih" /f & reg delete "HKCU\\Software\\Classes\\Directory\\Background\\shell\\Gih" /f`
+      const child = spawn('cmd.exe', ['/c', cmd], { windowsHide: true })
+      child.on('close', (code) => {
+        resolve({ success: code === 0, enabled: false })
+      })
+    }
+  })
+})
+
+ipcMain.handle('app:isExplorerContextMenuRegistered', async () => {
+  if (process.platform !== 'win32') return false
+  return new Promise((resolve) => {
+    const child = spawn('reg', ['query', 'HKCU\\Software\\Classes\\Directory\\shell\\Gih'], { windowsHide: true })
+    child.on('close', (code) => {
+      resolve(code === 0)
+    })
+  })
 })
 
 // IPC Handlers
