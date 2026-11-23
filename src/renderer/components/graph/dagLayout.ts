@@ -26,6 +26,8 @@ const LANE_COLORS = [
   '#f97316', // Orange
 ]
 
+const MAX_LANES_CAP = 24
+
 export function computeDagLayout(commits: GitCommit[]): {
   nodes: GraphNode[]
   edges: GraphEdge[]
@@ -45,8 +47,12 @@ export function computeDagLayout(commits: GitCommit[]): {
       // Find first empty slot in activeLanes or append
       lane = activeLanes.indexOf(null)
       if (lane === -1) {
-        lane = activeLanes.length
-        activeLanes.push(null)
+        if (activeLanes.length < MAX_LANES_CAP) {
+          lane = activeLanes.length
+          activeLanes.push(null)
+        } else {
+          lane = MAX_LANES_CAP - 1
+        }
       }
     }
 
@@ -73,8 +79,10 @@ export function computeDagLayout(commits: GitCommit[]): {
           const nextEmpty = activeLanes.indexOf(null)
           if (nextEmpty !== -1) {
             activeLanes[nextEmpty] = parentHash
-          } else {
+          } else if (activeLanes.length < MAX_LANES_CAP) {
             activeLanes.push(parentHash)
+          } else {
+            activeLanes[MAX_LANES_CAP - 1] = parentHash
           }
         }
       } else {
@@ -82,8 +90,10 @@ export function computeDagLayout(commits: GitCommit[]): {
         const nextEmpty = activeLanes.indexOf(null)
         if (nextEmpty !== -1) {
           activeLanes[nextEmpty] = parentHash
-        } else {
+        } else if (activeLanes.length < MAX_LANES_CAP) {
           activeLanes.push(parentHash)
+        } else {
+          activeLanes[MAX_LANES_CAP - 1] = parentHash
         }
       }
     })
@@ -109,6 +119,7 @@ export function computeDagLayout(commits: GitCommit[]): {
   nodes.forEach((n) => {
     if (n.lane > maxLane) maxLane = n.lane
   })
+  maxLane = Math.min(maxLane, MAX_LANES_CAP - 1)
 
   return { nodes, edges, maxLane }
 }

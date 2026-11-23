@@ -57,11 +57,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   isStashing = false,
 }) => {
   const [isPushMenuOpen, setIsPushMenuOpen] = useState(false)
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent)
 
   return (
     <header className="h-12 bg-surface border-b border-surface-border flex items-center justify-between px-3 select-none shrink-0" style={{ WebkitAppRegion: 'drag' } as any}>
       {/* Left: App Brand & Repository Switcher */}
-      <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as any}>
+      <div className={`flex items-center gap-3 ${isMac ? 'pl-20' : ''}`} style={{ WebkitAppRegion: 'no-drag' } as any}>
         <div className="flex items-center pr-3 border-r border-surface-border">
           <img
             src="/logo.png"
@@ -233,16 +234,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       </div>
 
       {/* Right: Command Palette & Terminal Toggle (leaving room for Windows window control buttons) */}
-      <div className="flex items-center gap-2 pr-32" style={{ WebkitAppRegion: 'no-drag' } as any}>
+      <div className={`flex items-center gap-2 ${isMac ? 'pr-4' : 'pr-32'}`} style={{ WebkitAppRegion: 'no-drag' } as any}>
         <button
           onClick={onOpenCommandPalette}
           className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-surface-subtle hover:bg-surface-hover active:scale-95 border border-surface-border text-xs text-slate-400 transition-all shadow-sm"
-          title="Open Command Palette (Ctrl+K)"
+          title={`Open Command Palette (${isMac ? '⌘K' : 'Ctrl+K'})`}
         >
           <Search className="w-3.5 h-3.5 text-slate-400" />
           <span className="hidden sm:inline">Commands</span>
           <kbd className="px-1 py-0.2 rounded bg-surface-border text-[10px] text-slate-400 font-mono">
-            Ctrl+K
+            {isMac ? '⌘K' : 'Ctrl+K'}
           </kbd>
         </button>
 
