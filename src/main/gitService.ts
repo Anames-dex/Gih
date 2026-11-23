@@ -30,8 +30,33 @@ export class GitService {
     }
   }
 
+  /**
+   * Resolves the actual git directory path, correctly supporting both traditional
+   * repositories and git worktrees / submodules where .git is a file containing `gitdir: <path>`
+   */
+  public static resolveGitDir(repoPath: string): string | null {
+    const gitPath = path.join(path.resolve(repoPath), '.git')
+    if (!fs.existsSync(gitPath)) return null
+    try {
+      const stat = fs.statSync(gitPath)
+      if (stat.isDirectory()) {
+        return gitPath
+      }
+      if (stat.isFile()) {
+        const content = fs.readFileSync(gitPath, 'utf8').trim()
+        if (content.startsWith('gitdir:')) {
+          const rawDir = content.substring(7).trim()
+          return path.isAbsolute(rawDir) ? rawDir : path.resolve(repoPath, rawDir)
+        }
+      }
+    } catch {
+      return null
+    }
+    return null
+  }
+
   public setRepositoryPath(repoPath: string) {
-    this.currentRepoPath = repoPath
+    this.currentRepoPath = path.resolve(repoPath)
   }
 
   public getRepositoryPath(): string {
@@ -175,8 +200,8 @@ export class GitService {
    */
   public async getRepositoryState(): Promise<RepositoryState> {
     const repoName = path.basename(this.currentRepoPath)
-    const gitDir = path.join(this.currentRepoPath, '.git')
-    const isGitRepo = fs.existsSync(gitDir)
+    const realGitDir = GitService.resolveGitDir(this.currentRepoPath)
+    const isGitRepo = realGitDir !== null
 
     if (!isGitRepo) {
       return {
@@ -206,7 +231,7 @@ export class GitService {
 
     const currentBranch = branches.find((b) => b.isCurrent)?.name || null
     const isDetached = currentBranch === null && commits.length > 0
-    const operation = this.getOperationState(gitDir)
+    const operation = this.getOperationState(realGitDir)
 
     return {
       path: this.currentRepoPath,
@@ -425,25 +450,36 @@ export class GitService {
       })
   }
 
+  private validateGitArg(arg: string, name: string): string {
+    const trimmed = arg.trim()
+    if (trimmed.startsWith('-')) {
+      throw new Error(`Invalid ${name}: cannot begin with a hyphen ('${arg}')`)
+    }
+    return trimmed
+  }
+
   public async createTag(name: string, message?: string, targetHash?: string): Promise<void> {
+    const safeName = this.validateGitArg(name, 'tag name')
     const args = ['tag']
     if (message) {
-      args.push('-a', name, '-m', message)
+      args.push('-a', safeName, '-m', message)
     } else {
-      args.push(name)
+      args.push('--', safeName)
     }
     if (targetHash) {
-      args.push(targetHash)
+      args.push(this.validateGitArg(targetHash, 'commit hash'))
     }
     await this.execGit(args)
   }
 
   public async deleteTag(name: string): Promise<void> {
-    await this.execGit(['tag', '-d', name])
+    const safeName = this.validateGitArg(name, 'tag name')
+    await this.execGit(['tag', '-d', '--', safeName])
   }
 
   public async branchFromStash(branchName: string, index: number = 0): Promise<void> {
-    await this.execGit(['stash', 'branch', branchName, `stash@{${index}}`])
+    const safeBranch = this.validateGitArg(branchName, 'branch name')
+    await this.execGit(['stash', 'branch', safeBranch, `stash@{${index}}`])
   }
 
   public async getStashDiff(index: number = 0): Promise<string> {
@@ -466,40 +502,75 @@ export class GitService {
     targetHash: string,
     mode: 'soft' | 'mixed' | 'hard' = 'mixed'
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    return await this.execGit(['reset', `--${mode}`, targetHash])
+    const safeHash = this.validateGitArg(targetHash, 'target hash')
+    return await this.execGit(['reset', `--${mode}`, '--', safeHash])
+  }
+
+  public async checkoutBranch(
+    branchName: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const safeBranch = this.validateGitArg(branchName, 'branch name')
+    return await this.execGit(['checkout', safeBranch])
+  }
+
+  public async createBranch(
+    branchName: string,
+    startPoint?: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const safeBranch = this.validateGitArg(branchName, 'branch name')
+    const args = ['checkout', '-b', safeBranch]
+    if (startPoint) {
+      args.push(this.validateGitArg(startPoint, 'start point'))
+    }
+    return await this.execGit(args)
+  }
+
+  public async deleteBranch(
+    branchName: string,
+    force?: boolean
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const safeBranch = this.validateGitArg(branchName, 'branch name')
+    const flag = force ? '-D' : '-d'
+    return await this.execGit(['branch', flag, '--', safeBranch])
   }
 
   public async renameBranch(
     oldName: string,
     newName: string
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    return await this.execGit(['branch', '-m', oldName, newName])
+    const safeOld = this.validateGitArg(oldName, 'old branch name')
+    const safeNew = this.validateGitArg(newName, 'new branch name')
+    return await this.execGit(['branch', '-m', '--', safeOld, safeNew])
   }
 
   public async cloneRepository(
     url: string,
     targetPath: string
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    const parentDir = path.dirname(targetPath)
-    return await this.execGit(['clone', '--progress', url, targetPath], parentDir)
+    const safeUrl = this.validateGitArg(url, 'clone URL')
+    const parentDir = path.dirname(path.resolve(targetPath))
+    return await this.execGit(['clone', '--progress', '--', safeUrl, targetPath], parentDir)
   }
 
   public async mergeBranch(
     branchOrRef: string
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    return await this.execGit(['merge', branchOrRef])
+    const safeRef = this.validateGitArg(branchOrRef, 'branch or ref')
+    return await this.execGit(['merge', '--', safeRef])
   }
 
   public async rebaseBranch(
     upstream: string
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    return await this.execGit(['rebase', upstream])
+    const safeUpstream = this.validateGitArg(upstream, 'upstream ref')
+    return await this.execGit(['rebase', safeUpstream])
   }
 
   public async cherryPick(
     commitHash: string
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    return await this.execGit(['cherry-pick', commitHash])
+    const safeHash = this.validateGitArg(commitHash, 'commit hash')
+    return await this.execGit(['cherry-pick', safeHash])
   }
 
   /**
@@ -531,6 +602,14 @@ export class GitService {
       })
   }
 
+  private unquoteGitPath(pathStr: string): string {
+    const trimmed = pathStr.trim()
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      return trimmed.slice(1, -1)
+    }
+    return trimmed
+  }
+
   /**
    * List file status (modified, untracked, staged, deleted, etc.)
    */
@@ -552,7 +631,7 @@ export class GitService {
         const xy = parts[1]
         const stagedCode = xy[0]
         const unstagedCode = xy[1]
-        const filePath = parts.slice(8).join(' ')
+        const filePath = this.unquoteGitPath(parts.slice(8).join(' '))
 
         if (stagedCode !== '.') {
           files.push({
@@ -573,8 +652,8 @@ export class GitService {
         const xy = parts[1]
         const stagedCode = xy[0]
         const paths = parts.slice(9).join(' ').split('\t')
-        const newPath = paths[0]
-        const oldPath = paths[1]
+        const newPath = this.unquoteGitPath(paths[0])
+        const oldPath = paths[1] ? this.unquoteGitPath(paths[1]) : undefined
 
         files.push({
           path: newPath,
@@ -584,7 +663,7 @@ export class GitService {
         })
       } else if (type === 'u') {
         // Unmerged/conflicted file: "u <xy> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>"
-        const filePath = parts.slice(10).join(' ')
+        const filePath = this.unquoteGitPath(parts.slice(10).join(' '))
         files.push({
           path: filePath,
           status: 'conflicted',
@@ -592,7 +671,7 @@ export class GitService {
         })
       } else if (type === '?') {
         // Untracked file
-        const filePath = parts.slice(1).join(' ')
+        const filePath = this.unquoteGitPath(parts.slice(1).join(' '))
         files.push({
           path: filePath,
           status: 'untracked',
@@ -641,8 +720,12 @@ export class GitService {
     const args = ['push']
     if (setUpstream) args.push('-u')
     if (forceWithLease) args.push('--force-with-lease')
-    if (remoteName) args.push(remoteName)
-    if (branchName) args.push(branchName)
+    if (remoteName) {
+      args.push(this.validateGitArg(remoteName, 'remote name'))
+    }
+    if (branchName) {
+      args.push(this.validateGitArg(branchName, 'branch name'))
+    }
     return await this.execGit(args)
   }
 
@@ -769,11 +852,11 @@ export class GitService {
       const parts = line.split('\t')
       if (parts.length < 2) continue
       const statusCode = parts[0].trim()[0]
-      let path = parts[1].trim()
+      let path = this.unquoteGitPath(parts[1])
       let oldPath: string | undefined
       if (parts.length >= 3) {
-        oldPath = parts[1].trim()
-        path = parts[2].trim()
+        oldPath = this.unquoteGitPath(parts[1])
+        path = this.unquoteGitPath(parts[2])
       }
       files.push({
         path,

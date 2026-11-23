@@ -4,6 +4,16 @@ import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { GitService } from './gitService'
 
+// Augment PATH on POSIX platforms to ensure git is accessible when launched from GUI environments
+if (process.platform === 'darwin' || process.platform === 'linux') {
+  const commonBinDirs = ['/usr/local/bin', '/opt/homebrew/bin', '/usr/bin', '/bin']
+  const currentPath = process.env.PATH || ''
+  const missing = commonBinDirs.filter((p) => !currentPath.includes(p) && fs.existsSync(p))
+  if (missing.length > 0) {
+    process.env.PATH = `${missing.join(':')}:${currentPath}`
+  }
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 process.env.DIST = path.join(__dirname, '../dist')
@@ -30,41 +40,56 @@ function setupGitWatcher(repoPath: string) {
     gitWatcher = null
   }
 
-  const gitDir = path.join(repoPath, '.git')
-  if (fs.existsSync(gitDir)) {
-    try {
-      gitWatcher = fs.watch(gitDir, { recursive: true }, (_, filename) => {
-        // Filter out noisy internal git temporary / lock files
-        if (filename) {
-          const lower = filename.toLowerCase()
-          if (
-            lower.endsWith('.lock') ||
-            lower.includes('commit_editmsg') ||
-            lower.includes('orig_head') ||
-            lower.includes('fetch_head')
-          ) {
-            return
-          }
-        }
+  const realGitDir = GitService.resolveGitDir(repoPath)
+  if (!realGitDir || !fs.existsSync(realGitDir)) return
 
-        // Debounce by 350ms and do not notify if Gih itself is executing a git command
-        if (watcherDebounceTimer) {
-          clearTimeout(watcherDebounceTimer)
+  try {
+    const isRecursiveSupported = process.platform === 'win32' || process.platform === 'darwin'
+    const watchCallback = (_: string, filename: string | null) => {
+      // Filter out noisy internal git temporary / lock files
+      if (filename) {
+        const lower = filename.toLowerCase()
+        if (
+          lower.endsWith('.lock') ||
+          lower.includes('commit_editmsg') ||
+          lower.includes('orig_head') ||
+          lower.includes('fetch_head')
+        ) {
+          return
         }
-        watcherDebounceTimer = setTimeout(() => {
-          if (win && !win.isDestroyed() && !gitService.isExecuting()) {
-            win.webContents.send('git:changed')
-          }
-        }, 350)
-      })
-    } catch (e) {
-      console.warn('Failed to watch .git directory:', e)
+      }
+
+      // Debounce by 350ms and do not notify if Gih itself is executing a git command
+      if (watcherDebounceTimer) {
+        clearTimeout(watcherDebounceTimer)
+      }
+      watcherDebounceTimer = setTimeout(() => {
+        if (win && !win.isDestroyed() && !gitService.isExecuting()) {
+          win.webContents.send('git:changed')
+        }
+      }, 350)
     }
+
+    try {
+      gitWatcher = fs.watch(realGitDir, isRecursiveSupported ? { recursive: true } : {}, watchCallback)
+    } catch {
+      // Fall back to non-recursive watch if platform unsupported
+      gitWatcher = fs.watch(realGitDir, {}, watchCallback)
+    }
+  } catch (e) {
+    console.warn('Failed to watch .git directory:', e)
   }
 }
 
 function createWindow() {
-  const iconPath = path.join(process.cwd(), 'GIH_LOGO.png')
+  const possibleIconPaths = [
+    path.join(process.env.VITE_PUBLIC || '', 'logo.png'),
+    path.join(__dirname, '../public/logo.png'),
+    path.join(__dirname, '../GIH_LOGO.png'),
+    path.join(process.cwd(), 'public/logo.png'),
+    path.join(process.cwd(), 'GIH_LOGO.png'),
+  ]
+  const iconPath = possibleIconPaths.find((p) => p && fs.existsSync(p))
 
   win = new BrowserWindow({
     title: 'Gih — Visual Git Shell',
@@ -72,19 +97,42 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 640,
-    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    icon: iconPath,
     backgroundColor: '#0c0e14',
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#0c0e14',
-      symbolColor: '#94a3b8',
-      height: 38,
-    },
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    titleBarOverlay:
+      process.platform === 'darwin'
+        ? false
+        : {
+            color: '#0c0e14',
+            symbolColor: '#94a3b8',
+            height: 38,
+          },
     webPreferences: {
       preload,
       nodeIntegration: false,
       contextIsolation: true,
     },
+  })
+
+  // Security: prevent rogue in-app navigations
+  win.webContents.on('will-navigate', (event, navigationUrl) => {
+    if (!url || !navigationUrl.startsWith(url)) {
+      event.preventDefault()
+    }
+  })
+
+  // Security: restrict window opening to external safe URLs
+  win.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
+    try {
+      const parsed = new URL(targetUrl)
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+        shell.openExternal(targetUrl)
+      }
+    } catch {
+      // ignore invalid URL
+    }
+    return { action: 'deny' }
   })
 
   setupGitWatcher(gitService.getRepositoryPath())
@@ -118,8 +166,11 @@ ipcMain.handle('git:getState', async () => {
 })
 
 ipcMain.handle('git:setRepoPath', async (_, repoPath: string) => {
-  gitService.setRepositoryPath(repoPath)
-  setupGitWatcher(repoPath)
+  if (typeof repoPath === 'string' && fs.existsSync(repoPath)) {
+    const resolved = path.resolve(repoPath)
+    gitService.setRepositoryPath(resolved)
+    setupGitWatcher(resolved)
+  }
   return await gitService.getRepositoryState()
 })
 
@@ -145,12 +196,22 @@ ipcMain.handle('git:clone', async (_, url: string, targetPath: string) => {
 })
 
 ipcMain.handle('git:exec', async (_, args: string[]) => {
+  if (!Array.isArray(args) || args.some((a) => typeof a !== 'string')) {
+    return { stdout: '', stderr: 'Invalid arguments: expected array of strings', exitCode: 1 }
+  }
   return await gitService.execGit(args)
 })
 
 ipcMain.handle('app:openExternal', async (_, targetUrl: string) => {
-  if (targetUrl.startsWith('https://') || targetUrl.startsWith('http://')) {
-    await shell.openExternal(targetUrl)
+  if (typeof targetUrl === 'string') {
+    try {
+      const parsed = new URL(targetUrl)
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+        await shell.openExternal(targetUrl)
+      }
+    } catch {
+      // ignore invalid URL
+    }
   }
 })
 
@@ -219,18 +280,15 @@ ipcMain.handle('git:resetBranch', async (_, targetHash: string, mode: 'soft' | '
 })
 
 ipcMain.handle('git:checkoutBranch', async (_, branchName: string) => {
-  await gitService.execGit(['checkout', branchName])
+  return await gitService.checkoutBranch(branchName)
 })
 
 ipcMain.handle('git:createBranch', async (_, branchName: string, startPoint?: string) => {
-  const args = ['checkout', '-b', branchName]
-  if (startPoint) args.push(startPoint)
-  await gitService.execGit(args)
+  return await gitService.createBranch(branchName, startPoint)
 })
 
 ipcMain.handle('git:deleteBranch', async (_, branchName: string, force?: boolean) => {
-  const flag = force ? '-D' : '-d'
-  await gitService.execGit(['branch', flag, branchName])
+  return await gitService.deleteBranch(branchName, force)
 })
 
 ipcMain.handle('git:renameBranch', async (_, oldName: string, newName: string) => {
