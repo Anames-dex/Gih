@@ -68,6 +68,28 @@ npm run dev
 npm run build
 ```
 
+### Packaging & Standalone Executables
+
+Gih can be packaged into standalone executables and distribution installers with a single command:
+
+```bash
+# Package Windows portable executable (.exe) and installer
+npm run package:win
+
+# Package macOS DMG and ZIP archives
+npm run package:mac
+
+# Package Linux standalone AppImage and DEB package
+npm run package:linux
+```
+
+All built binaries are output to the `release/` directory:
+- **Windows**: `Gih-Portable-0.1.0.exe` (double-click to run immediately without installation) or `Gih-Setup-0.1.0.exe` (NSIS installer).
+- **macOS**: `Gih-0.1.0-arm64.dmg` and `Gih-0.1.0-x64.dmg`.
+- **Linux**: `Gih-0.1.0.AppImage` (universal portable Linux executable).
+
+> **Git Detection**: Gih automatically verifies whether Git is installed and available on your system PATH on startup. If Git is not detected, Gih offers a guided one-click installation flow tailored to your operating system (official installer, winget, Apple developer tools, or Linux package managers) with instant in-app status re-checking.
+
 ---
 
 ## Documentation

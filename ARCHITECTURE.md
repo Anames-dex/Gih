@@ -111,3 +111,13 @@ The commit visualizer renders branches, merges, and commit topology using an ana
 - **Remote URL Parsing**: Automatically parses SSH and HTTPS remote URLs for GitHub, GitLab, and Bitbucket.
 - **Deep-Links**: Exposes one-click links to view repositories, specific commits (`/commit/{hash}`), and create pull requests (`/compare/{branch}`).
 - **Safe Force-Push**: Provides `--force-with-lease` to update upstream branches safely without risking overwriting teammates' pushes.
+
+---
+
+## 9. Dependency Resolution & Standalone Packaging
+
+- **Git Dependency Resolution**: On launch, Gih queries `git --version` to verify presence on the system `$PATH`. When missing, Gih presents an OS-adaptive setup view offering official download links or platform-native installers (Windows `winget`, macOS `xcode-select`, Linux package managers) with in-app status re-checking.
+- **Cross-Platform Binary Packaging**: Managed via `electron-builder`:
+  - **Windows**: Outputs both a portable standalone executable (`Gih-Portable-${version}.exe`) requiring zero installation, and an NSIS one-click installer (`Gih-Setup-${version}.exe`).
+  - **macOS**: Builds Apple Silicon and Intel DMG images and ZIP bundles.
+  - **Linux**: Produces universal AppImage executables and Debian (`.deb`) packages.
