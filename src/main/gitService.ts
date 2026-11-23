@@ -304,7 +304,7 @@ export class GitService {
   /**
    * Fetch complete repository state for visual representation
    */
-  public async getRepositoryState(): Promise<RepositoryState> {
+  public async getRepositoryState(allBranches: boolean = true): Promise<RepositoryState> {
     const repoName = path.basename(this.currentRepoPath)
     const realGitDir = GitService.resolveGitDir(this.currentRepoPath)
     const isGitRepo = realGitDir !== null
@@ -330,7 +330,7 @@ export class GitService {
       this.getBranches(),
       this.getTags(),
       this.getStashes(),
-      this.getCommits(250),
+      this.getCommits(250, allBranches),
       this.getFileStatuses(),
       this.getWorktrees(),
     ])
@@ -403,7 +403,7 @@ export class GitService {
   /**
    * Read commit DAG
    */
-  public async getCommits(limit: number = 300): Promise<GitCommit[]> {
+  public async getCommits(limit: number = 300, allBranches: boolean = true): Promise<GitCommit[]> {
     // Format: Hash, ShortHash, AuthorName, AuthorEmail, Date, Subject, Parents, RefNames
     const delimiter = '||__GIH_FIELD__||'
     const recordDelimiter = '||__GIH_REC__||'
@@ -418,13 +418,14 @@ export class GitService {
       '%D',
     ].join(delimiter) + recordDelimiter
 
-    const { stdout, exitCode } = await this.execGit([
-      'log',
-      '--all',
-      '--date=relative',
-      `--max-count=${limit}`,
-      `--format=${format}`,
-    ])
+    const args = ['log', '--date=relative', `--max-count=${limit}`, `--format=${format}`]
+    if (allBranches) {
+      args.splice(1, 0, '--all')
+    } else {
+      args.splice(1, 0, 'HEAD')
+    }
+
+    const { stdout, exitCode } = await this.execGit(args)
 
     if (exitCode !== 0 || !stdout.trim()) {
       return []

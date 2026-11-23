@@ -289,8 +289,8 @@ ipcMain.handle('git:installGit', async (_, method?: string) => {
   }
 })
 
-ipcMain.handle('git:getState', async () => {
-  return await gitService.getRepositoryState()
+ipcMain.handle('git:getState', async (_, allBranches?: boolean) => {
+  return await gitService.getRepositoryState(allBranches ?? true)
 })
 
 ipcMain.handle('git:getAuthorConfig', async () => {
@@ -305,13 +305,13 @@ ipcMain.handle('git:addToGitIgnore', async (_, pattern: string) => {
   return await gitService.addToGitIgnore(pattern)
 })
 
-ipcMain.handle('git:setRepoPath', async (_, repoPath: string) => {
+ipcMain.handle('git:setRepoPath', async (_, repoPath: string, allBranches?: boolean) => {
   if (typeof repoPath === 'string' && fs.existsSync(repoPath)) {
     const resolved = path.resolve(repoPath)
     gitService.setRepositoryPath(resolved)
     setupGitWatcher(resolved)
   }
-  return await gitService.getRepositoryState()
+  return await gitService.getRepositoryState(allBranches ?? true)
 })
 
 ipcMain.handle('git:init', async (_, branchName?: string) => {

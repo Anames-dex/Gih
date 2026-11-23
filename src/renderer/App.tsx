@@ -32,6 +32,8 @@ interface ToastNotice {
 export const App: React.FC = () => {
   const [gitStatus, setGitStatus] = useState<GitInstallationStatus | null>(null)
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
+  const [showAllBranches, setShowAllBranches] = useState(true)
+  const showAllBranchesRef = useRef(true)
   const [authorConfig, setAuthorConfig] = useState<GitAuthorConfig | null>(null)
   const [isAuthorModalOpen, setIsAuthorModalOpen] = useState(false)
   const [pendingCommitAction, setPendingCommitAction] = useState<(() => void) | null>(null)
@@ -112,7 +114,7 @@ export const App: React.FC = () => {
     }, 4500)
   }, [])
 
-  const refreshState = useCallback(async () => {
+  const refreshState = useCallback(async (allBranches: boolean = showAllBranchesRef.current) => {
     if (!gih) return
     if (isRefreshingRef.current) {
       refreshPendingRef.current = true
@@ -121,7 +123,7 @@ export const App: React.FC = () => {
     isRefreshingRef.current = true
 
     try {
-      const state = await gih.getState()
+      const state = await gih.getState(allBranches)
       setRepoState(state)
       const history = await gih.getCommandHistory()
       setCommandHistory(history)
@@ -999,6 +1001,12 @@ export const App: React.FC = () => {
             <CommitGraph
               commits={repoState?.commits || []}
               selectedCommits={selectedCommits}
+              showAllBranches={showAllBranches}
+              onToggleShowAllBranches={(all) => {
+                showAllBranchesRef.current = all
+                setShowAllBranches(all)
+                refreshState(all)
+              }}
               onSelectCommit={handleSelectCommit}
               onClearSelection={handleClearSelectedCommits}
               onContextMenu={(e, commit) => {
