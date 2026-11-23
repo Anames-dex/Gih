@@ -214,6 +214,14 @@ ipcMain.handle('git:getState', async () => {
   return await gitService.getRepositoryState()
 })
 
+ipcMain.handle('git:getAuthorConfig', async () => {
+  return await gitService.getAuthorConfig()
+})
+
+ipcMain.handle('git:setAuthorConfig', async (_, name: string, email: string, isGlobal?: boolean) => {
+  return await gitService.setAuthorConfig(name, email, isGlobal)
+})
+
 ipcMain.handle('git:setRepoPath', async (_, repoPath: string) => {
   if (typeof repoPath === 'string' && fs.existsSync(repoPath)) {
     const resolved = path.resolve(repoPath)

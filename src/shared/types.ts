@@ -145,3 +145,14 @@ export interface GitInstallationStatus {
   platform: string
   error?: string
 }
+
+export interface GitAuthorConfig {
+  name: string
+  email: string
+}
+
+export interface RecentRepository {
+  path: string
+  name: string
+  lastOpened: number
+}

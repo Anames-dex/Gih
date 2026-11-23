@@ -108,6 +108,47 @@ export class GitService {
   }
 
   /**
+   * Retrieves configured user.name and user.email (checking repo and global config)
+   */
+  public async getAuthorConfig(): Promise<{ name: string; email: string }> {
+    const nameRes = await this.execGit(['config', 'user.name'])
+    const emailRes = await this.execGit(['config', 'user.email'])
+    return {
+      name: nameRes.exitCode === 0 ? nameRes.stdout.trim() : '',
+      email: emailRes.exitCode === 0 ? emailRes.stdout.trim() : '',
+    }
+  }
+
+  /**
+   * Sets git author user.name and user.email
+   */
+  public async setAuthorConfig(
+    name: string,
+    email: string,
+    isGlobal: boolean = true
+  ): Promise<{ success: boolean; error?: string }> {
+    const trimmedName = name.trim()
+    const trimmedEmail = email.trim()
+
+    if (!trimmedName || !trimmedEmail) {
+      return { success: false, error: 'Both author name and author email are required.' }
+    }
+
+    const scopeFlag = isGlobal ? '--global' : '--local'
+    const nameRes = await this.execGit(['config', scopeFlag, 'user.name', trimmedName])
+    if (nameRes.exitCode !== 0) {
+      return { success: false, error: nameRes.stderr || 'Failed to configure user.name' }
+    }
+
+    const emailRes = await this.execGit(['config', scopeFlag, 'user.email', trimmedEmail])
+    if (emailRes.exitCode !== 0) {
+      return { success: false, error: emailRes.stderr || 'Failed to configure user.email' }
+    }
+
+    return { success: true }
+  }
+
+  /**
    * Fast native git execution with direct child process, output buffering & telemetry
    */
   public async execGit(args: string[], cwd: string = this.currentRepoPath): Promise<{ stdout: string; stderr: string; exitCode: number }> {
