@@ -39,6 +39,11 @@ Unlike tools that simplify Git by hiding its internals, Gih keeps you connected 
 - **3-Way Merge Conflict Studio**: Automatic detection of conflicted files with one-click `Keep Ours`, `Keep Theirs`, and `Mark Resolved` actions.
 - **Visual Rebase & Reflog**: Interactive rebase modal (`pick`, `reword`, `edit`, `squash`, `fixup`, `drop`) and reflog restoration.
 - **Remote Repository Clone**: Built-in clone dialog with destination browsing and automatic workspace transition.
+- **Branch View Filter Toggle**: Toggle between `All Branches` (`git log --all`) and `Current Branch` (`git log HEAD`) directly from the graph search bar for distraction-free feature branch development.
+- **Quick `.gitignore` Context Action**: One-click pattern generator on unstaged files to ignore specific files, file extensions (`*.ext`), or parent directories without editing text files manually.
+- **Recent Repositories & Quick Switcher**: Persistent workspace history with instant dropdown switching, recent project jump lists, and 1-click workspace removal.
+- **CLI & Windows Explorer Integration**: Launch directly from your shell (`gih .` or `gih path/to/repo`) or right-click any folder in Windows Explorer with "Open with Gih".
+- **First-Commit Author Identity Setup**: Automatically detects missing `user.name` / `user.email` configurations, guides users through global/local identity setup, and auto-resumes their pending commit.
 - **Tactile Command Island**: Top-center HUD notifications showing command timing and results within natural foveal focus.
 - **Draggable & Resizable Panes**: Customizable sidebar sections and smooth split panes for staging and terminal views.
 
