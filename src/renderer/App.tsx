@@ -4,7 +4,9 @@ import type {
   GitCommit,
   CommandLogEntry,
   RemoteProviderInfo,
-  GitInstallationStatus
+  GitInstallationStatus,
+  GitAuthorConfig,
+  RecentRepository
 } from '../shared/types'
 import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink } from 'lucide-react'
 import { AppHeader } from './components/layout/AppHeader'
@@ -17,6 +19,7 @@ import { InteractiveRebaseModal, RebaseStep } from './components/modals/Interact
 import { ResetBranchModal, ResetMode } from './components/modals/ResetBranchModal'
 import { CloneRepositoryModal } from './components/modals/CloneRepositoryModal'
 import { GitMissingView } from './components/layout/GitMissingView'
+import { GitAuthorModal } from './components/modals/GitAuthorModal'
 
 interface ToastNotice {
   id: string
@@ -29,6 +32,17 @@ interface ToastNotice {
 export const App: React.FC = () => {
   const [gitStatus, setGitStatus] = useState<GitInstallationStatus | null>(null)
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
+  const [authorConfig, setAuthorConfig] = useState<GitAuthorConfig | null>(null)
+  const [isAuthorModalOpen, setIsAuthorModalOpen] = useState(false)
+  const [pendingCommitAction, setPendingCommitAction] = useState<(() => void) | null>(null)
+  const [recentRepos, setRecentRepos] = useState<RecentRepository[]>(() => {
+    try {
+      const saved = localStorage.getItem('gih:recent_repos')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
   const [selectedCommits, setSelectedCommits] = useState<GitCommit[]>([])
   const [anchorCommit, setAnchorCommit] = useState<GitCommit | null>(null)
   const [remoteInfo, setRemoteInfo] = useState<RemoteProviderInfo | null>(null)
@@ -114,6 +128,20 @@ export const App: React.FC = () => {
       if (gih.getRemoteInfo) {
         const rInfo = await gih.getRemoteInfo()
         setRemoteInfo(rInfo)
+      }
+      if (gih.getAuthorConfig) {
+        const author = await gih.getAuthorConfig()
+        setAuthorConfig(author)
+      }
+      if (state?.isGitRepo && state.path) {
+        setRecentRepos((prev) => {
+          const filtered = prev.filter((r) => r.path !== state.path)
+          const next = [{ path: state.path, name: state.name, lastOpened: Date.now() }, ...filtered].slice(0, 10)
+          try {
+            localStorage.setItem('gih:recent_repos', JSON.stringify(next))
+          } catch {}
+          return next
+        })
       }
     } catch (e: any) {
       console.error('Failed to refresh repository state:', e)
@@ -617,10 +645,28 @@ export const App: React.FC = () => {
 
   const handleCommit = async (message: string, signOff?: boolean, amend?: boolean) => {
     if (!gih) return
+
+    // If author name or email is unset, prompt user with author modal before committing
+    if (!authorConfig || !authorConfig.name || !authorConfig.email) {
+      setPendingCommitAction(() => () => handleCommit(message, signOff, amend))
+      setIsAuthorModalOpen(true)
+      return
+    }
+
     const t0 = performance.now()
     try {
       const res = await gih.createCommit(message, signOff, amend)
       if (res.exitCode !== 0) {
+        // If git failed specifically due to missing author identity
+        if (
+          res.stderr.toLowerCase().includes('user.email') ||
+          res.stderr.toLowerCase().includes('tell me who you are') ||
+          res.stderr.toLowerCase().includes('author identity unknown')
+        ) {
+          setPendingCommitAction(() => () => handleCommit(message, signOff, amend))
+          setIsAuthorModalOpen(true)
+          return
+        }
         showToast({ type: 'error', command: 'git commit', message: res.stderr || 'Commit failed' })
       } else {
         await refreshState()
@@ -759,6 +805,23 @@ export const App: React.FC = () => {
         repoName={repoState?.name || 'Gih'}
         currentBranch={repoState?.currentBranch || null}
         remoteInfo={remoteInfo}
+        recentRepos={recentRepos}
+        onSelectRecentRepo={async (targetPath) => {
+          if (!gih) return
+          await gih.setRepoPath(targetPath)
+          await refreshState()
+          showToast({ type: 'info', message: `Switched to ${targetPath.split(/[\\/]/).pop()}` })
+        }}
+        onRemoveRecentRepo={(targetPath) => {
+          setRecentRepos((prev) => {
+            const next = prev.filter((r) => r.path !== targetPath)
+            try {
+              localStorage.setItem('gih:recent_repos', JSON.stringify(next))
+            } catch {}
+            return next
+          })
+        }}
+        onConfigureAuthor={() => setIsAuthorModalOpen(true)}
         onFetch={handleFetch}
         onPull={handlePull}
         onPush={handlePush}
@@ -870,6 +933,35 @@ export const App: React.FC = () => {
                 Initialize (git init)
               </button>
             </div>
+
+            {/* Quick jump to recent repositories */}
+            {recentRepos.length > 0 && (
+              <div className="w-full mt-6 pt-5 border-t border-surface-border/80 text-left">
+                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 flex items-center justify-between">
+                  <span>Recent Repositories</span>
+                  <Clock className="w-3 h-3 text-slate-500" />
+                </div>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                  {recentRepos.slice(0, 4).map((r) => (
+                    <button
+                      key={r.path}
+                      onClick={async () => {
+                        if (!gih) return
+                        await gih.setRepoPath(r.path)
+                        await refreshState()
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-hover border border-surface-border/50 text-xs flex items-center justify-between transition-colors group"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="font-medium text-slate-200 truncate">{r.name}</div>
+                        <div className="text-[10px] text-slate-500 font-mono truncate">{r.path}</div>
+                      </div>
+                      <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-sky-400 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -1118,6 +1210,34 @@ export const App: React.FC = () => {
               message: `Cloned and opened: ${targetPath.split(/[\\/]/).pop()}`,
             })
           }
+        }}
+      />
+
+      <GitAuthorModal
+        isOpen={isAuthorModalOpen}
+        onClose={() => {
+          setIsAuthorModalOpen(false)
+          setPendingCommitAction(null)
+        }}
+        currentName={authorConfig?.name || ''}
+        currentEmail={authorConfig?.email || ''}
+        onSave={async (name, email, isGlobal) => {
+          if (!gih?.setAuthorConfig) return { success: false, error: 'API unavailable' }
+          const res = await gih.setAuthorConfig(name, email, isGlobal)
+          if (res.success) {
+            setAuthorConfig({ name, email })
+            showToast({
+              type: 'success',
+              command: `git config ${isGlobal ? '--global' : '--local'} user.name "${name}"`,
+              message: `Configured author identity as ${name}`,
+            })
+            if (pendingCommitAction) {
+              const runAction = pendingCommitAction
+              setPendingCommitAction(null)
+              setTimeout(() => runAction(), 100)
+            }
+          }
+          return res
         }}
       />
 

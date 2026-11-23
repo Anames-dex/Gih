@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import type { RemoteProviderInfo } from '@/shared/types'
+import type { RemoteProviderInfo, RecentRepository } from '@/shared/types'
 import {
   FolderGit2,
   ArrowDown,
@@ -14,13 +14,20 @@ import {
   Download,
   ExternalLink,
   ChevronDown,
-  ShieldAlert
+  ShieldAlert,
+  Clock,
+  User,
+  X
 } from 'lucide-react'
 
 interface AppHeaderProps {
   repoName: string
   currentBranch: string | null
   remoteInfo?: RemoteProviderInfo | null
+  recentRepos?: RecentRepository[]
+  onSelectRecentRepo?: (path: string) => void
+  onRemoveRecentRepo?: (path: string) => void
+  onConfigureAuthor?: () => void
   onFetch: () => void
   onPull: () => void
   onPush: (forceWithLease?: boolean) => void
@@ -41,6 +48,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   repoName,
   currentBranch,
   remoteInfo,
+  recentRepos = [],
+  onSelectRecentRepo,
+  onRemoveRecentRepo,
+  onConfigureAuthor,
   onFetch,
   onPull,
   onPush,
@@ -57,6 +68,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   isStashing = false,
 }) => {
   const [isPushMenuOpen, setIsPushMenuOpen] = useState(false)
+  const [isRepoMenuOpen, setIsRepoMenuOpen] = useState(false)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent)
 
   return (
@@ -72,15 +84,116 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           />
         </div>
 
-        <button
-          onClick={onOpenRepo}
-          className="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-subtle hover:bg-surface-hover active:scale-95 border border-surface-border text-xs text-slate-300 font-medium transition-all shadow-sm"
-          title="Open another repository"
-        >
-          <FolderGit2 className="w-3.5 h-3.5 text-sky-400" />
-          <span className="max-w-[140px] truncate">{repoName || 'Select Repo'}</span>
-          <FolderOpen className="w-3 h-3 text-slate-500 ml-1" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setIsRepoMenuOpen((p) => !p)}
+            className="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-subtle hover:bg-surface-hover active:scale-95 border border-surface-border text-xs text-slate-300 font-medium transition-all shadow-sm"
+            title="Repository options and recent repositories"
+          >
+            <FolderGit2 className="w-3.5 h-3.5 text-sky-400" />
+            <span className="max-w-[140px] truncate">{repoName || 'Select Repo'}</span>
+            <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform ${isRepoMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {isRepoMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsRepoMenuOpen(false)} />
+              <div
+                className="absolute top-full mt-1.5 left-0 z-50 bg-[#0f172a] border border-surface-border rounded-xl shadow-2xl p-2 min-w-[300px] text-xs space-y-2 backdrop-blur-md animate-fade-in"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Current Repo Details */}
+                <div className="px-2.5 py-1.5 rounded-lg bg-surface-subtle border border-surface-border/50">
+                  <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Current Repository</div>
+                  <div className="font-semibold text-slate-200 truncate mt-0.5">{repoName || 'No repository selected'}</div>
+                </div>
+
+                {/* Recent Repositories */}
+                {recentRepos && recentRepos.length > 0 && (
+                  <div>
+                    <div className="px-2.5 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center justify-between">
+                      <span>Recent Repositories</span>
+                      <Clock className="w-3 h-3" />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-0.5 mt-1">
+                      {recentRepos.map((repo) => (
+                        <div
+                          key={repo.path}
+                          className="group flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-surface-hover text-slate-300 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setIsRepoMenuOpen(false)
+                            onSelectRecentRepo?.(repo.path)
+                          }}
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="font-medium text-slate-200 truncate">{repo.name}</div>
+                            <div className="text-[10px] text-slate-500 font-mono truncate">{repo.path}</div>
+                          </div>
+                          {onRemoveRecentRepo && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onRemoveRecentRepo(repo.path)
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-400 text-slate-500 rounded transition-opacity"
+                              title="Remove from recent"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="pt-1 border-t border-surface-border space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRepoMenuOpen(false)
+                      onOpenRepo()
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-surface-hover text-slate-300 flex items-center gap-2 transition-colors"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span>Open Another Folder...</span>
+                  </button>
+
+                  {onCloneRepo && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRepoMenuOpen(false)
+                        onCloneRepo()
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-surface-hover text-slate-300 flex items-center gap-2 transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                      <span>Clone Remote Repository...</span>
+                    </button>
+                  )}
+
+                  {onConfigureAuthor && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRepoMenuOpen(false)
+                        onConfigureAuthor()
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-surface-hover text-slate-300 flex items-center gap-2 transition-colors"
+                    >
+                      <User className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>Git Author Identity...</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
 
         {onCloneRepo && (
           <button
@@ -168,10 +281,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </button>
 
           {isPushMenuOpen && (
-            <div
-              className="absolute top-full mt-1 right-0 z-50 bg-[#0f172a] border border-surface-border rounded-xl shadow-2xl p-1.5 min-w-[240px] text-xs space-y-1 backdrop-blur-md animate-fade-in"
-              onClick={() => setIsPushMenuOpen(false)}
-            >
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsPushMenuOpen(false)} />
+              <div
+                className="absolute top-full mt-1 right-0 z-50 bg-[#0f172a] border border-surface-border rounded-xl shadow-2xl p-1.5 min-w-[240px] text-xs space-y-1 backdrop-blur-md animate-fade-in"
+                onClick={() => setIsPushMenuOpen(false)}
+              >
               <button
                 type="button"
                 onClick={() => onPush(false)}
@@ -204,7 +319,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 </div>
               </button>
             </div>
-          )}
+          </>
+        )}
         </div>
 
         <div className="w-px h-4 bg-surface-border mx-1" />
