@@ -72,6 +72,42 @@ export class GitService {
   }
 
   /**
+   * Checks whether Git is installed and accessible on PATH
+   */
+  public async checkGitInstallation(): Promise<{
+    isInstalled: boolean
+    version?: string
+    platform: string
+    error?: string
+  }> {
+    return new Promise((resolve) => {
+      execFile(
+        'git',
+        ['--version'],
+        {
+          windowsHide: true,
+          env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' },
+        },
+        (error, stdout, stderr) => {
+          if (!error && stdout && stdout.toLowerCase().includes('git version')) {
+            resolve({
+              isInstalled: true,
+              version: stdout.trim(),
+              platform: process.platform,
+            })
+          } else {
+            resolve({
+              isInstalled: false,
+              platform: process.platform,
+              error: stderr || (error ? error.message : 'Git binary not found on system PATH'),
+            })
+          }
+        }
+      )
+    })
+  }
+
+  /**
    * Fast native git execution with direct child process, output buffering & telemetry
    */
   public async execGit(args: string[], cwd: string = this.currentRepoPath): Promise<{ stdout: string; stderr: string; exitCode: number }> {
@@ -91,7 +127,11 @@ export class GitService {
         },
         (error, stdout, stderr) => {
           this.activeExecutions--
-          const exitCode = error ? (error.code ? Number(error.code) : 1) : 0
+          const exitCode = error
+            ? typeof (error as any).code === 'number'
+              ? (error as any).code
+              : 1
+            : 0
           const entry: CommandLogEntry = {
             id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             command: commandStr,

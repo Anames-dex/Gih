@@ -138,3 +138,10 @@ export interface RepositoryState {
   files: GitFileStatus[]
   worktrees: GitWorktree[]
 }
+
+export interface GitInstallationStatus {
+  isInstalled: boolean
+  version?: string
+  platform: string
+  error?: string
+}

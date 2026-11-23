@@ -6,10 +6,13 @@ import type {
   CommandLogEntry,
   GitFileStatus,
   CommitRangeDiff,
-  RemoteProviderInfo
+  RemoteProviderInfo,
+  GitInstallationStatus
 } from '../shared/types'
 
 export interface GihAPI {
+  checkGitInstallation: () => Promise<GitInstallationStatus>
+  installGit: (method?: string) => Promise<{ success: boolean; message: string }>
   getState: () => Promise<RepositoryState>
   setRepoPath: (repoPath: string) => Promise<RepositoryState>
   initRepository: (branchName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
@@ -58,6 +61,8 @@ export interface GihAPI {
 }
 
 const api: GihAPI = {
+  checkGitInstallation: () => ipcRenderer.invoke('git:checkInstallation'),
+  installGit: (method?: string) => ipcRenderer.invoke('git:installGit', method),
   getState: () => ipcRenderer.invoke('git:getState'),
   setRepoPath: (path: string) => ipcRenderer.invoke('git:setRepoPath', path),
   initRepository: (branchName?: string) => ipcRenderer.invoke('git:init', branchName),

@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import type { RepositoryState, GitCommit, CommandLogEntry, RemoteProviderInfo } from '../shared/types'
+import type {
+  RepositoryState,
+  GitCommit,
+  CommandLogEntry,
+  RemoteProviderInfo,
+  GitInstallationStatus
+} from '../shared/types'
 import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink } from 'lucide-react'
 import { AppHeader } from './components/layout/AppHeader'
 import { Sidebar } from './components/layout/Sidebar'
@@ -10,6 +16,7 @@ import { CommandPalette } from './components/modals/CommandPalette'
 import { InteractiveRebaseModal, RebaseStep } from './components/modals/InteractiveRebaseModal'
 import { ResetBranchModal, ResetMode } from './components/modals/ResetBranchModal'
 import { CloneRepositoryModal } from './components/modals/CloneRepositoryModal'
+import { GitMissingView } from './components/layout/GitMissingView'
 
 interface ToastNotice {
   id: string
@@ -20,6 +27,7 @@ interface ToastNotice {
 }
 
 export const App: React.FC = () => {
+  const [gitStatus, setGitStatus] = useState<GitInstallationStatus | null>(null)
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
   const [selectedCommits, setSelectedCommits] = useState<GitCommit[]>([])
   const [anchorCommit, setAnchorCommit] = useState<GitCommit | null>(null)
@@ -118,15 +126,28 @@ export const App: React.FC = () => {
     }
   }, [gih])
 
+  const checkGit = useCallback(async () => {
+    if (!gih?.checkGitInstallation) return
+    try {
+      const status = await gih.checkGitInstallation()
+      setGitStatus(status)
+      if (status.isInstalled) {
+        refreshState()
+      }
+    } catch (e: any) {
+      console.warn('Failed to verify Git installation:', e)
+    }
+  }, [gih, refreshState])
+
   useEffect(() => {
-    refreshState()
+    checkGit()
     if (gih?.onRepoChanged) {
       const unsubscribe = gih.onRepoChanged(() => {
         refreshState()
       })
       return () => unsubscribe()
     }
-  }, [refreshState, gih])
+  }, [checkGit, refreshState, gih])
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -797,7 +818,29 @@ export const App: React.FC = () => {
       )}
 
       {/* Main Workspace (Sidebar + DAG Graph + Staging / Inspector) */}
-      {repoState && !repoState.isGitRepo ? (
+      {gitStatus && !gitStatus.isInstalled ? (
+        <GitMissingView
+          status={gitStatus}
+          onRecheck={async () => {
+            if (gih?.checkGitInstallation) {
+              const status = await gih.checkGitInstallation()
+              setGitStatus(status)
+              if (status.isInstalled) {
+                showToast({ type: 'success', message: 'Git binary detected!' })
+                refreshState()
+              } else {
+                showToast({ type: 'error', message: 'Git was not found on your system PATH.' })
+              }
+            }
+          }}
+          onInstall={async (method) => {
+            if (gih?.installGit) {
+              return await gih.installGit(method)
+            }
+            return { success: false, message: 'Installer invocation not available' }
+          }}
+        />
+      ) : repoState && !repoState.isGitRepo ? (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#0c0e14]">
           <div className="max-w-md w-full p-8 rounded-2xl bg-surface border border-surface-border shadow-2xl flex flex-col items-center text-center">
             <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-5 shadow-inner">

@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
+import { spawn } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -161,6 +162,54 @@ app.on('window-all-closed', () => {
 })
 
 // IPC Handlers
+ipcMain.handle('git:checkInstallation', async () => {
+  return await gitService.checkGitInstallation()
+})
+
+ipcMain.handle('git:installGit', async (_, method?: string) => {
+  const platform = process.platform
+  if (platform === 'win32') {
+    if (method === 'winget') {
+      try {
+        const child = spawn(
+          'cmd.exe',
+          [
+            '/c',
+            'start',
+            'cmd.exe',
+            '/k',
+            'echo ======================================================== && echo Installing Git via Windows Package Manager (winget)... && echo ======================================================== && winget install --id Git.Git -e --source winget && echo. && echo Git installation completed! && echo You can close this window now and click "Re-check Git Status" in Gih. && pause',
+          ],
+          { detached: true, stdio: 'ignore' }
+        )
+        child.unref()
+        return { success: true, message: 'Launched Windows Package Manager (winget) in an installation window.' }
+      } catch {
+        await shell.openExternal('https://git-scm.com/download/win')
+        return { success: true, message: 'Opened Git for Windows official download site.' }
+      }
+    }
+    await shell.openExternal('https://git-scm.com/download/win')
+    return { success: true, message: 'Opened Git for Windows official download site.' }
+  } else if (platform === 'darwin') {
+    if (method === 'xcode') {
+      try {
+        const child = spawn('xcode-select', ['--install'], { detached: true, stdio: 'ignore' })
+        child.unref()
+        return { success: true, message: 'Triggered Apple Command Line Tools installer dialog.' }
+      } catch {
+        await shell.openExternal('https://git-scm.com/download/mac')
+        return { success: true, message: 'Opened Git for macOS download site.' }
+      }
+    }
+    await shell.openExternal('https://git-scm.com/download/mac')
+    return { success: true, message: 'Opened Git for macOS download site.' }
+  } else {
+    await shell.openExternal('https://git-scm.com/download/linux')
+    return { success: true, message: 'Opened Git for Linux download site.' }
+  }
+})
+
 ipcMain.handle('git:getState', async () => {
   return await gitService.getRepositoryState()
 })
