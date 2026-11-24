@@ -10,7 +10,7 @@ import type {
   RecentRepository,
   RemoteProgressEvent
 } from '../shared/types'
-import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink, RotateCcw, FileDiff, Tag } from 'lucide-react'
+import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink, RotateCcw, FileDiff, Tag, Copy, Check, X } from 'lucide-react'
 import { AppHeader } from './components/layout/AppHeader'
 import { Sidebar } from './components/layout/Sidebar'
 import { CommitGraph } from './components/graph/CommitGraph'
@@ -46,6 +46,7 @@ export const App: React.FC = () => {
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
   const [dialogRequest, setDialogRequest] = useState<DialogRequest | null>(null)
   const [remoteProgress, setRemoteProgress] = useState<RemoteProgressEvent | null>(null)
+  const [copiedToastId, setCopiedToastId] = useState<string | null>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -154,9 +155,10 @@ export const App: React.FC = () => {
   const showToast = useCallback((toast: Omit<ToastNotice, 'id'>) => {
     const id = `${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
     setToasts((prev) => [...prev, { ...toast, id }])
+    const duration = toast.type === 'error' ? 12000 : 4500
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, 4500)
+    }, duration)
   }, [])
 
   const refreshState = useCallback(async (allBranches: boolean = showAllBranchesRef.current, filePath: string | null = graphFilePathFilterRef.current) => {
@@ -2163,9 +2165,9 @@ export const App: React.FC = () => {
       />
 
       {/* Top-Center Command Feedback Island */}
-      <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5 pointer-events-none max-w-lg w-full px-4">
+      <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5 pointer-events-none max-w-xl w-full px-4">
         {remoteProgress && (
-          <div className="pointer-events-auto px-4 py-2 rounded-full border border-sky-500/40 bg-[#0d1726]/95 text-sky-100 shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in">
+          <div className="pointer-events-auto px-4 py-2 rounded-full border border-sky-500/40 bg-[#0d1726]/95 text-sky-100 shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in max-w-full">
             <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping shrink-0" />
             <span className="text-xs font-semibold capitalize">{remoteProgress.operation}:</span>
             <span className="text-xs text-sky-200 truncate max-w-[200px]">{remoteProgress.phase}</span>
@@ -2176,41 +2178,83 @@ export const App: React.FC = () => {
             )}
           </div>
         )}
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`pointer-events-auto px-4 py-2 rounded-full border shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in transition-all ${
-              toast.type === 'error'
-                ? 'bg-[#1e1014]/95 border-rose-800/80 text-rose-100 shadow-rose-950/40'
-                : toast.type === 'info'
-                ? 'bg-surface/95 border-surface-border text-slate-100'
-                : 'bg-[#0f1923]/95 border-emerald-500/40 text-slate-100 shadow-emerald-950/30'
-            }`}
-          >
-            {toast.type === 'error' ? (
-              <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            )}
-
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs font-semibold whitespace-nowrap">{toast.message}</span>
-              {toast.command && (
-                <>
-                  <span className="text-slate-600 text-xs">•</span>
-                  <span className="text-[11px] font-mono text-sky-400 truncate max-w-[220px]">
-                    ${toast.command.startsWith(' ') ? '' : ' '}{toast.command}
-                  </span>
-                </>
+        {toasts.map((toast) => {
+          const isError = toast.type === 'error'
+          const copyPayload = toast.command ? `${toast.command}\n${toast.message}` : toast.message
+          return (
+            <div
+              key={toast.id}
+              className={`pointer-events-auto border shadow-2xl backdrop-blur-md flex gap-3 animate-fade-in transition-all max-w-full ${
+                isError
+                  ? 'w-full px-3.5 py-2.5 rounded-xl items-start bg-[#1e1014]/95 border-rose-800/80 text-rose-100 shadow-rose-950/40'
+                  : toast.type === 'info'
+                  ? 'px-4 py-2 rounded-full items-center bg-surface/95 border-surface-border text-slate-100'
+                  : 'px-4 py-2 rounded-full items-center bg-[#0f1923]/95 border-emerald-500/40 text-slate-100 shadow-emerald-950/30'
+              }`}
+            >
+              {isError ? (
+                <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               )}
-              {toast.durationMs !== undefined && (
+
+              <div className={`min-w-0 flex-1 ${isError ? 'space-y-1' : 'flex items-center gap-2'}`}>
+                <div
+                  className={
+                    isError
+                      ? 'text-xs font-medium whitespace-pre-wrap break-words select-text max-h-32 overflow-y-auto pr-1 font-mono leading-relaxed'
+                      : 'text-xs font-semibold truncate'
+                  }
+                >
+                  {toast.message}
+                </div>
+                {toast.command && (
+                  <div className="flex items-center gap-2 min-w-0">
+                    {!isError && <span className="text-slate-600 text-xs">•</span>}
+                    <span className="text-[11px] font-mono text-sky-400 truncate max-w-[280px] select-text">
+                      ${toast.command.startsWith(' ') ? '' : ' '}{toast.command}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {toast.durationMs !== undefined && !isError && (
                 <span className="text-[10px] font-mono text-slate-400 bg-surface-subtle px-1.5 py-0.5 rounded-full shrink-0">
                   {toast.durationMs}ms
                 </span>
               )}
+
+              {isError && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(copyPayload)
+                      setCopiedToastId(toast.id)
+                      setTimeout(() => setCopiedToastId((cur) => (cur === toast.id ? null : cur)), 1500)
+                    }}
+                    className="p-1 rounded hover:bg-rose-900/50 text-rose-300 hover:text-white transition-colors"
+                    title="Copy error message"
+                  >
+                    {copiedToastId === toast.id ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                    className="p-1 rounded hover:bg-rose-900/50 text-rose-300 hover:text-white transition-colors"
+                    title="Dismiss"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
       <ActionDialogModal
         request={dialogRequest}

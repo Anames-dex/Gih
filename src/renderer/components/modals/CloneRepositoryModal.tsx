@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Download, FolderOpen, X, Loader2, AlertCircle } from 'lucide-react'
+import { Download, FolderOpen, X, Loader2, AlertCircle, Copy, Check } from 'lucide-react'
 import type { CloneProgressEvent } from '@/shared/types'
 import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 
@@ -23,6 +23,7 @@ export const CloneRepositoryModal: React.FC<CloneRepositoryModalProps> = ({
   const [targetFolderName, setTargetFolderName] = useState('')
   const [isCloning, setIsCloning] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [copiedError, setCopiedError] = useState(false)
   const [cloneProgress, setCloneProgress] = useState<CloneProgressEvent | null>(null)
   const modalRef = useRef<HTMLDivElement>(null)
 
@@ -121,9 +122,23 @@ export const CloneRepositoryModal: React.FC<CloneRepositoryModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleClone} className="p-5 space-y-4">
           {errorMessage && (
-            <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-lg flex items-start gap-2.5 text-xs text-rose-200">
+            <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-lg flex items-start gap-2.5 text-xs text-rose-200 select-text">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <div className="break-all whitespace-pre-wrap">{errorMessage}</div>
+              <div className="flex-1 break-words whitespace-pre-wrap max-h-28 overflow-y-auto font-mono">
+                {errorMessage}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(errorMessage)
+                  setCopiedError(true)
+                  setTimeout(() => setCopiedError(false), 1500)
+                }}
+                className="p-1 rounded hover:bg-rose-900/50 text-rose-300 hover:text-white shrink-0"
+                title="Copy error"
+              >
+                {copiedError ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
             </div>
           )}
 
