@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Download, FolderOpen, X, Loader2, AlertCircle } from 'lucide-react'
 import type { CloneProgressEvent } from '@/shared/types'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 
 interface CloneRepositoryModalProps {
   isOpen: boolean
@@ -23,6 +24,9 @@ export const CloneRepositoryModal: React.FC<CloneRepositoryModalProps> = ({
   const [isCloning, setIsCloning] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [cloneProgress, setCloneProgress] = useState<CloneProgressEvent | null>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(modalRef, isOpen, isCloning ? undefined : onClose)
 
   useEffect(() => {
     if (!isOpen || !isCloning) {
@@ -92,7 +96,13 @@ export const CloneRepositoryModal: React.FC<CloneRepositoryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in select-none">
-      <div className="bg-surface border border-surface-border rounded-xl shadow-2xl max-w-lg w-full overflow-hidden text-slate-200">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="bg-surface border border-surface-border rounded-xl shadow-2xl max-w-lg w-full overflow-hidden text-slate-200 outline-none"
+      >
         {/* Header */}
         <div className="p-4 border-b border-surface-border flex items-center justify-between bg-surface-subtle/50">
           <div className="flex items-center gap-2.5">

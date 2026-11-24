@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 import {
   X,
   FileDiff,
@@ -25,23 +26,15 @@ export const ApplyPatchModal: React.FC<ApplyPatchModalProps> = ({
   const [isReverse, setIsReverse] = useState(false)
   const [isApplying, setIsApplying] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(modalRef, isOpen, onClose)
 
   useEffect(() => {
     if (isOpen) {
       setError(null)
     }
   }, [isOpen])
-
-  // Esc to close
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isOpen && e.key === 'Escape') {
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
 
   if (!isOpen) return null
 
@@ -85,7 +78,13 @@ export const ApplyPatchModal: React.FC<ApplyPatchModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#0f131c] border border-surface-border rounded-xl shadow-2xl flex flex-col w-full max-w-2xl overflow-hidden text-slate-200 animate-fade-in">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="bg-[#0f131c] border border-surface-border rounded-xl shadow-2xl flex flex-col w-full max-w-2xl overflow-hidden text-slate-200 animate-fade-in outline-none"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 bg-surface border-b border-surface-border select-none">
           <div className="flex items-center gap-2.5">

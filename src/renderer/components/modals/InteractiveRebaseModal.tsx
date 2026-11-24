@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import type { GitCommit } from '@/shared/types'
 import { GitCommit as CommitIcon, ArrowUp, ArrowDown, X, Play, RefreshCw } from 'lucide-react'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 
 export type RebaseAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop'
 
@@ -26,6 +27,9 @@ export const InteractiveRebaseModal: React.FC<InteractiveRebaseModalProps> = ({
   const [steps, setSteps] = useState<RebaseStep[]>(() =>
     commits.slice(0, 10).map((c) => ({ commit: c, action: 'pick' }))
   )
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(modalRef, isOpen, onClose)
 
   if (!isOpen) return null
 
@@ -64,7 +68,11 @@ export const InteractiveRebaseModal: React.FC<InteractiveRebaseModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-[720px] max-h-[85vh] bg-surface border border-surface-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="w-[720px] max-h-[85vh] bg-surface border border-surface-border rounded-xl shadow-2xl flex flex-col overflow-hidden outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

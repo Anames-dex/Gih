@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import type { GitBlameLine } from '@/shared/types'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 import {
   X,
   History,
@@ -50,6 +51,9 @@ export const GitBlameModal: React.FC<GitBlameModalProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [hoveredHash, setHoveredHash] = useState<string | null>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(modalRef, true, onClose)
 
   useEffect(() => {
     let isMounted = true
@@ -81,17 +85,6 @@ export const GitBlameModal: React.FC<GitBlameModalProps> = ({
     }
   }, [filePath])
 
-  // Keyboard shortcut Esc to close
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
-
   const fileName = filePath.split(/[\\/]/).pop() || filePath
 
   const uniqueAuthors = useMemo(() => {
@@ -118,7 +111,13 @@ export const GitBlameModal: React.FC<GitBlameModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#0f131c] border border-surface-border rounded-xl shadow-2xl flex flex-col w-full max-w-6xl h-[88vh] overflow-hidden text-slate-200">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="bg-[#0f131c] border border-surface-border rounded-xl shadow-2xl flex flex-col w-full max-w-6xl h-[88vh] overflow-hidden text-slate-200 outline-none"
+      >
         {/* Blame Header */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-surface border-b border-surface-border select-none">
           <div className="flex items-center gap-3 truncate">

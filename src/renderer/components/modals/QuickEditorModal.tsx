@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 import {
   X,
   Save,
@@ -44,8 +45,21 @@ export const QuickEditorModal: React.FC<QuickEditorModalProps> = ({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lineNumbersRef = useRef<HTMLDivElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
 
   const isDirty = content !== originalContent
+
+  const handleRequestClose = () => {
+    if (isDirty) {
+      if (window.confirm('You have unsaved changes. Discard and close editor?')) {
+        onClose()
+      }
+    } else {
+      onClose()
+    }
+  }
+
+  useFocusTrap(modalRef, true, handleRequestClose)
 
   useEffect(() => {
     let isMounted = true
@@ -115,20 +129,12 @@ export const QuickEditorModal: React.FC<QuickEditorModalProps> = ({
     localStorage.setItem('gih_preferred_editor', val)
   }
 
-  // Keyboard shortcuts (Ctrl+S / Cmd+S, Escape)
+  // Keyboard shortcut (Ctrl+S / Cmd+S)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault()
         handleSave()
-      } else if (e.key === 'Escape') {
-        if (isDirty) {
-          if (window.confirm('You have unsaved changes. Discard and close editor?')) {
-            onClose()
-          }
-        } else {
-          onClose()
-        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -163,7 +169,13 @@ export const QuickEditorModal: React.FC<QuickEditorModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#0f131c] border border-surface-border rounded-xl shadow-2xl flex flex-col w-full max-w-5xl h-[85vh] overflow-hidden text-slate-200">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="bg-[#0f131c] border border-surface-border rounded-xl shadow-2xl flex flex-col w-full max-w-5xl h-[85vh] overflow-hidden text-slate-200 outline-none"
+      >
         {/* Editor Header */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-surface border-b border-surface-border select-none">
           <div className="flex items-center gap-2.5 truncate">
@@ -301,6 +313,7 @@ export const QuickEditorModal: React.FC<QuickEditorModalProps> = ({
               {/* Code Textarea */}
               <textarea
                 ref={textareaRef}
+                data-allow-tab="true"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 onScroll={handleScroll}

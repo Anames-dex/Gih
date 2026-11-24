@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Tag as TagIcon, X, Check, UploadCloud } from 'lucide-react'
 import type { GitCommit } from '@/shared/types'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 
 interface CreateTagModalProps {
   isOpen: boolean
@@ -21,6 +22,9 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({
   const [isAnnotated, setIsAnnotated] = useState(true)
   const [pushImmediately, setPushImmediately] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(modalRef, isOpen, onClose)
 
   useEffect(() => {
     if (isOpen) {
@@ -57,7 +61,11 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-surface border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="w-full max-w-md bg-surface border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

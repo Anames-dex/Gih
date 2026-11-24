@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 import {
   Keyboard,
   X,
@@ -109,6 +110,9 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
 export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen, onClose }) => {
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(modalRef, isOpen, onClose)
 
   if (!isOpen) return null
 
@@ -134,7 +138,11 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ 
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl bg-surface border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="w-full max-w-3xl bg-surface border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}

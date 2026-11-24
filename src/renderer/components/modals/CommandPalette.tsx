@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import type { GitBranch, GitCommit } from '@/shared/types'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 import {
   Search,
   GitBranch as BranchIcon,
@@ -36,6 +37,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(modalRef, isOpen, onClose)
 
   useEffect(() => {
     if (isOpen) {
@@ -115,7 +119,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-[560px] bg-surface border border-surface-border rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="w-[560px] bg-surface border border-surface-border rounded-xl shadow-2xl overflow-hidden flex flex-col outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-border">

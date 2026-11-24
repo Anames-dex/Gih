@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { User, Mail, Globe, FolderGit2, X, AlertCircle, Check } from 'lucide-react'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 
 interface GitAuthorModalProps {
   isOpen: boolean
@@ -23,6 +24,9 @@ export const GitAuthorModal: React.FC<GitAuthorModalProps> = ({
   const [isGlobal, setIsGlobal] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(modalRef, isOpen, onClose)
 
   useEffect(() => {
     if (isOpen) {
@@ -71,7 +75,13 @@ export const GitAuthorModal: React.FC<GitAuthorModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in select-none">
-      <div className="bg-[#0f172a] border border-surface-border rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-up">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="bg-[#0f172a] border border-surface-border rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-up outline-none"
+      >
         {/* Header */}
         <div className="px-5 py-4 border-b border-surface-border flex items-center justify-between">
           <div className="flex items-center gap-2.5">

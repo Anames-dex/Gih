@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import type { GitStash } from '@/shared/types'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 import {
   Archive,
   X,
@@ -35,6 +36,9 @@ export const StashInspectorModal: React.FC<StashInspectorModalProps> = ({
   const [isLoadingDiff, setIsLoadingDiff] = useState(true)
   const [copied, setCopied] = useState(false)
   const [isActionPending, setIsActionPending] = useState(false)
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(modalRef, !!stash, onClose)
 
   useEffect(() => {
     if (!stash) return
@@ -70,7 +74,11 @@ export const StashInspectorModal: React.FC<StashInspectorModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl bg-surface border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="w-full max-w-4xl bg-surface border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

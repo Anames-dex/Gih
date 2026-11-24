@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import type { GitCommit } from '@/shared/types'
 import { AlertTriangle, RotateCcw, X, ShieldAlert, CheckCircle2 } from 'lucide-react'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 
 export type ResetMode = 'soft' | 'mixed' | 'hard'
 
@@ -20,6 +21,9 @@ export const ResetBranchModal: React.FC<ResetBranchModalProps> = ({
   onConfirmReset,
 }) => {
   const [selectedMode, setSelectedMode] = useState<ResetMode>('mixed')
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(modalRef, isOpen && !!commit, onClose)
 
   if (!isOpen || !commit) return null
 
@@ -30,7 +34,13 @@ export const ResetBranchModal: React.FC<ResetBranchModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in select-none">
-      <div className="bg-surface border border-surface-border rounded-xl shadow-2xl max-w-lg w-full overflow-hidden text-slate-200">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="bg-surface border border-surface-border rounded-xl shadow-2xl max-w-lg w-full overflow-hidden text-slate-200 outline-none"
+      >
         {/* Header */}
         <div className="p-4 border-b border-surface-border flex items-center justify-between bg-surface-subtle/50">
           <div className="flex items-center gap-2.5">

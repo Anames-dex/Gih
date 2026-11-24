@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { Archive, X, Check, Shield } from 'lucide-react'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 
 interface CreateStashModalProps {
   isOpen: boolean
@@ -16,6 +17,9 @@ export const CreateStashModal: React.FC<CreateStashModalProps> = ({
   const [includeUntracked, setIncludeUntracked] = useState(true)
   const [keepIndex, setKeepIndex] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(modalRef, isOpen, onClose)
 
   if (!isOpen) return null
 
@@ -37,7 +41,11 @@ export const CreateStashModal: React.FC<CreateStashModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-surface border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="w-full max-w-md bg-surface border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-4 border-b border-surface-border flex items-center justify-between shrink-0 bg-[#0f172a]/60">
