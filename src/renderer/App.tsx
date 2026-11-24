@@ -20,6 +20,7 @@ import { ResetBranchModal, ResetMode } from './components/modals/ResetBranchModa
 import { CloneRepositoryModal } from './components/modals/CloneRepositoryModal'
 import { GitMissingView } from './components/layout/GitMissingView'
 import { GitAuthorModal } from './components/modals/GitAuthorModal'
+import { QuickEditorModal } from './components/modals/QuickEditorModal'
 
 interface ToastNotice {
   id: string
@@ -53,6 +54,7 @@ export const App: React.FC = () => {
   const [isRebaseModalOpen, setIsRebaseModalOpen] = useState(false)
   const [resetModalCommit, setResetModalCommit] = useState<GitCommit | null>(null)
   const [isCloneModalOpen, setIsCloneModalOpen] = useState(false)
+  const [editingFilePath, setEditingFilePath] = useState<string | null>(null)
   const [commandHistory, setCommandHistory] = useState<CommandLogEntry[]>([])
   const [isFetching, setIsFetching] = useState(false)
   const [isPulling, setIsPulling] = useState(false)
@@ -543,6 +545,24 @@ export const App: React.FC = () => {
       }
     } catch (e: any) {
       showToast({ type: 'error', command: 'git discard', message: e.message })
+    }
+  }
+
+  const handleOpenInEditor = async (filePath: string) => {
+    if (!gih?.openInEditor) return
+    const prefEditor = localStorage.getItem('gih_preferred_editor') || 'vscode'
+    try {
+      const res = await gih.openInEditor(filePath, prefEditor)
+      if (!res.success && res.error) {
+        showToast({ type: 'error', message: res.error })
+      } else {
+        showToast({
+          type: 'info',
+          message: `Opened ${filePath.split(/[\\/]/).pop()} in editor`,
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', message: e.message })
     }
   }
 
@@ -1226,6 +1246,8 @@ export const App: React.FC = () => {
             onUnstageAll={() => gih?.unstageAll().then(refreshState)}
             onDiscardChanges={(path) => gih?.discardChanges(path).then(refreshState)}
             onDiscardAll={handleDiscardAll}
+            onOpenInEditor={handleOpenInEditor}
+            onQuickEditFile={(path) => setEditingFilePath(path)}
             onIgnorePattern={async (pattern) => {
               if (!gih?.addToGitIgnore) return
               const res = await gih.addToGitIgnore(pattern)
@@ -1375,6 +1397,20 @@ export const App: React.FC = () => {
           return res
         }}
       />
+
+      {editingFilePath && (
+        <QuickEditorModal
+          filePath={editingFilePath}
+          onClose={() => setEditingFilePath(null)}
+          onSaved={() => {
+            refreshState()
+            showToast({
+              type: 'success',
+              message: `Saved changes to ${editingFilePath.split(/[\\/]/).pop()}`,
+            })
+          }}
+        />
+      )}
 
       {/* Top-Center Command Feedback Island */}
       <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5 pointer-events-none max-w-lg w-full px-4">

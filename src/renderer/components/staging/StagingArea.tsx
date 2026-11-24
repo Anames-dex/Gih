@@ -15,7 +15,9 @@ import {
   Layers,
   ChevronRight,
   EyeOff,
-  Search
+  Search,
+  FileCode,
+  ExternalLink
 } from 'lucide-react'
 import { buildSplitRows, buildUnifiedRows, buildHunkPatch } from './diffUtils'
 
@@ -31,6 +33,8 @@ interface StagingAreaProps {
   onDiscardChanges: (path: string) => void
   onDiscardAll?: () => void
   onIgnorePattern?: (pattern: string) => void
+  onOpenInEditor?: (path: string) => void
+  onQuickEditFile?: (path: string) => void
   onCommit: (message: string, signOff?: boolean, amend?: boolean) => void
   onGetDiff: (path: string, staged: boolean) => Promise<FileDiff>
   onGetCommitFiles?: (hash: string) => Promise<{ files: GitFileStatus[]; statSummary: string }>
@@ -63,6 +67,8 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   onDiscardChanges,
   onDiscardAll,
   onIgnorePattern,
+  onOpenInEditor,
+  onQuickEditFile,
   onCommit,
   onGetDiff,
   onGetCommitFiles,
@@ -333,6 +339,28 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {onQuickEditFile && (
+              <button
+                type="button"
+                onClick={() => onQuickEditFile(filePath)}
+                className="px-2 py-0.5 rounded bg-surface hover:bg-surface-hover border border-surface-border text-sky-400 text-[10px] flex items-center gap-1 font-mono transition-colors"
+                title="Quick View & Edit file inside Gih"
+              >
+                <FileCode className="w-3 h-3" />
+                <span>Edit in Gih</span>
+              </button>
+            )}
+            {onOpenInEditor && (
+              <button
+                type="button"
+                onClick={() => onOpenInEditor(filePath)}
+                className="px-2 py-0.5 rounded bg-surface hover:bg-surface-hover border border-surface-border text-slate-300 hover:text-white text-[10px] flex items-center gap-1 font-mono transition-colors"
+                title="Open file in configured external editor"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span>External</span>
+              </button>
+            )}
             <div className="flex items-center bg-[#090b10] border border-surface-border/60 rounded p-0.5 text-[10px]">
               <button
                 type="button"
@@ -714,6 +742,32 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                         {file.path}
                       </span>
                       <div className="flex items-center gap-1.5 shrink-0">
+                        {onQuickEditFile && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onQuickEditFile(file.path)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-sky-400"
+                            title="Quick View / Edit file in Gih"
+                          >
+                            <FileCode className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {onOpenInEditor && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onOpenInEditor(file.path)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-indigo-400"
+                            title="Open in external editor"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase ${badgeClass}`}>
                           {file.status[0]}
                         </span>
@@ -834,6 +888,32 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                   <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase">
                     {file.status[0]}
                   </span>
+                  {onQuickEditFile && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onQuickEditFile(file.path)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-sky-400"
+                      title="Quick View / Edit file in Gih"
+                    >
+                      <FileCode className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {onOpenInEditor && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onOpenInEditor(file.path)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-indigo-400"
+                      title="Open in external editor"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
@@ -913,6 +993,32 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                     <span className="text-[10px] font-mono font-bold text-amber-400 uppercase">
                       {file.status[0]}
                     </span>
+                    {onQuickEditFile && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onQuickEditFile(file.path)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-sky-400"
+                        title="Quick View / Edit file in Gih"
+                      >
+                        <FileCode className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {onOpenInEditor && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onOpenInEditor(file.path)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-indigo-400"
+                        title="Open in external editor"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation()

@@ -355,6 +355,26 @@ ipcMain.handle('app:openExternal', async (_, targetUrl: string) => {
   }
 })
 
+ipcMain.handle('app:openInEditor', async (_, filePath: string, editorChoice?: string) => {
+  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(gitService.getRepositoryPath(), filePath)
+  if (!editorChoice || editorChoice === 'system') {
+    const err = await shell.openPath(fullPath)
+    if (err) {
+      return { success: false, error: err }
+    }
+    return { success: true }
+  }
+  return await gitService.openInEditor(filePath, editorChoice)
+})
+
+ipcMain.handle('app:readFileContent', async (_, filePath: string) => {
+  return await gitService.readFileContent(filePath)
+})
+
+ipcMain.handle('app:saveFileContent', async (_, filePath: string, content: string) => {
+  return await gitService.saveFileContent(filePath, content)
+})
+
 ipcMain.handle('git:getDiff', async (_, filePath: string, staged?: boolean) => {
   return await gitService.getFileDiff(filePath, staged)
 })

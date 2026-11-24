@@ -97,6 +97,103 @@ export class GitService {
   }
 
   /**
+   * Opens a file in an external editor
+   */
+  public async openInEditor(
+    filePath: string,
+    editorChoice: string = 'system'
+  ): Promise<{ success: boolean; error?: string }> {
+    const fullPath = path.isAbsolute(filePath) ? filePath : path.join(this.currentRepoPath, filePath)
+    if (!fs.existsSync(fullPath)) {
+      return { success: false, error: `File not found: ${filePath}` }
+    }
+
+    const editorBinaries: Record<string, string> = {
+      vscode: 'code',
+      cursor: 'cursor',
+      sublime: 'subl',
+      windsurf: 'windsurf',
+      notepad: 'notepad',
+    }
+
+    const bin = editorBinaries[editorChoice] || editorChoice
+    if (bin === 'system') {
+      return { success: true }
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const child = spawn(bin, [fullPath], {
+          detached: true,
+          stdio: 'ignore',
+          shell: process.platform === 'win32',
+        })
+        child.on('error', (err) => {
+          resolve({ success: false, error: `Failed to launch ${bin}: ${err.message}` })
+        })
+        child.unref()
+        resolve({ success: true })
+      } catch (err: any) {
+        resolve({ success: false, error: err?.message || `Failed to spawn ${bin}` })
+      }
+    })
+  }
+
+  /**
+   * Reads raw file content from disk
+   */
+  public async readFileContent(filePath: string): Promise<{
+    content: string
+    isBinary: boolean
+    size: number
+    error?: string
+  }> {
+    const fullPath = path.isAbsolute(filePath) ? filePath : path.join(this.currentRepoPath, filePath)
+    try {
+      if (!fs.existsSync(fullPath)) {
+        return { content: '', isBinary: false, size: 0, error: 'File does not exist' }
+      }
+      const stats = fs.statSync(fullPath)
+      if (stats.size > 5 * 1024 * 1024) {
+        return {
+          content: '',
+          isBinary: true,
+          size: stats.size,
+          error: `File is too large to display directly (${(stats.size / 1024 / 1024).toFixed(1)} MB).`,
+        }
+      }
+      const buffer = fs.readFileSync(fullPath)
+      let isBinary = false
+      const checkLength = Math.min(buffer.length, 8000)
+      for (let i = 0; i < checkLength; i++) {
+        if (buffer[i] === 0) {
+          isBinary = true
+          break
+        }
+      }
+      if (isBinary) {
+        return { content: '', isBinary: true, size: stats.size }
+      }
+      return { content: buffer.toString('utf8'), isBinary: false, size: stats.size }
+    } catch (err: any) {
+      return { content: '', isBinary: false, size: 0, error: err?.message || 'Failed to read file' }
+    }
+  }
+
+  /**
+   * Writes raw file content to disk
+   */
+  public async saveFileContent(filePath: string, content: string): Promise<{ success: boolean; error?: string }> {
+    const fullPath = path.isAbsolute(filePath) ? filePath : path.join(this.currentRepoPath, filePath)
+    try {
+      fs.writeFileSync(fullPath, content, 'utf8')
+      return { success: true }
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to save file' }
+    }
+  }
+
+  /**
    * Discards all unstaged changes in the working tree (restores modified tracked files and cleans untracked files).
    */
   public async discardAllChanges(): Promise<{ stdout: string; stderr: string; exitCode: number }> {
