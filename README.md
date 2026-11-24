@@ -55,6 +55,13 @@ Unlike tools that simplify Git by hiding its internals, Gih keeps you connected 
 - **Recent Repositories & Quick Switcher**: Persistent workspace history with instant dropdown switching, recent project jump lists, and 1-click workspace removal.
 - **CLI & Windows Explorer Integration**: Launch directly from your shell (`gih .` or `gih path/to/repo`) or right-click any folder in Windows Explorer with "Open with Gih".
 - **First-Commit Author Identity Setup**: Automatically detects missing `user.name` / `user.email` configurations, guides users through global/local identity setup, and auto-resumes their pending commit.
+- **Stash Inspection & Custom Stash Studio**: Modal diff viewer for `stash@{n}` entries and custom stash options (`--include-untracked` / `-u`, `--keep-index`).
+- **Cryptographic Commit Signatures (GPG & SSH)**: Automatic signature verification badges (`Verified`, `Unverified`, `Invalid`) in the DAG graph and inspector, with a `Sign (-S)` commit composer toggle.
+- **Visual Git Bisect Assistant & Binary Search HUD**: Step-by-step binary search assistant with interactive HUD controls (`Mark Good`, `Mark Bad`, `Skip`, `Abort`) to quickly isolate regression commits.
+- **File History Filter (`git log -- <path>`)**: Instant path scoping in the DAG graph to review the complete evolution of an individual file.
+- **Annotated Tagging Studio & Remote Push**: Create release tags with multi-line release notes and push tags to remote origin (`git push origin <tag>` / `--tags`).
+- **Git Submodules Studio**: Sidebar submodule management with sync status indicators, recursive sync (`git submodule update --init --recursive`), and one-click child repo navigation.
+- **100% Zero-Mouse Keyboard Accessibility**: Complete hotkey and focus-switching coverage (`Ctrl+1..4`, `F6`, `?`, `Space`, `Enter`, `d`, `e`, `b`, `c`, `s`, `u`) for seamless mouse-free development.
 - **Tactile Command Island**: Top-center HUD notifications showing command timing and results within natural foveal focus.
 - **Draggable & Resizable Panes**: Customizable sidebar sections and smooth split panes for staging and terminal views.
 

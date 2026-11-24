@@ -96,6 +96,34 @@ Gih takes the opposite approach: **every visual interaction in Gih corresponds t
 - **Interactive Keyboard Cheatsheet**: Press `?` or `F1` anywhere to view the full categorized shortcuts cheatsheet modal.
 - **Accessible Focus Rings**: High-contrast, WCAG-compliant `:focus-visible` styling and accessible tab indexing across all interactive elements.
 
+### 3.11. Stash Inspection & Custom Stash Studio
+- **Stash Inspector Modal**: Direct inspection of individual stashes (`stash@{n}`) showing author, timestamp, parent commit, full patch diff with syntax highlighting, and immediate Pop, Apply, or Drop buttons.
+- **Custom Stash Options**: Flexible stash creation studio supporting custom descriptions, untracked file inclusion (`--include-untracked` / `-u`), and staged index preservation (`--keep-index`).
+
+### 3.12. Cryptographic Commit Signatures (GPG & SSH)
+- **Signature Verification Badges**: Automatic evaluation of commit cryptographic signatures via `%G?`, `%GS`, `%GK`, and `%GF`, displaying `Verified` (emerald shield), `Unverified` (amber shield), or `Invalid` (rose shield) badges directly in the graph and commit inspector.
+- **Commit Signing Toggle**: Single-click `Sign (-S)` checkbox in the commit message composer to automatically sign new or amended commits with configured GPG or SSH signing keys.
+- **Key Details Inspector**: Displays signer name, key ID, and primary fingerprint directly in the commit inspector metadata card.
+
+### 3.13. Visual Git Bisect Assistant & Binary Search HUD
+- **One-Click Bisect Initiation**: Right-click any commit to start a Git bisect session, or select two commits to begin bisecting between a known good commit and bad commit.
+- **Interactive HUD Banner**: In-progress bisect HUD with immediate action controls for `Mark Good`, `Mark Bad`, `Skip`, and `Reset / Abort`.
+- **Telemetry & Step Guidance**: Displays revisions remaining, estimated steps left in the binary search, and highlights culprit commits upon completion.
+
+### 3.14. File-Specific History Filter & Graph Isolation
+- **Scoped Commit History (`git log -- <path>`)**: Filter the entire commit DAG to display only commits modifying a specific file.
+- **Dismissible Header Filter Pill**: Displays active file focus in the graph header with instant single-click or `Esc` clearing.
+- **Staging & Diff Shortcuts**: One-click `History` action on any modified or inspected file to isolate its history in the DAG graph.
+
+### 3.15. Annotated Tagging Studio & Remote Tag Push
+- **Annotated Tag Studio**: Modal to create lightweight or annotated tags with version names, release notes, changelog summaries, and commit targeting.
+- **Remote Tag Push Actions**: Direct push controls on individual tags (`git push origin <tag>`) and header action to push all tags (`git push origin --tags`).
+
+### 3.16. Git Submodules Studio & Recursive Sync
+- **Sidebar Submodule Section**: Displays nested child submodules with current commit SHA, submodule status badges (`clean`, `modified`, `uninitialized`, `conflict`), and describe strings.
+- **Recursive Submodule Sync**: Single-click action to execute `git submodule update --init --recursive`.
+- **Direct Workspace Switching**: Double-click or click play on any submodule to instantly switch the Gih workspace into that child repository.
+
 ---
 
 ## 4. Contact & Inquiries

@@ -9,6 +9,7 @@
     "build": "tsc && vite build",
     "package": "tsc && vite build && electron-builder",
     "package:win": "tsc && vite build && electron-builder --win",
+    "package:installer": "tsc && vite build && electron-builder --win nsis",
     "package:portable": "tsc && vite build && electron-builder --win portable",
     "package:mac": "tsc && vite build && electron-builder --mac",
     "package:linux": "tsc && vite build && electron-builder --linux",
@@ -79,13 +80,15 @@
       ]
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Gih",
-      "artifactName": "Gih-Setup-${version}.${ext}"
+      "artifactName": "Gih-Setup-${version}.${ext}",
+      "uninstallDisplayName": "Gih"
     },
     "portable": {
       "artifactName": "Gih-Portable-${version}.${ext}"
