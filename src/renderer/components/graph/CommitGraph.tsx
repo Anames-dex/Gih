@@ -27,6 +27,8 @@ interface CommitGraphProps {
   onRebaseBranch?: (sourceBranch: string, upstreamRef: string) => void
   onCherryPick?: (commitHash: string) => void
   isActivePane?: boolean
+  filePathFilter?: string | null
+  onClearFilePathFilter?: () => void
 }
 
 const ROW_HEIGHT = 44
@@ -46,6 +48,8 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
   onRebaseBranch,
   onCherryPick,
   isActivePane = true,
+  filePathFilter,
+  onClearFilePathFilter,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [draggedItem, setDraggedItem] = useState<{ type: 'branch' | 'commit'; name?: string; hash: string } | null>(null)
@@ -294,6 +298,25 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
                 <GitBranchIcon className="w-3 h-3 text-amber-400" />
                 <span>Current Branch</span>
               </button>
+            </div>
+          )}
+
+          {filePathFilter && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-950/60 border border-purple-700/50 text-[11px] text-purple-200">
+              <span className="text-purple-400 font-semibold">File:</span>
+              <span className="font-mono text-purple-200 max-w-[180px] truncate" title={filePathFilter}>
+                {filePathFilter}
+              </span>
+              {onClearFilePathFilter && (
+                <button
+                  type="button"
+                  onClick={onClearFilePathFilter}
+                  className="p-0.5 hover:text-white text-purple-400 rounded hover:bg-purple-800/50 transition-colors ml-0.5"
+                  title="Clear file history filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
           )}
 

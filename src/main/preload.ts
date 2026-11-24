@@ -9,7 +9,8 @@ import type {
   RemoteProviderInfo,
   GitInstallationStatus,
   GitAuthorConfig,
-  GitBlameLine
+  GitBlameLine,
+  GitCommit
 } from '../shared/types'
 
 export interface GihAPI {
@@ -19,7 +20,8 @@ export interface GihAPI {
   setAuthorConfig: (name: string, email: string, isGlobal?: boolean) => Promise<{ success: boolean; error?: string }>
   toggleExplorerContextMenu: (enable: boolean) => Promise<{ success: boolean; enabled: boolean; error?: string }>
   isExplorerContextMenuRegistered: () => Promise<boolean>
-  getState: (allBranches?: boolean) => Promise<RepositoryState>
+  getState: (allBranches?: boolean, filePath?: string) => Promise<RepositoryState>
+  getCommits: (limit?: number, allBranches?: boolean, filePath?: string) => Promise<GitCommit[]>
   setRepoPath: (repoPath: string, allBranches?: boolean) => Promise<RepositoryState>
   initRepository: (branchName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   cloneRepository: (url: string, targetPath: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
@@ -88,7 +90,8 @@ const api: GihAPI = {
   setAuthorConfig: (name: string, email: string, isGlobal?: boolean) => ipcRenderer.invoke('git:setAuthorConfig', name, email, isGlobal),
   toggleExplorerContextMenu: (enable: boolean) => ipcRenderer.invoke('app:toggleExplorerContextMenu', enable),
   isExplorerContextMenuRegistered: () => ipcRenderer.invoke('app:isExplorerContextMenuRegistered'),
-  getState: (allBranches?: boolean) => ipcRenderer.invoke('git:getState', allBranches),
+  getState: (allBranches?: boolean, filePath?: string) => ipcRenderer.invoke('git:getState', allBranches, filePath),
+  getCommits: (limit?: number, allBranches?: boolean, filePath?: string) => ipcRenderer.invoke('git:getCommits', limit, allBranches, filePath),
   setRepoPath: (path: string, allBranches?: boolean) => ipcRenderer.invoke('git:setRepoPath', path, allBranches),
   initRepository: (branchName?: string) => ipcRenderer.invoke('git:init', branchName),
   cloneRepository: (url: string, targetPath: string) => ipcRenderer.invoke('git:clone', url, targetPath),

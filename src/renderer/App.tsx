@@ -41,6 +41,8 @@ export const App: React.FC = () => {
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
   const [showAllBranches, setShowAllBranches] = useState(true)
   const showAllBranchesRef = useRef(true)
+  const [graphFilePathFilter, setGraphFilePathFilter] = useState<string | null>(null)
+  const graphFilePathFilterRef = useRef<string | null>(null)
   const [authorConfig, setAuthorConfig] = useState<GitAuthorConfig | null>(null)
   const [isAuthorModalOpen, setIsAuthorModalOpen] = useState(false)
   const [pendingCommitAction, setPendingCommitAction] = useState<(() => void) | null>(null)
@@ -129,7 +131,7 @@ export const App: React.FC = () => {
     }, 4500)
   }, [])
 
-  const refreshState = useCallback(async (allBranches: boolean = showAllBranchesRef.current) => {
+  const refreshState = useCallback(async (allBranches: boolean = showAllBranchesRef.current, filePath: string | null = graphFilePathFilterRef.current) => {
     if (!gih) return
     if (isRefreshingRef.current) {
       refreshPendingRef.current = true
@@ -138,7 +140,7 @@ export const App: React.FC = () => {
     isRefreshingRef.current = true
 
     try {
-      const state = await gih.getState(allBranches)
+      const state = await gih.getState(allBranches, filePath || undefined)
       setRepoState(state)
       const history = await gih.getCommandHistory()
       setCommandHistory(history)
@@ -170,6 +172,19 @@ export const App: React.FC = () => {
       }
     }
   }, [gih])
+
+  const handleSetGraphFilePathFilter = (filePath: string | null) => {
+    graphFilePathFilterRef.current = filePath
+    setGraphFilePathFilter(filePath)
+    refreshState(showAllBranchesRef.current, filePath)
+    if (filePath) {
+      showToast({
+        type: 'info',
+        command: `git log -- ${filePath}`,
+        message: `Filtered graph to commits modifying ${filePath}`,
+      })
+    }
+  }
 
   const checkGit = useCallback(async () => {
     if (!gih?.checkGitInstallation) return
@@ -1574,6 +1589,8 @@ export const App: React.FC = () => {
               onRebaseBranch={handleRebaseBranch}
               onCherryPick={handleCherryPick}
               isActivePane={activePane === 'graph'}
+              filePathFilter={graphFilePathFilter}
+              onClearFilePathFilter={() => handleSetGraphFilePathFilter(null)}
             />
 
             {/* Context Menu */}
@@ -1643,6 +1660,7 @@ export const App: React.FC = () => {
               onOpenInEditor={handleOpenInEditor}
               onQuickEditFile={(path) => setEditingFilePath(path)}
               onBlameFile={(path) => setBlameFilePath(path)}
+              onFilterGraphByFile={handleSetGraphFilePathFilter}
               onIgnorePattern={async (pattern) => {
                 if (!gih?.addToGitIgnore) return
                 const res = await gih.addToGitIgnore(pattern)
