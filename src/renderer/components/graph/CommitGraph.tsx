@@ -82,15 +82,76 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
   }, [])
 
   useEffect(() => {
+    const scrollToCommit = (index: number) => {
+      if (!scrollContainerRef.current) return
+      const rowTop = index * ROW_HEIGHT
+      const rowBottom = rowTop + ROW_HEIGHT
+      const { scrollTop, clientHeight } = scrollContainerRef.current
+      if (rowTop < scrollTop) {
+        scrollContainerRef.current.scrollTop = rowTop
+      } else if (rowBottom > scrollTop + clientHeight) {
+        scrollContainerRef.current.scrollTop = rowBottom - clientHeight
+      }
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault()
         searchInputRef.current?.focus()
+        return
+      }
+
+      // Don't intercept when user is typing in input or textarea
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        if (commits.length === 0) return
+        e.preventDefault()
+        let targetIndex = 0
+        if (selectedCommits.length > 0) {
+          const lastSelected = selectedCommits[selectedCommits.length - 1]
+          const currentIndex = commits.findIndex((c) => c.hash === lastSelected.hash)
+          if (currentIndex !== -1) {
+            targetIndex = Math.min(commits.length - 1, currentIndex + 1)
+          }
+        }
+        const targetCommit = commits[targetIndex]
+        onSelectCommit(targetCommit, false, e.shiftKey)
+        scrollToCommit(targetIndex)
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        if (commits.length === 0) return
+        e.preventDefault()
+        let targetIndex = 0
+        if (selectedCommits.length > 0) {
+          const firstSelected = selectedCommits[0]
+          const currentIndex = commits.findIndex((c) => c.hash === firstSelected.hash)
+          if (currentIndex !== -1) {
+            targetIndex = Math.max(0, currentIndex - 1)
+          }
+        }
+        const targetCommit = commits[targetIndex]
+        onSelectCommit(targetCommit, false, e.shiftKey)
+        scrollToCommit(targetIndex)
+      } else if (e.key === 'Escape') {
+        if (searchQuery) {
+          setSearchQuery('')
+        } else if (selectedCommits.length > 0) {
+          onClearSelection?.()
+        }
       }
     }
+
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [commits, selectedCommits, searchQuery, onSelectCommit, onClearSelection])
 
   const matchingCommitHashes = useMemo(() => {
     if (!searchQuery.trim()) return new Set<string>()
