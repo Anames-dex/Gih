@@ -526,9 +526,10 @@ ipcMain.handle('git:push', async (_, remoteName?: string, branchName?: string, s
   return await gitService.pushRemote(remoteName, branchName, setUpstream, forceWithLease)
 })
 
-ipcMain.handle('git:createStash', async (_, message?: string, includeUntracked?: boolean) => {
+ipcMain.handle('git:createStash', async (_, message?: string, includeUntracked?: boolean, keepIndex?: boolean) => {
   const args = ['stash', 'push']
   if (includeUntracked) args.push('-u')
+  if (keepIndex) args.push('--keep-index')
   if (message) args.push('-m', message)
   await gitService.execGit(args)
 })

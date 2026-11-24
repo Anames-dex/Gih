@@ -14,7 +14,8 @@ import {
   GripVertical,
   Pencil,
   Check,
-  Scissors
+  Scissors,
+  Eye
 } from 'lucide-react'
 
 type SidebarSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'worktrees'
@@ -32,6 +33,7 @@ interface SidebarProps {
   onApplyStash: (index: number) => void
   onPopStash: (index: number) => void
   onDropStash: (index: number) => void
+  onInspectStash?: (stash: GitStash) => void
   onCreateTag?: () => void
   onDeleteTag?: (name: string) => void
   onBranchFromStash?: (name: string, index: number) => void
@@ -57,6 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteBranch,
   onPopStash,
   onDropStash,
+  onInspectStash,
   onCreateTag,
   onDeleteTag,
   onBranchFromStash,
@@ -561,6 +564,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         const idx = navItems.findIndex((it) => it.id === `stash-${s.index}`)
                         if (idx !== -1) setFocusedNavIndex(idx)
                       }}
+                      onDoubleClick={() => onInspectStash?.(s)}
                       className={`flex items-center justify-between px-2 py-1 rounded text-xs text-slate-300 group outline-none transition-all ${
                         isItemFocused ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400 text-white' : 'hover:bg-surface-hover'
                       }`}
@@ -570,6 +574,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <span className="truncate" title={s.message}>{s.message || s.name}</span>
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+                        {onInspectStash && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onInspectStash(s)
+                            }}
+                            className="p-1 hover:text-purple-300 text-slate-400"
+                            title="Inspect stash diff"
+                          >
+                            <Eye className="w-3 h-3" />
+                          </button>
+                        )}
                         {onBranchFromStash && (
                           <button
                             type="button"

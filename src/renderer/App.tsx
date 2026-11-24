@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type {
   RepositoryState,
   GitCommit,
+  GitStash,
   CommandLogEntry,
   RemoteProviderInfo,
   GitInstallationStatus,
@@ -24,6 +25,8 @@ import { QuickEditorModal } from './components/modals/QuickEditorModal'
 import { GitBlameModal } from './components/modals/GitBlameModal'
 import { ApplyPatchModal } from './components/modals/ApplyPatchModal'
 import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal'
+import { CreateStashModal } from './components/modals/CreateStashModal'
+import { StashInspectorModal } from './components/modals/StashInspectorModal'
 
 interface ToastNotice {
   id: string
@@ -62,6 +65,8 @@ export const App: React.FC = () => {
   const [blameFilePath, setBlameFilePath] = useState<string | null>(null)
   const [isApplyPatchModalOpen, setIsApplyPatchModalOpen] = useState(false)
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false)
+  const [isCreateStashModalOpen, setIsCreateStashModalOpen] = useState(false)
+  const [inspectingStash, setInspectingStash] = useState<GitStash | null>(null)
   const [commandHistory, setCommandHistory] = useState<CommandLogEntry[]>([])
   const [isFetching, setIsFetching] = useState(false)
   const [isPulling, setIsPulling] = useState(false)
@@ -732,17 +737,24 @@ export const App: React.FC = () => {
     }
   }
 
-  const handleStash = async () => {
+  const handleStash = () => {
+    setIsCreateStashModalOpen(true)
+  }
+
+  const handleConfirmCreateStash = async (
+    message: string,
+    includeUntracked: boolean,
+    keepIndex: boolean
+  ) => {
     if (!gih) return
-    const msg = window.prompt('Stash message (optional):')
     setIsStashing(true)
     const t0 = performance.now()
     try {
-      await gih.createStash(msg || undefined, true)
+      await gih.createStash(message || undefined, includeUntracked, keepIndex)
       await refreshState()
       showToast({
         type: 'success',
-        command: 'git stash push -u',
+        command: `git stash push ${includeUntracked ? '-u ' : ''}${keepIndex ? '--keep-index ' : ''}${message ? `-m "${message}"` : ''}`.trim(),
         message: 'Working changes saved to stash',
         durationMs: Math.round(performance.now() - t0),
       })
@@ -1365,6 +1377,7 @@ export const App: React.FC = () => {
               onApplyStash={(idx) => gih?.applyStash(idx).then(refreshState)}
               onPopStash={handlePopStash}
               onDropStash={handleDropStash}
+              onInspectStash={(stash) => setInspectingStash(stash)}
               onCreateTag={handleCreateTag}
               onDeleteTag={handleDeleteTag}
               onBranchFromStash={handleBranchFromStash}
@@ -1691,6 +1704,46 @@ export const App: React.FC = () => {
       <KeyboardShortcutsModal
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
+      />
+
+      <CreateStashModal
+        isOpen={isCreateStashModalOpen}
+        onClose={() => setIsCreateStashModalOpen(false)}
+        onConfirm={handleConfirmCreateStash}
+      />
+
+      <StashInspectorModal
+        stash={inspectingStash}
+        onClose={() => setInspectingStash(null)}
+        onApply={async (idx) => {
+          if (gih) {
+            await gih.applyStash(idx)
+            await refreshState()
+            showToast({ type: 'success', message: `Applied stash@{${idx}}` })
+          }
+        }}
+        onPop={async (idx) => {
+          if (gih) {
+            await gih.popStash(idx)
+            await refreshState()
+            showToast({ type: 'success', message: `Popped stash@{${idx}}` })
+          }
+        }}
+        onDrop={async (idx) => {
+          if (gih) {
+            await gih.dropStash(idx)
+            await refreshState()
+            showToast({ type: 'info', message: `Dropped stash@{${idx}}` })
+          }
+        }}
+        onBranch={async (bName, idx) => {
+          if (gih) {
+            await gih.branchFromStash(bName, idx)
+            await refreshState()
+            showToast({ type: 'success', message: `Created branch ${bName} from stash@{${idx}}` })
+          }
+        }}
+        onGetStashDiff={(idx) => gih?.getStashDiff(idx) || Promise.resolve('')}
       />
 
       {/* Top-Center Command Feedback Island */}

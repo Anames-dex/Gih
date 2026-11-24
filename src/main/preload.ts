@@ -64,7 +64,7 @@ export interface GihAPI {
   addWorktree: (targetPath: string, branchName: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   removeWorktree: (worktreePath: string, force?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
-  createStash: (message?: string, includeUntracked?: boolean) => Promise<void>
+  createStash: (message?: string, includeUntracked?: boolean, keepIndex?: boolean) => Promise<void>
   popStash: (index?: number) => Promise<void>
   applyStash: (index?: number) => Promise<void>
   dropStash: (index?: number) => Promise<void>
@@ -130,7 +130,7 @@ const api: GihAPI = {
   addWorktree: (targetPath: string, branchName: string) => ipcRenderer.invoke('git:addWorktree', targetPath, branchName),
   removeWorktree: (worktreePath: string, force?: boolean) => ipcRenderer.invoke('git:removeWorktree', worktreePath, force),
   pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => ipcRenderer.invoke('git:push', remoteName, branchName, setUpstream, forceWithLease),
-  createStash: (message?: string, includeUntracked?: boolean) => ipcRenderer.invoke('git:createStash', message, includeUntracked),
+  createStash: (message?: string, includeUntracked?: boolean, keepIndex?: boolean) => ipcRenderer.invoke('git:createStash', message, includeUntracked, keepIndex),
   popStash: (index?: number) => ipcRenderer.invoke('git:popStash', index),
   applyStash: (index?: number) => ipcRenderer.invoke('git:applyStash', index),
   dropStash: (index?: number) => ipcRenderer.invoke('git:dropStash', index),
