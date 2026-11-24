@@ -1066,20 +1066,18 @@ export class GitService {
     return await this.execGit(['branch', '-m', '--', safeOld, safeNew])
   }
 
-  public async cloneRepository(
-    url: string,
-    targetPath: string,
-    onProgress?: (progress: CloneProgressEvent) => void
+  public async execGitWithProgress(
+    args: string[],
+    cwd: string = this.currentRepoPath,
+    onProgress?: (progress: CloneProgressEvent) => void,
+    defaultPhase: string = 'Running'
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    const safeUrl = this.validateGitArg(url, 'clone URL')
-    const parentDir = path.dirname(path.resolve(targetPath))
-    const args = ['clone', '--progress', '--', safeUrl, targetPath]
     const startTime = Date.now()
     this.activeExecutions++
 
     return await new Promise((resolve) => {
       const child = spawn('git', args, {
-        cwd: parentDir,
+        cwd,
         windowsHide: true,
         env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
       })
@@ -1092,7 +1090,7 @@ export class GitService {
         const trimmed = line.trim()
         if (!trimmed || !onProgress) return
         const colonIdx = trimmed.indexOf(':')
-        const phase = colonIdx !== -1 ? trimmed.slice(0, colonIdx).trim() : 'Cloning'
+        const phase = colonIdx !== -1 ? trimmed.slice(0, colonIdx).trim() : defaultPhase
         const detail = colonIdx !== -1 ? trimmed.slice(colonIdx + 1).trim() : trimmed
         const pctMatch = trimmed.match(/(\d{1,3})%/)
         const percent = pctMatch ? Math.min(100, Math.max(0, parseInt(pctMatch[1], 10))) : null
@@ -1142,6 +1140,21 @@ export class GitService {
         resolve({ stdout, stderr, exitCode })
       })
     })
+  }
+
+  public async cloneRepository(
+    url: string,
+    targetPath: string,
+    onProgress?: (progress: CloneProgressEvent) => void
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const safeUrl = this.validateGitArg(url, 'clone URL')
+    const parentDir = path.dirname(path.resolve(targetPath))
+    return await this.execGitWithProgress(
+      ['clone', '--progress', '--', safeUrl, targetPath],
+      parentDir,
+      onProgress,
+      'Cloning'
+    )
   }
 
   public async mergeBranch(
@@ -1314,9 +1327,10 @@ export class GitService {
     remoteName?: string,
     branchName?: string,
     setUpstream?: boolean,
-    forceWithLease?: boolean
+    forceWithLease?: boolean,
+    onProgress?: (progress: CloneProgressEvent) => void
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    const args = ['push']
+    const args = ['push', '--progress']
     if (setUpstream) args.push('-u')
     if (forceWithLease) args.push('--force-with-lease')
     if (remoteName) {
@@ -1325,7 +1339,7 @@ export class GitService {
     if (branchName) {
       args.push(this.validateGitArg(branchName, 'branch name'))
     }
-    return await this.execGit(args)
+    return await this.execGitWithProgress(args, this.currentRepoPath, onProgress, 'Pushing')
   }
 
   /**

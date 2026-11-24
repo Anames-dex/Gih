@@ -194,3 +194,7 @@ export interface CloneProgressEvent {
   detail: string
   raw: string
 }
+
+export interface RemoteProgressEvent extends CloneProgressEvent {
+  operation: 'fetch' | 'pull' | 'push'
+}

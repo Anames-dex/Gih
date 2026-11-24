@@ -509,10 +509,14 @@ ipcMain.handle('git:revertCommit', async (_, commitHash: string) => {
   return await gitService.revertCommit(commitHash)
 })
 
-ipcMain.handle('git:fetch', async (_, remoteName?: string) => {
-  const args = ['fetch', '--prune']
+ipcMain.handle('git:fetch', async (event, remoteName?: string) => {
+  const args = ['fetch', '--prune', '--progress']
   if (remoteName) args.push(remoteName)
-  await gitService.execGit(args)
+  await gitService.execGitWithProgress(args, gitService.getRepositoryPath(), (progress) => {
+    if (!event.sender.isDestroyed()) {
+      event.sender.send('git:remote-progress', { operation: 'fetch', ...progress })
+    }
+  }, 'Fetching')
 })
 
 ipcMain.handle('git:pruneBranches', async (_, remoteName?: string) => {
@@ -527,15 +531,23 @@ ipcMain.handle('git:removeWorktree', async (_, worktreePath: string, force?: boo
   return await gitService.removeWorktree(worktreePath, force)
 })
 
-ipcMain.handle('git:pull', async (_, remoteName?: string, branchName?: string) => {
-  const args = ['pull']
+ipcMain.handle('git:pull', async (event, remoteName?: string, branchName?: string) => {
+  const args = ['pull', '--progress']
   if (remoteName) args.push(remoteName)
   if (branchName) args.push(branchName)
-  await gitService.execGit(args)
+  await gitService.execGitWithProgress(args, gitService.getRepositoryPath(), (progress) => {
+    if (!event.sender.isDestroyed()) {
+      event.sender.send('git:remote-progress', { operation: 'pull', ...progress })
+    }
+  }, 'Pulling')
 })
 
-ipcMain.handle('git:push', async (_, remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => {
-  return await gitService.pushRemote(remoteName, branchName, setUpstream, forceWithLease)
+ipcMain.handle('git:push', async (event, remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => {
+  return await gitService.pushRemote(remoteName, branchName, setUpstream, forceWithLease, (progress) => {
+    if (!event.sender.isDestroyed()) {
+      event.sender.send('git:remote-progress', { operation: 'push', ...progress })
+    }
+  })
 })
 
 ipcMain.handle('git:createStash', async (_, message?: string, includeUntracked?: boolean, keepIndex?: boolean) => {

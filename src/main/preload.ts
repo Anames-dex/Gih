@@ -11,7 +11,8 @@ import type {
   GitAuthorConfig,
   GitBlameLine,
   GitCommit,
-  CloneProgressEvent
+  CloneProgressEvent,
+  RemoteProgressEvent
 } from '../shared/types'
 
 export interface GihAPI {
@@ -28,6 +29,7 @@ export interface GihAPI {
   initRepository: (branchName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   cloneRepository: (url: string, targetPath: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   onCloneProgress: (callback: (progress: CloneProgressEvent) => void) => () => void
+  onRemoteProgress: (callback: (progress: RemoteProgressEvent) => void) => () => void
   openDirectoryDialog: () => Promise<string | null>
   openExternal: (url: string) => Promise<void>
   openInEditor: (filePath: string, editorChoice?: string) => Promise<{ success: boolean; error?: string }>
@@ -108,6 +110,13 @@ const api: GihAPI = {
     ipcRenderer.on('git:clone-progress', handler)
     return () => {
       ipcRenderer.removeListener('git:clone-progress', handler)
+    }
+  },
+  onRemoteProgress: (callback: (progress: RemoteProgressEvent) => void) => {
+    const handler = (_: unknown, progress: RemoteProgressEvent) => callback(progress)
+    ipcRenderer.on('git:remote-progress', handler)
+    return () => {
+      ipcRenderer.removeListener('git:remote-progress', handler)
     }
   },
   openDirectoryDialog: () => ipcRenderer.invoke('app:openDirectoryDialog'),

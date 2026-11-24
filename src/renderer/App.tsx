@@ -7,7 +7,8 @@ import type {
   RemoteProviderInfo,
   GitInstallationStatus,
   GitAuthorConfig,
-  RecentRepository
+  RecentRepository,
+  RemoteProgressEvent
 } from '../shared/types'
 import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink, RotateCcw, FileDiff, Tag } from 'lucide-react'
 import { AppHeader } from './components/layout/AppHeader'
@@ -44,6 +45,7 @@ export const App: React.FC = () => {
   const [gitStatus, setGitStatus] = useState<GitInstallationStatus | null>(null)
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
   const [dialogRequest, setDialogRequest] = useState<DialogRequest | null>(null)
+  const [remoteProgress, setRemoteProgress] = useState<RemoteProgressEvent | null>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -138,6 +140,13 @@ export const App: React.FC = () => {
   useFocusTrap(contextMenuRef, !!contextMenu, () => setContextMenu(null))
 
   const gih = (window as any).gih
+
+  useEffect(() => {
+    if (!gih?.onRemoteProgress) return
+    return gih.onRemoteProgress((progress: RemoteProgressEvent) => {
+      setRemoteProgress(progress)
+    })
+  }, [gih])
   const isRefreshingRef = useRef(false)
   const refreshPendingRef = useRef(false)
 
@@ -333,6 +342,7 @@ export const App: React.FC = () => {
       showToast({ type: 'error', command: 'git fetch', message: e.message })
     } finally {
       setIsFetching(false)
+      setRemoteProgress(null)
     }
   }
 
@@ -353,6 +363,7 @@ export const App: React.FC = () => {
       showToast({ type: 'error', command: 'git pull', message: e.message })
     } finally {
       setIsPulling(false)
+      setRemoteProgress(null)
     }
   }
 
@@ -382,6 +393,7 @@ export const App: React.FC = () => {
       showToast({ type: 'error', command: cmdStr, message: e.message })
     } finally {
       setIsPushing(false)
+      setRemoteProgress(null)
     }
   }
 
@@ -2142,6 +2154,18 @@ export const App: React.FC = () => {
 
       {/* Top-Center Command Feedback Island */}
       <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5 pointer-events-none max-w-lg w-full px-4">
+        {remoteProgress && (
+          <div className="pointer-events-auto px-4 py-2 rounded-full border border-sky-500/40 bg-[#0d1726]/95 text-sky-100 shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in">
+            <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping shrink-0" />
+            <span className="text-xs font-semibold capitalize">{remoteProgress.operation}:</span>
+            <span className="text-xs text-sky-200 truncate max-w-[200px]">{remoteProgress.phase}</span>
+            {remoteProgress.percent !== null && (
+              <span className="text-[11px] font-mono bg-sky-500/20 px-1.5 py-0.5 rounded text-sky-300 font-semibold">
+                {remoteProgress.percent}%
+              </span>
+            )}
+          </div>
+        )}
         {toasts.map((toast) => (
           <div
             key={toast.id}
