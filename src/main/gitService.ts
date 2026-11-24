@@ -19,7 +19,8 @@ import type {
   CommitRangeDiff,
   RemoteProviderInfo,
   GitBlameLine,
-  GitSubmodule
+  GitSubmodule,
+  CloneProgressEvent
 } from '../shared/types'
 
 export class GitService {
@@ -1008,11 +1009,80 @@ export class GitService {
 
   public async cloneRepository(
     url: string,
-    targetPath: string
+    targetPath: string,
+    onProgress?: (progress: CloneProgressEvent) => void
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const safeUrl = this.validateGitArg(url, 'clone URL')
     const parentDir = path.dirname(path.resolve(targetPath))
-    return await this.execGit(['clone', '--progress', '--', safeUrl, targetPath], parentDir)
+    const args = ['clone', '--progress', '--', safeUrl, targetPath]
+    const startTime = Date.now()
+    this.activeExecutions++
+
+    return await new Promise((resolve) => {
+      const child = spawn('git', args, {
+        cwd: parentDir,
+        windowsHide: true,
+        env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
+      })
+
+      let stdout = ''
+      let stderr = ''
+      let lineBuf = ''
+
+      const emitProgressLine = (line: string) => {
+        const trimmed = line.trim()
+        if (!trimmed || !onProgress) return
+        const colonIdx = trimmed.indexOf(':')
+        const phase = colonIdx !== -1 ? trimmed.slice(0, colonIdx).trim() : 'Cloning'
+        const detail = colonIdx !== -1 ? trimmed.slice(colonIdx + 1).trim() : trimmed
+        const pctMatch = trimmed.match(/(\d{1,3})%/)
+        const percent = pctMatch ? Math.min(100, Math.max(0, parseInt(pctMatch[1], 10))) : null
+        onProgress({ phase, percent, detail, raw: trimmed })
+      }
+
+      child.stdout?.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString('utf8')
+      })
+
+      child.stderr?.on('data', (chunk: Buffer) => {
+        const text = chunk.toString('utf8')
+        stderr += text
+        lineBuf += text
+        const parts = lineBuf.split(/[\r\n]+/)
+        lineBuf = parts.pop() ?? ''
+        for (const p of parts) {
+          emitProgressLine(p)
+        }
+      })
+
+      child.on('error', (err) => {
+        this.activeExecutions = Math.max(0, this.activeExecutions - 1)
+        this.commandHistory.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          command: `git ${args.join(' ')}`,
+          timestamp: startTime,
+          exitCode: 1,
+          output: err.message || stdout,
+          isError: true,
+        })
+        resolve({ stdout, stderr: err.message, exitCode: 1 })
+      })
+
+      child.on('close', (code) => {
+        if (lineBuf.trim()) emitProgressLine(lineBuf)
+        this.activeExecutions = Math.max(0, this.activeExecutions - 1)
+        const exitCode = code ?? 1
+        this.commandHistory.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          command: `git ${args.join(' ')}`,
+          timestamp: startTime,
+          exitCode,
+          output: stderr || stdout,
+          isError: exitCode !== 0,
+        })
+        resolve({ stdout, stderr, exitCode })
+      })
+    })
   }
 
   public async mergeBranch(

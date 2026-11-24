@@ -335,8 +335,12 @@ ipcMain.handle('app:openDirectoryDialog', async () => {
   return result.filePaths[0]
 })
 
-ipcMain.handle('git:clone', async (_, url: string, targetPath: string) => {
-  return await gitService.cloneRepository(url, targetPath)
+ipcMain.handle('git:clone', async (event, url: string, targetPath: string) => {
+  return await gitService.cloneRepository(url, targetPath, (progress) => {
+    if (!event.sender.isDestroyed()) {
+      event.sender.send('git:clone-progress', progress)
+    }
+  })
 })
 
 ipcMain.handle('git:exec', async (_, args: string[]) => {

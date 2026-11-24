@@ -187,3 +187,10 @@ export interface RecentRepository {
   name: string
   lastOpened: number
 }
+
+export interface CloneProgressEvent {
+  phase: string
+  percent: number | null
+  detail: string
+  raw: string
+}

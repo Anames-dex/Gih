@@ -10,7 +10,8 @@ import type {
   GitInstallationStatus,
   GitAuthorConfig,
   GitBlameLine,
-  GitCommit
+  GitCommit,
+  CloneProgressEvent
 } from '../shared/types'
 
 export interface GihAPI {
@@ -25,6 +26,7 @@ export interface GihAPI {
   setRepoPath: (repoPath: string, allBranches?: boolean) => Promise<RepositoryState>
   initRepository: (branchName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   cloneRepository: (url: string, targetPath: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  onCloneProgress: (callback: (progress: CloneProgressEvent) => void) => () => void
   openDirectoryDialog: () => Promise<string | null>
   openExternal: (url: string) => Promise<void>
   openInEditor: (filePath: string, editorChoice?: string) => Promise<{ success: boolean; error?: string }>
@@ -99,6 +101,13 @@ const api: GihAPI = {
   setRepoPath: (path: string, allBranches?: boolean) => ipcRenderer.invoke('git:setRepoPath', path, allBranches),
   initRepository: (branchName?: string) => ipcRenderer.invoke('git:init', branchName),
   cloneRepository: (url: string, targetPath: string) => ipcRenderer.invoke('git:clone', url, targetPath),
+  onCloneProgress: (callback: (progress: CloneProgressEvent) => void) => {
+    const handler = (_: unknown, progress: CloneProgressEvent) => callback(progress)
+    ipcRenderer.on('git:clone-progress', handler)
+    return () => {
+      ipcRenderer.removeListener('git:clone-progress', handler)
+    }
+  },
   openDirectoryDialog: () => ipcRenderer.invoke('app:openDirectoryDialog'),
   openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
   openInEditor: (filePath: string, editorChoice?: string) => ipcRenderer.invoke('app:openInEditor', filePath, editorChoice),

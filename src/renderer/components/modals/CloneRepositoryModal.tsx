@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Download, FolderOpen, X, Loader2, AlertCircle } from 'lucide-react'
+import type { CloneProgressEvent } from '@/shared/types'
 
 interface CloneRepositoryModalProps {
   isOpen: boolean
@@ -21,6 +22,22 @@ export const CloneRepositoryModal: React.FC<CloneRepositoryModalProps> = ({
   const [targetFolderName, setTargetFolderName] = useState('')
   const [isCloning, setIsCloning] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [cloneProgress, setCloneProgress] = useState<CloneProgressEvent | null>(null)
+
+  useEffect(() => {
+    if (!isOpen || !isCloning) {
+      setCloneProgress(null)
+      return
+    }
+    const gih = (window as any).gih
+    if (!gih?.onCloneProgress) return
+    const unsubscribe = gih.onCloneProgress((progress: CloneProgressEvent) => {
+      setCloneProgress(progress)
+    })
+    return () => {
+      unsubscribe?.()
+    }
+  }, [isOpen, isCloning])
 
   // Derive suggested folder name when URL changes
   useEffect(() => {
@@ -146,9 +163,40 @@ export const CloneRepositoryModal: React.FC<CloneRepositoryModalProps> = ({
               value={targetFolderName}
               onChange={(e) => setTargetFolderName(e.target.value)}
               placeholder="folder-name"
-              className="w-full bg-[#0c0e14] border border-surface-border rounded-lg px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-brand font-mono"
+              disabled={isCloning}
+              className="w-full bg-[#0c0e14] border border-surface-border rounded-lg px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-brand font-mono disabled:opacity-60"
             />
           </div>
+
+          {isCloning && (
+            <div className="p-3 bg-[#0c0e14] border border-indigo-500/30 rounded-lg space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-indigo-300 truncate">
+                  {cloneProgress ? cloneProgress.phase : 'Connecting to remote...'}
+                </span>
+                {cloneProgress?.percent !== null && cloneProgress?.percent !== undefined && (
+                  <span className="font-mono text-indigo-200 font-semibold shrink-0 ml-2">
+                    {cloneProgress.percent}%
+                  </span>
+                )}
+              </div>
+              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                {cloneProgress?.percent !== null && cloneProgress?.percent !== undefined ? (
+                  <div
+                    className="h-full bg-indigo-500 transition-all duration-150 ease-out"
+                    style={{ width: `${cloneProgress.percent}%` }}
+                  />
+                ) : (
+                  <div className="h-full w-1/3 bg-indigo-500 rounded-full animate-pulse" />
+                )}
+              </div>
+              {cloneProgress?.detail && (
+                <div className="text-[11px] font-mono text-slate-400 truncate" title={cloneProgress.raw}>
+                  {cloneProgress.detail}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Footer */}
           <div className="pt-3 border-t border-surface-border flex items-center justify-between">
