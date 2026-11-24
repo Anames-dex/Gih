@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import type { RemoteProviderInfo, RecentRepository } from '@/shared/types'
+import type { RemoteProviderInfo, RecentRepository, GitBranch as GitBranchType } from '@/shared/types'
 import {
   FolderGit2,
   ArrowDown,
@@ -23,6 +23,7 @@ import {
 interface AppHeaderProps {
   repoName: string
   currentBranch: string | null
+  branches?: GitBranchType[]
   remoteInfo?: RemoteProviderInfo | null
   recentRepos?: RecentRepository[]
   onSelectRecentRepo?: (path: string) => void
@@ -47,6 +48,7 @@ interface AppHeaderProps {
 export const AppHeader: React.FC<AppHeaderProps> = ({
   repoName,
   currentBranch,
+  branches,
   remoteInfo,
   recentRepos = [],
   onSelectRecentRepo,
@@ -210,6 +212,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-mono">
             <GitBranch className="w-3 h-3" />
             <span className="max-w-[120px] truncate">{currentBranch}</span>
+            {(() => {
+              const b = branches?.find((br) => br.name === currentBranch && !br.isRemote)
+              if (!b || (!b.ahead && !b.behind)) return null
+              return (
+                <span className="flex items-center gap-1 text-[10px] ml-1 bg-surface/80 px-1 rounded border border-sky-500/30 font-semibold select-none">
+                  {Boolean(b.ahead) && <span className="text-emerald-400">↑{b.ahead}</span>}
+                  {Boolean(b.behind) && <span className="text-rose-400">↓{b.behind}</span>}
+                </span>
+              )
+            })()}
           </div>
         )}
 

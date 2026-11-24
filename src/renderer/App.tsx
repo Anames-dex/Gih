@@ -333,6 +333,29 @@ export const App: React.FC = () => {
     }
   }
 
+  const handlePruneBranches = async () => {
+    if (!gih) return
+    const confirmed = window.confirm(
+      'Prune stale branches?\n\nThis runs "git fetch --prune" to remove deleted remote tracking references and safely deletes local branches whose upstream was deleted.'
+    )
+    if (!confirmed) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.pruneBranches()
+      await refreshState()
+      const delCount = res.deletedLocalBranches.length
+      const errCount = res.errors.length
+      showToast({
+        type: errCount > 0 ? 'info' : 'success',
+        command: 'git fetch --prune && git branch -d',
+        message: `Pruned remotes. Deleted ${delCount} stale local branch${delCount === 1 ? '' : 'es'}${errCount > 0 ? ` (${errCount} retained due to unmerged changes)` : ''}.`,
+        durationMs: Math.round(performance.now() - t0),
+      })
+    } catch (e: any) {
+      showToast({ type: 'error', command: 'git prune', message: e.message })
+    }
+  }
+
   const handleCheckoutBranch = async (branchName: string) => {
     if (!gih) return
     const t0 = performance.now()
@@ -864,6 +887,7 @@ export const App: React.FC = () => {
       <AppHeader
         repoName={repoState?.name || 'Gih'}
         currentBranch={repoState?.currentBranch || null}
+        branches={repoState?.branches || []}
         remoteInfo={remoteInfo}
         recentRepos={recentRepos}
         onSelectRecentRepo={async (targetPath) => {
@@ -1043,6 +1067,7 @@ export const App: React.FC = () => {
             onDeleteTag={handleDeleteTag}
             onBranchFromStash={handleBranchFromStash}
             onRenameBranch={handleRenameBranch}
+            onPruneBranches={handlePruneBranches}
           />
 
           {/* Drag Splitter: Sidebar -> Graph */}

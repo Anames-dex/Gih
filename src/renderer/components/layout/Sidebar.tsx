@@ -13,7 +13,8 @@ import {
   Play,
   GripVertical,
   Pencil,
-  Check
+  Check,
+  Scissors
 } from 'lucide-react'
 
 type SidebarSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'worktrees'
@@ -35,6 +36,7 @@ interface SidebarProps {
   onDeleteTag?: (name: string) => void
   onBranchFromStash?: (name: string, index: number) => void
   onRenameBranch?: (oldName: string, newName: string) => void
+  onPruneBranches?: () => void
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -53,6 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteTag,
   onBranchFromStash,
   onRenameBranch,
+  onPruneBranches,
 }) => {
   const [renamingBranch, setRenamingBranch] = useState<string | null>(null)
   const [renamingValue, setRenamingValue] = useState('')
@@ -123,6 +126,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="text-[10px] bg-surface-subtle px-1.5 py-0.2 rounded text-slate-400">
                   {localBranches.length}
                 </span>
+                {onPruneBranches && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onPruneBranches()
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-amber-300 transition-opacity"
+                    title="Prune stale branches (git fetch --prune & clean gone branches)"
+                  >
+                    <Scissors className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
@@ -182,9 +198,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           : 'hover:bg-surface-hover text-slate-300'
                       }`}
                     >
-                      <div className="flex items-center gap-2 truncate">
-                        <BranchIcon className={`w-3 h-3 ${isActive ? 'text-sky-400' : 'text-slate-500'}`} />
+                      <div className="flex items-center gap-1.5 truncate">
+                        <BranchIcon className={`w-3 h-3 shrink-0 ${isActive ? 'text-sky-400' : 'text-slate-500'}`} />
                         <span className="truncate">{b.name}</span>
+                        {(Boolean(b.ahead) || Boolean(b.behind)) && (
+                          <span className="flex items-center gap-1 text-[10px] font-mono px-1 rounded bg-surface border border-surface-border/60 text-slate-400 shrink-0 select-none">
+                            {Boolean(b.ahead) && <span className="text-emerald-400 font-medium">↑{b.ahead}</span>}
+                            {Boolean(b.behind) && <span className="text-rose-400 font-medium">↓{b.behind}</span>}
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

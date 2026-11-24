@@ -461,6 +461,10 @@ ipcMain.handle('git:fetch', async (_, remoteName?: string) => {
   await gitService.execGit(args)
 })
 
+ipcMain.handle('git:pruneBranches', async (_, remoteName?: string) => {
+  return await gitService.pruneMergedBranches(remoteName)
+})
+
 ipcMain.handle('git:pull', async (_, remoteName?: string, branchName?: string) => {
   const args = ['pull']
   if (remoteName) args.push(remoteName)

@@ -544,6 +544,44 @@ export class GitService {
   }
 
   /**
+   * Prunes stale remote branches and deletes local branches whose remote upstream is gone
+   */
+  public async pruneMergedBranches(remoteName = 'origin'): Promise<{
+    prunedRemotes: string
+    deletedLocalBranches: string[]
+    errors: string[]
+  }> {
+    const fetchRes = await this.execGit(['fetch', remoteName, '--prune'])
+    const { stdout } = await this.execGit(['branch', '-vv'])
+    const deletedLocalBranches: string[] = []
+    const errors: string[] = []
+
+    const lines = stdout.split('\n')
+    for (const line of lines) {
+      if (line.includes(': gone]')) {
+        const match = line.match(/^[\s*]+(\S+)/)
+        if (match) {
+          const branchName = match[1]
+          if (!line.startsWith('*')) {
+            const delRes = await this.execGit(['branch', '-d', '--', branchName])
+            if (delRes.exitCode === 0) {
+              deletedLocalBranches.push(branchName)
+            } else {
+              errors.push(`${branchName}: ${delRes.stderr.trim()}`)
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      prunedRemotes: fetchRes.stdout + (fetchRes.stderr ? '\n' + fetchRes.stderr : ''),
+      deletedLocalBranches,
+      errors,
+    }
+  }
+
+  /**
    * List repository tags
    */
   public async getTags(): Promise<GitTag[]> {

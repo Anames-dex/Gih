@@ -52,6 +52,7 @@ export interface GihAPI {
   cherryPick: (commitHash: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   revertCommit: (commitHash: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   fetchRemote: (remoteName?: string) => Promise<void>
+  pruneBranches: (remoteName?: string) => Promise<{ prunedRemotes: string; deletedLocalBranches: string[]; errors: string[] }>
   pullRemote: (remoteName?: string, branchName?: string) => Promise<void>
   pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   createStash: (message?: string, includeUntracked?: boolean) => Promise<void>
@@ -109,6 +110,7 @@ const api: GihAPI = {
   cherryPick: (commitHash: string) => ipcRenderer.invoke('git:cherryPick', commitHash),
   revertCommit: (commitHash: string) => ipcRenderer.invoke('git:revertCommit', commitHash),
   fetchRemote: (remoteName?: string) => ipcRenderer.invoke('git:fetch', remoteName),
+  pruneBranches: (remoteName?: string) => ipcRenderer.invoke('git:pruneBranches', remoteName),
   pullRemote: (remoteName?: string, branchName?: string) => ipcRenderer.invoke('git:pull', remoteName, branchName),
   pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => ipcRenderer.invoke('git:push', remoteName, branchName, setUpstream, forceWithLease),
   createStash: (message?: string, includeUntracked?: boolean) => ipcRenderer.invoke('git:createStash', message, includeUntracked),
