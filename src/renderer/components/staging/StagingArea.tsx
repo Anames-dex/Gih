@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import type { GitFileStatus, FileDiff, DiffHunk, GitCommit, CommitRangeDiff } from '@/shared/types'
 import {
   FileText,
@@ -143,6 +143,125 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const filteredStagedFiles = stagedFiles.filter((f) => filterMatch(f.path))
   const filteredUnstagedFiles = unstagedFiles.filter((f) => filterMatch(f.path))
   const filteredInspectorFiles = inspectorFiles.filter((f) => filterMatch(f.path))
+
+  const visibleWorkingFiles = useMemo(() => {
+    return [...filteredConflictedFiles, ...filteredStagedFiles, ...filteredUnstagedFiles]
+  }, [filteredConflictedFiles, filteredStagedFiles, filteredUnstagedFiles])
+
+  const visibleFileList = useMemo(() => {
+    return selectedCommits.length > 0 ? filteredInspectorFiles : visibleWorkingFiles
+  }, [selectedCommits.length, filteredInspectorFiles, visibleWorkingFiles])
+
+  const [focusedFileIndex, setFocusedFileIndex] = useState<number>(0)
+
+  useEffect(() => {
+    setFocusedFileIndex((prev) => {
+      if (visibleFileList.length === 0) return 0
+      return Math.max(0, Math.min(prev, visibleFileList.length - 1))
+    })
+  }, [visibleFileList])
+
+  useEffect(() => {
+    const focusedFile = visibleFileList[focusedFileIndex]
+    if (!focusedFile) return
+    const el = document.querySelector(`[data-file-row="${focusedFile.path}"]`)
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [focusedFileIndex, visibleFileList])
+
+  // Keyboard navigation & hotkeys for Staging Area files
+  useEffect(() => {
+    if (!isActivePane) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const isInput =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+
+      if (isInput) return
+
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        if (visibleFileList.length === 0) return
+        e.preventDefault()
+        setFocusedFileIndex((prev) => Math.min(visibleFileList.length - 1, prev + 1))
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        if (visibleFileList.length === 0) return
+        e.preventDefault()
+        setFocusedFileIndex((prev) => Math.max(0, prev - 1))
+      } else if (e.key === 'Enter') {
+        if (visibleFileList.length === 0) return
+        e.preventDefault()
+        const targetFile = visibleFileList[focusedFileIndex]
+        if (targetFile) {
+          if (selectedCommits.length > 0) {
+            setActiveInspectorFile((prev) => (prev?.path === targetFile.path ? null : targetFile))
+          } else {
+            setActiveFile(targetFile)
+          }
+        }
+      } else if (e.key === ' ') {
+        if (selectedCommits.length === 0 && visibleFileList.length > 0) {
+          e.preventDefault()
+          const targetFile = visibleFileList[focusedFileIndex]
+          if (targetFile && targetFile.status !== 'conflicted') {
+            if (targetFile.staged) {
+              onUnstageFile(targetFile.path)
+            } else {
+              onStageFile(targetFile.path)
+            }
+          }
+        }
+      } else if (e.key.toLowerCase() === 'c') {
+        if (selectedCommits.length === 0) {
+          e.preventDefault()
+          commitTextareaRef.current?.focus()
+        }
+      } else if (e.key.toLowerCase() === 'e') {
+        if (visibleFileList.length > 0 && onQuickEditFile) {
+          e.preventDefault()
+          const targetFile = visibleFileList[focusedFileIndex]
+          if (targetFile) onQuickEditFile(targetFile.path)
+        }
+      } else if (e.key.toLowerCase() === 'b') {
+        if (visibleFileList.length > 0 && onBlameFile) {
+          e.preventDefault()
+          const targetFile = visibleFileList[focusedFileIndex]
+          if (targetFile) onBlameFile(targetFile.path)
+        }
+      } else if (e.key.toLowerCase() === 'd') {
+        if (selectedCommits.length === 0 && visibleFileList.length > 0) {
+          const targetFile = visibleFileList[focusedFileIndex]
+          if (targetFile && !targetFile.staged && targetFile.status !== 'conflicted') {
+            e.preventDefault()
+            onDiscardChanges(targetFile.path)
+          }
+        }
+      } else if (e.key === 'Escape') {
+        if (activeFile) {
+          setActiveFile(null)
+        } else if (activeInspectorFile) {
+          setActiveInspectorFile(null)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [
+    isActivePane,
+    visibleFileList,
+    focusedFileIndex,
+    selectedCommits.length,
+    activeFile,
+    activeInspectorFile,
+    onStageFile,
+    onUnstageFile,
+    onQuickEditFile,
+    onBlameFile,
+    onDiscardChanges,
+  ])
 
   const firstLine = commitMessage.split('\n')[0] || ''
   const firstLineLen = firstLine.length
@@ -736,6 +855,8 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
               <div className="space-y-1">
                 {filteredInspectorFiles.map((file) => {
                   const isActive = activeInspectorFile?.path === file.path
+                  const isFileFocused =
+                    isActivePane && visibleFileList[focusedFileIndex]?.path === file.path
                   const statusColors: Record<string, string> = {
                     modified: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
                     added: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
@@ -747,10 +868,18 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                   return (
                     <div
                       key={file.path}
+                      data-file-row={file.path}
+                      tabIndex={0}
                       onClick={() => setActiveInspectorFile(isActive ? null : file)}
-                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors border ${
+                      onFocus={() => {
+                        const idx = visibleFileList.findIndex((f) => f.path === file.path)
+                        if (idx !== -1) setFocusedFileIndex(idx)
+                      }}
+                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors border group outline-none ${
                         isActive
                           ? 'bg-sky-500/15 border-sky-500/40 text-white'
+                          : isFileFocused
+                          ? 'bg-sky-500/20 border-sky-400 ring-1 ring-sky-400 text-white'
                           : 'bg-surface-subtle/60 border-surface-border/50 hover:bg-surface-hover text-slate-300'
                       }`}
                     >
@@ -765,7 +894,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                               e.stopPropagation()
                               onQuickEditFile(file.path)
                             }}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-sky-400"
+                            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-sky-400"
                             title="Quick View / Edit file in Gih"
                           >
                             <FileCode className="w-3.5 h-3.5" />
@@ -778,7 +907,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                               e.stopPropagation()
                               onOpenInEditor(file.path)
                             }}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-indigo-400"
+                            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-indigo-400"
                             title="Open in external editor"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
@@ -791,7 +920,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                               e.stopPropagation()
                               onBlameFile(file.path)
                             }}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-amber-300"
+                            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-amber-300"
                             title="View git blame"
                           >
                             <History className="w-3.5 h-3.5" />
@@ -901,74 +1030,89 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
           </div>
 
           <div className="space-y-0.5">
-            {filteredStagedFiles.map((file) => (
-              <div
-                key={file.path}
-                onClick={() => setActiveFile(file)}
-                className={`flex items-center justify-between p-1.5 rounded text-xs cursor-pointer group ${
-                  activeFile?.path === file.path ? 'bg-surface-hover' : 'hover:bg-surface-subtle'
-                }`}
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="truncate text-slate-200">{file.path}</span>
+            {filteredStagedFiles.map((file) => {
+              const isFileFocused =
+                isActivePane && visibleFileList[focusedFileIndex]?.path === file.path
+              return (
+                <div
+                  key={file.path}
+                  data-file-row={file.path}
+                  tabIndex={0}
+                  onClick={() => setActiveFile(file)}
+                  onFocus={() => {
+                    const idx = visibleFileList.findIndex((f) => f.path === file.path)
+                    if (idx !== -1) setFocusedFileIndex(idx)
+                  }}
+                  className={`flex items-center justify-between p-1.5 rounded text-xs cursor-pointer group outline-none transition-all ${
+                    activeFile?.path === file.path
+                      ? 'bg-surface-hover'
+                      : isFileFocused
+                      ? 'bg-emerald-500/15 ring-1 ring-inset ring-sky-400 text-white'
+                      : 'hover:bg-surface-subtle'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="truncate text-slate-200">{file.path}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase">
+                      {file.status[0]}
+                    </span>
+                    {onQuickEditFile && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onQuickEditFile(file.path)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-sky-400"
+                        title="Quick View / Edit file in Gih"
+                      >
+                        <FileCode className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {onOpenInEditor && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onOpenInEditor(file.path)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-indigo-400"
+                        title="Open in external editor"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {onBlameFile && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onBlameFile(file.path)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-amber-300"
+                        title="View git blame"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onUnstageFile(file.path)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-rose-400"
+                      title="Unstage file (Space)"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase">
-                    {file.status[0]}
-                  </span>
-                  {onQuickEditFile && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onQuickEditFile(file.path)
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-sky-400"
-                      title="Quick View / Edit file in Gih"
-                    >
-                      <FileCode className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  {onOpenInEditor && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onOpenInEditor(file.path)
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-indigo-400"
-                      title="Open in external editor"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  {onBlameFile && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onBlameFile(file.path)
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-amber-300"
-                      title="View git blame"
-                    >
-                      <History className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onUnstageFile(file.path)
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400"
-                    title="Unstage file"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
             {stagedFiles.length === 0 && (
               <p className="text-xs text-slate-500 italic p-2 bg-surface-subtle/40 rounded border border-surface-border/40 text-center">
                 No changes staged
@@ -1018,13 +1162,25 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
             {filteredUnstagedFiles.map((file) => {
               const ext = file.path.includes('.') ? file.path.split('.').pop() : null
               const dir = file.path.includes('/') ? file.path.split('/')[0] : file.path.includes('\\') ? file.path.split('\\')[0] : null
+              const isFileFocused =
+                isActivePane && visibleFileList[focusedFileIndex]?.path === file.path
 
               return (
                 <div
                   key={file.path}
+                  data-file-row={file.path}
+                  tabIndex={0}
                   onClick={() => setActiveFile(file)}
-                  className={`relative flex items-center justify-between p-1.5 rounded text-xs cursor-pointer group ${
-                    activeFile?.path === file.path ? 'bg-surface-hover' : 'hover:bg-surface-subtle'
+                  onFocus={() => {
+                    const idx = visibleFileList.findIndex((f) => f.path === file.path)
+                    if (idx !== -1) setFocusedFileIndex(idx)
+                  }}
+                  className={`relative flex items-center justify-between p-1.5 rounded text-xs cursor-pointer group outline-none transition-all ${
+                    activeFile?.path === file.path
+                      ? 'bg-surface-hover'
+                      : isFileFocused
+                      ? 'bg-amber-500/15 ring-1 ring-inset ring-sky-400 text-white'
+                      : 'hover:bg-surface-subtle'
                   }`}
                 >
                   <div className="flex items-center gap-2 truncate">
@@ -1042,7 +1198,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                           e.stopPropagation()
                           onQuickEditFile(file.path)
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-sky-400"
+                        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-sky-400"
                         title="Quick View / Edit file in Gih"
                       >
                         <FileCode className="w-3.5 h-3.5" />
@@ -1055,7 +1211,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                           e.stopPropagation()
                           onOpenInEditor(file.path)
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-indigo-400"
+                        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-indigo-400"
                         title="Open in external editor"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -1068,41 +1224,44 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                           e.stopPropagation()
                           onBlameFile(file.path)
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-amber-300"
+                        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-amber-300"
                         title="View git blame"
                       >
                         <History className="w-3.5 h-3.5" />
                       </button>
                     )}
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation()
                         onStageFile(file.path)
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-emerald-400"
-                      title="Stage file"
+                      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-emerald-400"
+                      title="Stage file (Space)"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
                     {onIgnorePattern && (
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation()
                           setIgnoreMenuFile((prev) => (prev?.path === file.path ? null : file))
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-amber-400"
+                        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-amber-400"
                         title="Add to .gitignore"
                       >
                         <EyeOff className="w-3.5 h-3.5" />
                       </button>
                     )}
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation()
                         onDiscardChanges(file.path)
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400"
-                      title="Discard changes"
+                      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-rose-400"
+                      title="Discard changes (d)"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                     </button>
@@ -1227,6 +1386,9 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
           onKeyDown={(e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
               handleCommitSubmit(e)
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              commitTextareaRef.current?.blur()
             }
           }}
           className="w-full bg-[#0c0e14] border border-surface-border rounded-lg p-2.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-brand resize-none font-sans"
