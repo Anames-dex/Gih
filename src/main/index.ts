@@ -297,6 +297,10 @@ ipcMain.handle('git:getCommits', async (_, limit?: number, allBranches?: boolean
   return await gitService.getCommits(limit ?? 400, allBranches ?? true, filePath, skip ?? 0)
 })
 
+ipcMain.handle('git:searchCommits', async (_, query: string, limit?: number, allBranches?: boolean, filePath?: string) => {
+  return await gitService.searchCommits(query, limit ?? 150, allBranches ?? true, filePath)
+})
+
 ipcMain.handle('git:getAuthorConfig', async () => {
   return await gitService.getAuthorConfig()
 })

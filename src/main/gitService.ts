@@ -604,55 +604,24 @@ export class GitService {
   /**
    * Read commit DAG
    */
-  public async getCommits(
-    limit: number = 400,
-    allBranches: boolean = true,
-    filePath?: string,
-    skip: number = 0
-  ): Promise<GitCommit[]> {
-    // Format: Hash, ShortHash, AuthorName, AuthorEmail, Date, Subject, Parents, RefNames, SigStatus, SigSigner, SigKey, SigFingerprint
-    const delimiter = '||__GIH_FIELD__||'
-    const recordDelimiter = '||__GIH_REC__||'
-    const format = [
-      '%H',
-      '%h',
-      '%an',
-      '%ae',
-      '%ad',
-      '%s',
-      '%P',
-      '%D',
-      '%G?',
-      '%GS',
-      '%GK',
-      '%GF',
-    ].join(delimiter) + recordDelimiter
+  private readonly commitFieldDelimiter = '||__GIH_FIELD__||'
+  private readonly commitRecordDelimiter = '||__GIH_REC__||'
 
-    const args = ['log', '--topo-order', '--date=relative', `--max-count=${limit}`, `--format=${format}`]
-    if (skip > 0) {
-      args.push(`--skip=${skip}`)
-    }
-    if (allBranches) {
-      args.splice(1, 0, '--all')
-    } else {
-      args.splice(1, 0, 'HEAD')
-    }
+  private getCommitLogFormat(): string {
+    return (
+      ['%H', '%h', '%an', '%ae', '%ad', '%s', '%P', '%D', '%G?', '%GS', '%GK', '%GF'].join(
+        this.commitFieldDelimiter
+      ) + this.commitRecordDelimiter
+    )
+  }
 
-    if (filePath && filePath.trim()) {
-      args.push('--', filePath.trim())
-    }
-
-    const { stdout, exitCode } = await this.execGit(args)
-
-    if (exitCode !== 0 || !stdout.trim()) {
-      return []
-    }
-
-    const records = stdout.split(recordDelimiter).filter((r) => r.trim().length > 0)
+  private parseCommitRecords(stdout: string): GitCommit[] {
+    if (!stdout.trim()) return []
+    const records = stdout.split(this.commitRecordDelimiter).filter((r) => r.trim().length > 0)
     const commits: GitCommit[] = []
 
     for (const record of records) {
-      const parts = record.trim().split(delimiter)
+      const parts = record.trim().split(this.commitFieldDelimiter)
       if (parts.length < 8) continue
 
       const [
@@ -670,7 +639,7 @@ export class GitService {
         sigFingerprint,
       ] = parts
       const parents = rawParents.trim() ? rawParents.trim().split(' ') : []
-      
+
       const branches: string[] = []
       const tags: string[] = []
       let isHead = false
@@ -724,6 +693,88 @@ export class GitService {
     }
 
     return commits
+  }
+
+  public async getCommits(
+    limit: number = 400,
+    allBranches: boolean = true,
+    filePath?: string,
+    skip: number = 0
+  ): Promise<GitCommit[]> {
+    const format = this.getCommitLogFormat()
+    const args = ['log', '--topo-order', '--date=relative', `--max-count=${limit}`, `--format=${format}`]
+    if (skip > 0) {
+      args.push(`--skip=${skip}`)
+    }
+    if (allBranches) {
+      args.splice(1, 0, '--all')
+    } else {
+      args.splice(1, 0, 'HEAD')
+    }
+
+    if (filePath && filePath.trim()) {
+      args.push('--', filePath.trim())
+    }
+
+    const { stdout, exitCode } = await this.execGit(args)
+    if (exitCode !== 0) {
+      return []
+    }
+    return this.parseCommitRecords(stdout)
+  }
+
+  public async searchCommits(
+    query: string,
+    limit: number = 150,
+    allBranches: boolean = true,
+    filePath?: string
+  ): Promise<GitCommit[]> {
+    const trimmed = query.trim()
+    if (!trimmed) return []
+
+    const format = this.getCommitLogFormat()
+    const results: GitCommit[] = []
+    const seen = new Set<string>()
+
+    // Direct SHA lookup when query looks like a hex commit prefix
+    if (/^[0-9a-f]{4,40}$/i.test(trimmed)) {
+      const showRes = await this.execGit(['log', '-1', '--date=relative', `--format=${format}`, trimmed])
+      if (showRes.exitCode === 0) {
+        for (const c of this.parseCommitRecords(showRes.stdout)) {
+          if (!seen.has(c.hash)) {
+            seen.add(c.hash)
+            results.push(c)
+          }
+        }
+      }
+    }
+
+    const args = [
+      'log',
+      allBranches ? '--all' : 'HEAD',
+      '--topo-order',
+      '--date=relative',
+      `--max-count=${limit}`,
+      '--regexp-ignore-case',
+      '--fixed-strings',
+      `--grep=${trimmed}`,
+      `--format=${format}`,
+    ]
+    if (filePath && filePath.trim()) {
+      args.push('--', filePath.trim())
+    }
+
+    const { stdout, exitCode } = await this.execGit(args)
+    if (exitCode === 0) {
+      for (const c of this.parseCommitRecords(stdout)) {
+        if (!seen.has(c.hash)) {
+          seen.add(c.hash)
+          results.push(c)
+        }
+      }
+    }
+
+    return results
   }
 
   /**

@@ -58,6 +58,8 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
   onLoadMoreCommits,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
+  const [remoteSearchResults, setRemoteSearchResults] = useState<GitCommit[]>([])
+  const [isSearchingRemote, setIsSearchingRemote] = useState(false)
   const [draggedItem, setDraggedItem] = useState<{ type: 'branch' | 'commit'; name?: string; hash: string } | null>(null)
   const [dragOverHash, setDragOverHash] = useState<string | null>(null)
   const [dropMenu, setDropMenu] = useState<{
@@ -201,11 +203,49 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [commits, selectedCommits, searchQuery, onSelectCommit, onClearSelection, onContextMenu])
 
+  useEffect(() => {
+    const trimmed = searchQuery.trim()
+    if (trimmed.length < 2) {
+      setRemoteSearchResults([])
+      setIsSearchingRemote(false)
+      return
+    }
+    const gih = (window as any).gih
+    if (!gih?.searchCommits) return
+
+    let cancelled = false
+    setIsSearchingRemote(true)
+    const timer = window.setTimeout(async () => {
+      try {
+        const results = await gih.searchCommits(trimmed, 150, showAllBranches, filePathFilter || undefined)
+        if (!cancelled) {
+          setRemoteSearchResults(Array.isArray(results) ? results : [])
+        }
+      } catch {
+        if (!cancelled) setRemoteSearchResults([])
+      } finally {
+        if (!cancelled) setIsSearchingRemote(false)
+      }
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [searchQuery, showAllBranches, filePathFilter])
+
+  const effectiveCommits = useMemo(() => {
+    if (!searchQuery.trim() || remoteSearchResults.length === 0) return commits
+    const loadedHashes = new Set(commits.map((c) => c.hash))
+    const olderMatches = remoteSearchResults.filter((c) => !loadedHashes.has(c.hash))
+    return olderMatches.length > 0 ? [...commits, ...olderMatches] : commits
+  }, [commits, remoteSearchResults, searchQuery])
+
   const matchingCommitHashes = useMemo(() => {
     if (!searchQuery.trim()) return new Set<string>()
     const q = searchQuery.toLowerCase().trim()
     const set = new Set<string>()
-    for (const c of commits) {
+    for (const c of effectiveCommits) {
       if (
         c.summary.toLowerCase().includes(q) ||
         c.message.toLowerCase().includes(q) ||
@@ -219,18 +259,18 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
       }
     }
     return set
-  }, [commits, searchQuery])
+  }, [effectiveCommits, searchQuery])
 
   const selectedCommitHashes = useMemo(() => {
     return new Set(selectedCommits.map((c) => c.hash))
   }, [selectedCommits])
 
   const { nodes, edges, maxLane } = useMemo(() => {
-    return computeDagLayout(commits)
-  }, [commits])
+    return computeDagLayout(effectiveCommits)
+  }, [effectiveCommits])
 
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN_ROWS)
-  const endIndex = Math.min(commits.length, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN_ROWS)
+  const endIndex = Math.min(effectiveCommits.length, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN_ROWS)
 
   const visibleNodes = useMemo(() => {
     return nodes.slice(startIndex, endIndex)
@@ -355,7 +395,8 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
 
           {searchQuery.trim() && (
             <span className="text-[11px] font-medium text-sky-300 bg-sky-950/60 px-2 py-0.5 rounded border border-sky-800/40 font-mono">
-              {matchingCommitHashes.size} / {commits.length} matching
+              {matchingCommitHashes.size} match{matchingCommitHashes.size === 1 ? '' : 'es'}
+              {isSearchingRemote ? ' (searching git...)' : ''}
             </span>
           )}
         </div>
@@ -364,14 +405,14 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
       <div ref={scrollContainerRef} className="flex-1 overflow-auto relative">
         <div
           className="relative"
-          style={{ height: `${commits.length * ROW_HEIGHT}px`, minWidth: '100%' }}
+          style={{ height: `${effectiveCommits.length * ROW_HEIGHT}px`, minWidth: '100%' }}
         >
           {/* SVG Curve Layer for Edges */}
           <svg
             className="absolute top-0 left-0 pointer-events-none z-0"
             style={{
               width: `${graphWidth}px`,
-              height: `${commits.length * ROW_HEIGHT}px`,
+              height: `${effectiveCommits.length * ROW_HEIGHT}px`,
             }}
           >
             {visibleEdges.map((edge, idx) => {
@@ -474,7 +515,7 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
           </svg>
 
           {/* Commit List Rows (Virtual Windowed) */}
-          <div className="absolute top-0 left-0 right-0 z-10" style={{ height: `${commits.length * ROW_HEIGHT}px` }}>
+          <div className="absolute top-0 left-0 right-0 z-10" style={{ height: `${effectiveCommits.length * ROW_HEIGHT}px` }}>
             {visibleNodes.map((node) => {
               const commit = node.commit
               const isSelected = selectedCommitHashes.has(commit.hash)

@@ -23,6 +23,7 @@ export interface GihAPI {
   isExplorerContextMenuRegistered: () => Promise<boolean>
   getState: (allBranches?: boolean, filePath?: string) => Promise<RepositoryState>
   getCommits: (limit?: number, allBranches?: boolean, filePath?: string, skip?: number) => Promise<GitCommit[]>
+  searchCommits: (query: string, limit?: number, allBranches?: boolean, filePath?: string) => Promise<GitCommit[]>
   setRepoPath: (repoPath: string, allBranches?: boolean) => Promise<RepositoryState>
   initRepository: (branchName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   cloneRepository: (url: string, targetPath: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
@@ -98,6 +99,7 @@ const api: GihAPI = {
   isExplorerContextMenuRegistered: () => ipcRenderer.invoke('app:isExplorerContextMenuRegistered'),
   getState: (allBranches?: boolean, filePath?: string) => ipcRenderer.invoke('git:getState', allBranches, filePath),
   getCommits: (limit?: number, allBranches?: boolean, filePath?: string, skip?: number) => ipcRenderer.invoke('git:getCommits', limit, allBranches, filePath, skip),
+  searchCommits: (query: string, limit?: number, allBranches?: boolean, filePath?: string) => ipcRenderer.invoke('git:searchCommits', query, limit, allBranches, filePath),
   setRepoPath: (path: string, allBranches?: boolean) => ipcRenderer.invoke('git:setRepoPath', path, allBranches),
   initRepository: (branchName?: string) => ipcRenderer.invoke('git:init', branchName),
   cloneRepository: (url: string, targetPath: string) => ipcRenderer.invoke('git:clone', url, targetPath),
