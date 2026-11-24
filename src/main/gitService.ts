@@ -546,7 +546,11 @@ export class GitService {
       return { type: 'revert', message: 'Revert in progress', canContinue: true, canAbort: true }
     }
     if (fs.existsSync(path.join(gitDir, 'BISECT_LOG'))) {
-      return { type: 'bisect', message: 'Git bisect in progress', canAbort: true }
+      return {
+        type: 'bisect',
+        message: 'Git Bisect in progress — test current commit and mark Good, Bad, or Skip',
+        canAbort: true
+      }
     }
     return { type: 'none' }
   }
@@ -571,6 +575,21 @@ export class GitService {
     if (type === 'rebase') return await this.execGit(['rebase', '--skip'])
     if (type === 'cherry-pick') return await this.execGit(['cherry-pick', '--skip'])
     return { stdout: '', stderr: 'No operation to skip', exitCode: 1 }
+  }
+
+  public async bisectStart(badCommit?: string, goodCommit?: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const args = ['bisect', 'start']
+    if (badCommit) args.push(badCommit)
+    if (goodCommit) args.push(goodCommit)
+    return await this.execGit(args)
+  }
+
+  public async bisectStep(action: 'good' | 'bad' | 'skip'): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return await this.execGit(['bisect', action])
+  }
+
+  public async bisectReset(): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return await this.execGit(['bisect', 'reset'])
   }
 
   public async initRepository(branchName: string = 'main'): Promise<{ stdout: string; stderr: string; exitCode: number }> {

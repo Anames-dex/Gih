@@ -75,6 +75,9 @@ export interface GihAPI {
   continueOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   abortOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   skipOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  bisectStart: (badCommit?: string, goodCommit?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  bisectStep: (action: 'good' | 'bad' | 'skip') => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  bisectReset: () => Promise<{ stdout: string; stderr: string; exitCode: number }>
   onRepoChanged: (callback: () => void) => () => void
 }
 
@@ -141,6 +144,9 @@ const api: GihAPI = {
   continueOperation: (type: string) => ipcRenderer.invoke('git:continueOperation', type),
   abortOperation: (type: string) => ipcRenderer.invoke('git:abortOperation', type),
   skipOperation: (type: string) => ipcRenderer.invoke('git:skipOperation', type),
+  bisectStart: (badCommit?: string, goodCommit?: string) => ipcRenderer.invoke('git:bisectStart', badCommit, goodCommit),
+  bisectStep: (action: 'good' | 'bad' | 'skip') => ipcRenderer.invoke('git:bisectStep', action),
+  bisectReset: () => ipcRenderer.invoke('git:bisectReset'),
   onRepoChanged: (callback: () => void) => {
     const handler = () => callback()
     ipcRenderer.on('git:changed', handler)

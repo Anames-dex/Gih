@@ -957,6 +957,49 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleStartBisect = async (badHash: string, goodHash?: string) => {
+    if (!gih) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.bisectStart(badHash, goodHash)
+      await refreshState()
+      if (res.exitCode === 0) {
+        showToast({
+          type: 'success',
+          command: `git bisect start ${badHash.slice(0, 7)}${goodHash ? ` ${goodHash.slice(0, 7)}` : ''}`,
+          message: res.stdout || 'Bisect session initiated',
+          durationMs: Math.round(performance.now() - t0),
+        })
+      } else {
+        showToast({ type: 'error', command: 'git bisect start', message: res.stderr || 'Failed to start bisect' })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: 'git bisect start', message: e.message })
+    }
+  }
+
+  const handleBisectStep = async (action: 'good' | 'bad' | 'skip') => {
+    if (!gih) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.bisectStep(action)
+      await refreshState()
+      if (res.exitCode === 0) {
+        const isFinished = res.stdout.includes('is the first bad commit')
+        showToast({
+          type: isFinished ? 'success' : 'info',
+          command: `git bisect ${action}`,
+          message: isFinished ? `Found culprit! ${res.stdout.split('\n')[0]}` : res.stdout.split('\n')[0] || `Marked ${action}`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      } else {
+        showToast({ type: 'error', command: `git bisect ${action}`, message: res.stderr || `Failed to mark ${action}` })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: `git bisect ${action}`, message: e.message })
+    }
+  }
+
   const handleContinueOperation = async () => {
     if (!gih || !repoState?.operation) return
     const op = repoState.operation.type
@@ -1159,8 +1202,78 @@ export const App: React.FC = () => {
       },
     })
 
+    // Bisect actions
+    if (repoState?.operation?.type === 'bisect') {
+      items.push(
+        {
+          id: 'bisect-bad',
+          label: 'Bisect: Mark as Bad (bug present)',
+          hasDividerBefore: true,
+          className: 'text-rose-400 font-medium',
+          action: () => {
+            handleBisectStep('bad')
+            setContextMenu(null)
+          },
+        },
+        {
+          id: 'bisect-good',
+          label: 'Bisect: Mark as Good (bug absent)',
+          className: 'text-emerald-400 font-medium',
+          action: () => {
+            handleBisectStep('good')
+            setContextMenu(null)
+          },
+        },
+        {
+          id: 'bisect-skip',
+          label: 'Bisect: Skip this commit',
+          className: 'text-slate-300',
+          action: () => {
+            handleBisectStep('skip')
+            setContextMenu(null)
+          },
+        }
+      )
+    } else {
+      if (selectedCommits.length === 2) {
+        items.push({
+          id: 'bisect-start-range',
+          label: `Start Git Bisect (${selectedCommits[0].shortHash} bad, ${selectedCommits[1].shortHash} good)`,
+          hasDividerBefore: true,
+          className: 'text-amber-400 font-medium',
+          action: () => {
+            handleStartBisect(selectedCommits[0].hash, selectedCommits[1].hash)
+            setContextMenu(null)
+          },
+        })
+      } else {
+        items.push({
+          id: 'bisect-start-bad',
+          label: 'Start Git Bisect (mark as Bad / Culprit)',
+          hasDividerBefore: true,
+          className: 'text-amber-400 font-medium',
+          action: () => {
+            handleStartBisect(contextMenu.commit.hash)
+            setContextMenu(null)
+          },
+        })
+      }
+    }
+
     return items
-  }, [contextMenu, gih, refreshState, handleExportPatch, handleRevertCommit, remoteInfo, repoState?.currentBranch])
+  }, [
+    contextMenu,
+    gih,
+    refreshState,
+    handleExportPatch,
+    handleRevertCommit,
+    remoteInfo,
+    repoState?.currentBranch,
+    repoState?.operation?.type,
+    selectedCommits,
+    handleStartBisect,
+    handleBisectStep,
+  ])
 
   useEffect(() => {
     setSelectedMenuItemIndex(0)
@@ -1244,29 +1357,64 @@ export const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            {repoState.operation.canContinue && (
-              <button
-                onClick={handleContinueOperation}
-                className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded text-xs transition-colors shadow-sm"
-              >
-                Continue
-              </button>
-            )}
-            {repoState.operation.canSkip && (
-              <button
-                onClick={handleSkipOperation}
-                className="px-2.5 py-1 bg-surface-subtle hover:bg-surface-hover border border-surface-border text-slate-200 font-medium rounded text-xs transition-colors"
-              >
-                Skip
-              </button>
-            )}
-            {repoState.operation.canAbort && (
-              <button
-                onClick={handleAbortOperation}
-                className="px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/50 text-rose-300 font-medium rounded text-xs transition-colors"
-              >
-                Abort
-              </button>
+            {repoState.operation.type === 'bisect' ? (
+              <>
+                <button
+                  onClick={() => handleBisectStep('bad')}
+                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded text-xs transition-colors shadow-sm"
+                  title="Mark current tested commit as Bad (contains the bug)"
+                >
+                  Mark Bad
+                </button>
+                <button
+                  onClick={() => handleBisectStep('good')}
+                  className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded text-xs transition-colors shadow-sm"
+                  title="Mark current tested commit as Good (does not contain bug)"
+                >
+                  Mark Good
+                </button>
+                <button
+                  onClick={() => handleBisectStep('skip')}
+                  className="px-2.5 py-1 bg-surface-subtle hover:bg-surface-hover border border-surface-border text-slate-200 font-medium rounded text-xs transition-colors"
+                  title="Skip current commit (untestable)"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={handleAbortOperation}
+                  className="px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/50 text-rose-300 font-medium rounded text-xs transition-colors"
+                  title="Reset and finish Git bisect session"
+                >
+                  Reset / Abort
+                </button>
+              </>
+            ) : (
+              <>
+                {repoState.operation.canContinue && (
+                  <button
+                    onClick={handleContinueOperation}
+                    className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded text-xs transition-colors shadow-sm"
+                  >
+                    Continue
+                  </button>
+                )}
+                {repoState.operation.canSkip && (
+                  <button
+                    onClick={handleSkipOperation}
+                    className="px-2.5 py-1 bg-surface-subtle hover:bg-surface-hover border border-surface-border text-slate-200 font-medium rounded text-xs transition-colors"
+                  >
+                    Skip
+                  </button>
+                )}
+                {repoState.operation.canAbort && (
+                  <button
+                    onClick={handleAbortOperation}
+                    className="px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/50 text-rose-300 font-medium rounded text-xs transition-colors"
+                  >
+                    Abort
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -573,3 +573,15 @@ ipcMain.handle('git:abortOperation', async (_, type: any) => {
 ipcMain.handle('git:skipOperation', async (_, type: any) => {
   return await gitService.skipOperation(type)
 })
+
+ipcMain.handle('git:bisectStart', async (_, badCommit?: string, goodCommit?: string) => {
+  return await gitService.bisectStart(badCommit, goodCommit)
+})
+
+ipcMain.handle('git:bisectStep', async (_, action: 'good' | 'bad' | 'skip') => {
+  return await gitService.bisectStep(action)
+})
+
+ipcMain.handle('git:bisectReset', async () => {
+  return await gitService.bisectReset()
+})
