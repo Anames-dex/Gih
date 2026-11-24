@@ -117,17 +117,40 @@ All built binaries are output to the `release/` directory:
 
 ---
 
-## Keyboard Shortcuts
+## Keyboard Shortcuts & Zero-Mouse Navigation
 
-| Shortcut | Action |
-|---|---|
-| `Ctrl + K` / `Cmd + K` | Open Command Palette |
-| `Ctrl + F` / `Cmd + F` | Search Commit Graph |
-| `↑` / `↓` or `j` / `k` | Navigate Commits in Graph |
-| `Shift + ↑` / `Shift + ↓` | Continuous Range Selection in Graph |
-| `Ctrl + Enter` | Submit Commit in Staging Panel |
-| `Ctrl + S` | Save File in Quick Editor |
-| `Esc` | Clear selection, close modal, or cancel search |
+Gih is engineered for complete keyboard accessibility—every panel, tree, diff hunk, and action is controllable without touching the mouse:
+
+| Shortcut | Context | Action |
+|---|---|---|
+| `Ctrl + 1` / `Cmd + 1` | Global | Focus Sidebar (Branches, Stashes, Worktrees) |
+| `Ctrl + 2` / `Cmd + 2` | Global | Focus Commit Graph (Interactive DAG) |
+| `Ctrl + 3` / `Cmd + 3` | Global | Focus Staging Area & Inspector |
+| `Ctrl + 4` / `Cmd + 4` | Global | Focus Terminal panel & CLI input |
+| `F6` / `Shift + F6` | Global | Cycle focus forward / backward across open panels |
+| `Ctrl + K` / `Cmd + K` | Global | Open Command Palette & Quick Switcher |
+| `Ctrl + \`` | Global | Toggle Integrated Git Terminal |
+| `?` or `F1` | Global | Open Interactive Keyboard Shortcuts Cheatsheet |
+| `Tab` / `Shift + Tab` | Global | Tab through interactive elements with high-contrast focus rings |
+| `↑` / `↓` or `j` / `k` | Graph | Traverse commits (child / parent) |
+| `Shift + ↑/↓` | Graph | Range select commits to inspect diff range |
+| `Enter` or `m` | Graph | Open Commit Context Menu (Checkout, Rebase, Patch, etc.) |
+| `Ctrl + F` | Graph | Filter commits by message, author, or SHA |
+| `↑` / `↓` or `j` / `k` | Staging | Navigate file lists (conflicts, staged, unstaged) |
+| `Space` | Staging | Toggle stage / unstage focused file |
+| `Enter` | Staging | Inspect file diff in diff viewer |
+| `e` | Staging | Open in-app Quick File Editor |
+| `b` | Staging | Open interactive Git Blame inspector |
+| `d` | Staging | Discard working changes for unstaged file |
+| `c` | Staging | Focus commit message composer |
+| `]` / `[` (or `n` / `p`) | Diff Viewer | Jump to next / previous diff hunk |
+| `s` / `u` / `d` | Diff Viewer | Stage / Unstage / Discard currently focused hunk |
+| `↑` / `↓` or `j` / `k` | Sidebar | Traverse branch, tag, stash, and worktree tree |
+| `Enter` | Sidebar | Checkout branch / Switch worktree / Pop stash |
+| `Delete` | Sidebar | Delete selected branch (with safety confirmation) |
+| `Ctrl + Enter` | Composer | Submit commit with message |
+| `Ctrl + S` | Editor | Save changes in Quick File Editor |
+| `Esc` | Universal | Close modal / close diff view / blur input back to file list |
 
 ---
 

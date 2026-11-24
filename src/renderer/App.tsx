@@ -23,6 +23,7 @@ import { GitAuthorModal } from './components/modals/GitAuthorModal'
 import { QuickEditorModal } from './components/modals/QuickEditorModal'
 import { GitBlameModal } from './components/modals/GitBlameModal'
 import { ApplyPatchModal } from './components/modals/ApplyPatchModal'
+import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal'
 
 interface ToastNotice {
   id: string
@@ -60,6 +61,7 @@ export const App: React.FC = () => {
   const [editingFilePath, setEditingFilePath] = useState<string | null>(null)
   const [blameFilePath, setBlameFilePath] = useState<string | null>(null)
   const [isApplyPatchModalOpen, setIsApplyPatchModalOpen] = useState(false)
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false)
   const [commandHistory, setCommandHistory] = useState<CommandLogEntry[]>([])
   const [isFetching, setIsFetching] = useState(false)
   const [isPulling, setIsPulling] = useState(false)
@@ -229,6 +231,9 @@ export const App: React.FC = () => {
             ? paneOrder[(idx - 1 + paneOrder.length) % paneOrder.length]
             : paneOrder[(idx + 1) % paneOrder.length]
         })
+      } else if ((e.key === '?' || e.key === 'F1') && !isInput) {
+        e.preventDefault()
+        setIsShortcutsModalOpen((prev) => !prev)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -1206,6 +1211,7 @@ export const App: React.FC = () => {
         onCloneRepo={() => setIsCloneModalOpen(true)}
         onToggleTerminal={() => setIsTerminalOpen((prev) => !prev)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
         isFetching={isFetching}
         isPulling={isPulling}
         isPushing={isPushing}
@@ -1680,6 +1686,11 @@ export const App: React.FC = () => {
             message: 'Applied patch to working tree',
           })
         }}
+      />
+
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
       />
 
       {/* Top-Center Command Feedback Island */}

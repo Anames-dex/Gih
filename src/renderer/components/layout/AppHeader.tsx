@@ -17,7 +17,8 @@ import {
   ShieldAlert,
   Clock,
   User,
-  X
+  X,
+  Keyboard
 } from 'lucide-react'
 
 interface AppHeaderProps {
@@ -39,6 +40,7 @@ interface AppHeaderProps {
   onCloneRepo?: () => void
   onToggleTerminal: () => void
   onOpenCommandPalette: () => void
+  onOpenShortcuts?: () => void
   isFetching?: boolean
   isPulling?: boolean
   isPushing?: boolean
@@ -64,6 +66,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onCloneRepo,
   onToggleTerminal,
   onOpenCommandPalette,
+  onOpenShortcuts,
   isFetching = false,
   isPulling = false,
   isPushing = false,
@@ -382,6 +385,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         >
           <Terminal className="w-4 h-4 text-slate-400" />
         </button>
+
+        {onOpenShortcuts && (
+          <button
+            onClick={onOpenShortcuts}
+            className="p-1.5 rounded-md hover:bg-surface-hover active:scale-95 text-slate-400 hover:text-white transition-all border border-transparent hover:border-surface-border/50"
+            title="Keyboard Shortcuts Cheatsheet (? or F1)"
+          >
+            <Keyboard className="w-4 h-4 text-slate-400" />
+          </button>
+        )}
       </div>
     </header>
   )

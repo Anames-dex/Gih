@@ -87,6 +87,15 @@ Gih takes the opposite approach: **every visual interaction in Gih corresponds t
 - Format-patch export directly from commit context menus (`git format-patch -1`).
 - Unified Apply Patch modal supporting raw clipboard paste and `--cached` / `--reverse` flags.
 
+### 3.10. 100% Zero-Mouse Keyboard Accessibility & Focus System
+- **Pane Focus Switching**: Instant switching across app zones via `Ctrl+1` (Sidebar), `Ctrl+2` (Commit Graph), `Ctrl+3` (Staging Area & Inspector), `Ctrl+4` (Terminal input), or cycling with `F6` / `Shift+F6`.
+- **Keyboard Graph Traversal**: Walk through commit DAG with `↑`/`↓` or Vim keys `j`/`k`, extend range diff selection with `Shift+↑/↓`, and trigger the commit actions menu with `Enter` or `m`.
+- **Staging Keyboard Workstation**: Navigate through conflicted, staged, and unstaged files with `↑`/`↓` or `j`/`k`, toggle staging with `Space`, inspect diffs with `Enter`, edit with `e`, blame with `b`, discard with `d`, and jump to commit composer with `c`.
+- **Hunk Navigation & Operations**: Step through diff hunks with `[` / `]` or `p` / `n`, and apply hunk patches with `s` (stage), `u` (unstage), or `d` (discard).
+- **Sidebar Tree Traversal**: Navigate local branches, remote branches, tags, stashes, and worktrees with `↑`/`↓`, checkout with `Enter` or `Space`, and delete with `Delete`.
+- **Interactive Keyboard Cheatsheet**: Press `?` or `F1` anywhere to view the full categorized shortcuts cheatsheet modal.
+- **Accessible Focus Rings**: High-contrast, WCAG-compliant `:focus-visible` styling and accessible tab indexing across all interactive elements.
+
 ---
 
 ## 4. Contact & Inquiries
