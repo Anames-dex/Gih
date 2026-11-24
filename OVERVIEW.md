@@ -33,12 +33,16 @@ Gih takes the opposite approach: **every visual interaction in Gih corresponds t
 - Virtual windowing renders only in-viewport rows and bezier splines, maintaining fluid 60 FPS scrolling on 50,000+ commit repositories.
 - Direct Drag-and-Drop Git actions: drag branch badges onto target commit rows to merge, rebase, or cherry-pick.
 - Instant search filter (`Ctrl+F`) highlighting matching commits across message, author, short-hash, and branch/tag badges.
-- Right-click context menus for cherry-picking, interactive rebasing, branch resets, and remote provider deep links.
+- **Branch view toggle**: Switch cleanly between all repository branches (`git log --all`) and current active branch (`git log HEAD`).
+- Right-click context menus for cherry-picking, **safe commit reversion (`git revert`)**, interactive rebasing, branch resets, and remote provider deep links.
 
-### 3.2. Intra-Line Word Diffs & Split/Unified Viewer
+### 3.2. Intra-Line Word Diffs, Staging Studio & Conventional Commits
 - Character- and word-level diffing powered by longest common subsequence (LCS) tokenization.
 - Segmented toggle to switch instantly between **Unified** (single column) and **Split** (side-by-side) views.
 - Individual hunk actions: `Stage Hunk`, `Unstage Hunk`, and `Discard Hunk` via native `git apply`.
+- **Conventional Commit helper pills**: One-click prefix formatting (`feat:`, `fix:`, `docs:`, `refactor:`, `perf:`, `test:`, `chore:`) with smart prefix replacement and cursor autofocus.
+- **Discard All Changes**: Instant working-tree reset restoring tracked modifications (`git checkout -- .`) and removing untracked artifacts (`git clean -df`).
+- **Quick `.gitignore` Action**: Contextual one-click pattern generator on unstaged files to ignore exact paths, file extensions (`*.ext`), or parent directories.
 - Quick-toggle commit `Amend (HEAD)` checkbox that auto-populates the last commit message for rapid corrections.
 
 ### 3.3. Multi-Commit Selection & Range Diff Engine

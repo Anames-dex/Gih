@@ -39,6 +39,9 @@ Unlike tools that simplify Git by hiding its internals, Gih keeps you connected 
 - **3-Way Merge Conflict Studio**: Automatic detection of conflicted files with one-click `Keep Ours`, `Keep Theirs`, and `Mark Resolved` actions.
 - **Visual Rebase & Reflog**: Interactive rebase modal (`pick`, `reword`, `edit`, `squash`, `fixup`, `drop`) and reflog restoration.
 - **Remote Repository Clone**: Built-in clone dialog with destination browsing and automatic workspace transition.
+- **Safe Commit Reversion (`git revert`)**: Safely invert commits directly from the graph right-click context menu via `git revert --no-edit <hash>`, producing clean reverse commits while preserving linear history and catching conflicts.
+- **Discard All Changes**: One-click action in the Staging Area to restore tracked files (`git checkout -- .`) and clean untracked artifacts (`git clean -df`) with a safety confirmation prompt.
+- **Conventional Commit Helper Pills**: Quick-tap prefix buttons (`feat:`, `fix:`, `docs:`, `refactor:`, `perf:`, `test:`, `chore:`) that automatically format or update commit messages and focus the input.
 - **Branch View Filter Toggle**: Toggle between `All Branches` (`git log --all`) and `Current Branch` (`git log HEAD`) directly from the graph search bar for distraction-free feature branch development.
 - **Quick `.gitignore` Context Action**: One-click pattern generator on unstaged files to ignore specific files, file extensions (`*.ext`), or parent directories without editing text files manually.
 - **Recent Repositories & Quick Switcher**: Persistent workspace history with instant dropdown switching, recent project jump lists, and 1-click workspace removal.
