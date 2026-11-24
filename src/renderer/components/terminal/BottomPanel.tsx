@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import type { CommandLogEntry, ReflogEntry } from '@/shared/types'
 import {
   Terminal as TerminalIcon,
@@ -19,6 +19,7 @@ interface BottomPanelProps {
   onExecCommand: (commandStr: string) => Promise<void>
   onGetReflog: () => Promise<ReflogEntry[]>
   onResetToReflog: (hash: string) => void
+  isActivePane?: boolean
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -29,6 +30,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   onExecCommand,
   onGetReflog,
   onResetToReflog,
+  isActivePane = false,
 }) => {
   const [tabsOrder, setTabsOrder] = useState<('terminal' | 'log' | 'reflog')[]>([
     'terminal',
@@ -40,6 +42,13 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   const [reflogEntries, setReflogEntries] = useState<ReflogEntry[]>([])
   const [isExecuting, setIsExecuting] = useState(false)
   const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null)
+  const cliInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isActivePane && isOpen && activeTab === 'terminal') {
+      cliInputRef.current?.focus()
+    }
+  }, [isActivePane, isOpen, activeTab])
 
   useEffect(() => {
     if (activeTab === 'reflog' && isOpen) {
@@ -204,6 +213,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             <form onSubmit={handleCommandSubmit} className="flex items-center gap-2 pt-2 border-t border-surface-border">
               <span className="text-sky-400 font-bold text-sm">$ git</span>
               <input
+                ref={cliInputRef}
                 type="text"
                 value={cliInput}
                 onChange={(e) => setCliInput(e.target.value)}

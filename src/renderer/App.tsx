@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type {
   RepositoryState,
   GitCommit,
@@ -51,6 +51,7 @@ export const App: React.FC = () => {
   const [selectedCommits, setSelectedCommits] = useState<GitCommit[]>([])
   const [anchorCommit, setAnchorCommit] = useState<GitCommit | null>(null)
   const [remoteInfo, setRemoteInfo] = useState<RemoteProviderInfo | null>(null)
+  const [activePane, setActivePane] = useState<'sidebar' | 'graph' | 'staging' | 'terminal'>('graph')
   const [isTerminalOpen, setIsTerminalOpen] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isRebaseModalOpen, setIsRebaseModalOpen] = useState(false)
@@ -107,6 +108,7 @@ export const App: React.FC = () => {
     y: number
     commit: GitCommit
   } | null>(null)
+  const [selectedMenuItemIndex, setSelectedMenuItemIndex] = useState(0)
 
   const gih = (window as any).gih
   const isRefreshingRef = useRef(false)
@@ -188,17 +190,50 @@ export const App: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept when user is inside input/textarea unless it is a pane switch shortcut
+      const target = e.target as HTMLElement | null
+      const isInput =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setIsCommandPaletteOpen((prev) => !prev)
       } else if ((e.ctrlKey || e.metaKey) && e.key === '`') {
         e.preventDefault()
         setIsTerminalOpen((prev) => !prev)
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+        e.preventDefault()
+        setActivePane('sidebar')
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+        e.preventDefault()
+        setActivePane('graph')
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '3') {
+        e.preventDefault()
+        setActivePane('staging')
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '4') {
+        e.preventDefault()
+        setIsTerminalOpen(true)
+        setActivePane('terminal')
+      } else if (e.key === 'F6' && !isInput) {
+        e.preventDefault()
+        const paneOrder: ('sidebar' | 'graph' | 'staging' | 'terminal')[] = isTerminalOpen
+          ? ['sidebar', 'graph', 'staging', 'terminal']
+          : ['sidebar', 'graph', 'staging']
+        setActivePane((curr) => {
+          const idx = paneOrder.indexOf(curr)
+          if (idx === -1) return 'graph'
+          return e.shiftKey
+            ? paneOrder[(idx - 1 + paneOrder.length) % paneOrder.length]
+            : paneOrder[(idx + 1) % paneOrder.length]
+        })
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [isTerminalOpen])
 
   // Close context menu on outside click
   useEffect(() => {
@@ -1000,6 +1035,142 @@ export const App: React.FC = () => {
     await refreshState()
   }
 
+  const contextMenuItems = useMemo(() => {
+    if (!contextMenu) return []
+    const items: {
+      id: string
+      label: string
+      icon?: any
+      className?: string
+      hasDividerBefore?: boolean
+      action: () => void
+    }[] = [
+      {
+        id: 'checkout',
+        label: 'Checkout this commit',
+        action: () => {
+          gih?.execCommand(['checkout', contextMenu.commit.hash]).then(refreshState)
+          setContextMenu(null)
+        },
+      },
+      {
+        id: 'branch',
+        label: 'Create branch here...',
+        action: () => {
+          const bName = window.prompt('Create branch from this commit:')
+          if (bName) {
+            gih?.createBranch(bName, contextMenu.commit.hash).then(refreshState)
+          }
+          setContextMenu(null)
+        },
+      },
+      {
+        id: 'cherrypick',
+        label: 'Cherry-pick commit',
+        action: () => {
+          gih?.execCommand(['cherry-pick', contextMenu.commit.hash]).then(refreshState)
+          setContextMenu(null)
+        },
+      },
+      {
+        id: 'export-patch',
+        label: 'Export as .patch...',
+        icon: FileDiff,
+        className: 'text-emerald-300',
+        action: () => {
+          handleExportPatch(contextMenu.commit)
+          setContextMenu(null)
+        },
+      },
+      {
+        id: 'revert',
+        label: 'Revert commit (git revert)',
+        icon: RotateCcw,
+        className: 'text-amber-300',
+        action: () => {
+          handleRevertCommit(contextMenu.commit)
+          setContextMenu(null)
+        },
+      },
+      {
+        id: 'rebase',
+        label: 'Interactive rebase onto here...',
+        className: 'text-brand',
+        action: () => {
+          setIsRebaseModalOpen(true)
+          setContextMenu(null)
+        },
+      },
+    ]
+
+    if (remoteInfo) {
+      items.push({
+        id: 'view-remote',
+        label: `View on ${remoteInfo.name}`,
+        icon: ExternalLink,
+        className: 'text-sky-400 capitalize',
+        hasDividerBefore: true,
+        action: () => {
+          const url = remoteInfo.commitUrlTemplate.replace('{hash}', contextMenu.commit.hash)
+          gih?.openExternal(url)
+          setContextMenu(null)
+        },
+      })
+      if (repoState?.currentBranch) {
+        items.push({
+          id: 'create-pr',
+          label: 'Create Pull Request',
+          icon: ExternalLink,
+          className: 'text-indigo-400',
+          action: () => {
+            const prUrl = remoteInfo.prUrlTemplate.replace('{branch}', encodeURIComponent(repoState.currentBranch || ''))
+            gih?.openExternal(prUrl)
+            setContextMenu(null)
+          },
+        })
+      }
+    }
+
+    items.push({
+      id: 'reset',
+      label: 'Reset branch to here...',
+      className: 'text-rose-300 hover:bg-rose-950/60',
+      hasDividerBefore: true,
+      action: () => {
+        setResetModalCommit(contextMenu.commit)
+        setContextMenu(null)
+      },
+    })
+
+    return items
+  }, [contextMenu, gih, refreshState, handleExportPatch, handleRevertCommit, remoteInfo, repoState?.currentBranch])
+
+  useEffect(() => {
+    setSelectedMenuItemIndex(0)
+  }, [contextMenu])
+
+  useEffect(() => {
+    if (!contextMenu || contextMenuItems.length === 0) return
+    const handleMenuKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedMenuItemIndex((prev) => (prev + 1) % contextMenuItems.length)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedMenuItemIndex((prev) => (prev - 1 + contextMenuItems.length) % contextMenuItems.length)
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        const target = contextMenuItems[selectedMenuItemIndex]
+        target?.action()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setContextMenu(null)
+      }
+    }
+    window.addEventListener('keydown', handleMenuKeyDown)
+    return () => window.removeEventListener('keydown', handleMenuKeyDown)
+  }, [contextMenu, contextMenuItems, selectedMenuItemIndex])
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-slate-100 font-sans">
       {/* Top Header Bar */}
@@ -1169,29 +1340,37 @@ export const App: React.FC = () => {
         </div>
       ) : (
         <div className="flex-1 flex overflow-hidden relative">
-          <Sidebar
-            width={sidebarWidth}
-            branches={repoState?.branches || []}
-            tags={repoState?.tags || []}
-            stashes={repoState?.stashes || []}
-            worktrees={repoState?.worktrees || []}
-            currentBranch={repoState?.currentBranch || null}
-            onCheckoutBranch={handleCheckoutBranch}
-            onCreateBranch={handleNewBranch}
-            onDeleteBranch={handleDeleteBranch}
-            onApplyStash={(idx) => gih?.applyStash(idx).then(refreshState)}
-            onPopStash={handlePopStash}
-            onDropStash={handleDropStash}
-            onCreateTag={handleCreateTag}
-            onDeleteTag={handleDeleteTag}
-            onBranchFromStash={handleBranchFromStash}
-            onRenameBranch={handleRenameBranch}
-            onPruneBranches={handlePruneBranches}
-            currentRepoPath={repoState?.path}
-            onAddWorktree={handleAddWorktree}
-            onSwitchWorktree={handleSwitchWorktree}
-            onRemoveWorktree={handleRemoveWorktree}
-          />
+          <div
+            className={`h-full flex shrink-0 relative transition-all ${
+              activePane === 'sidebar' ? 'ring-1 ring-inset ring-sky-500/50' : ''
+            }`}
+            onMouseDown={() => setActivePane('sidebar')}
+          >
+            <Sidebar
+              width={sidebarWidth}
+              branches={repoState?.branches || []}
+              tags={repoState?.tags || []}
+              stashes={repoState?.stashes || []}
+              worktrees={repoState?.worktrees || []}
+              currentBranch={repoState?.currentBranch || null}
+              onCheckoutBranch={handleCheckoutBranch}
+              onCreateBranch={handleNewBranch}
+              onDeleteBranch={handleDeleteBranch}
+              onApplyStash={(idx) => gih?.applyStash(idx).then(refreshState)}
+              onPopStash={handlePopStash}
+              onDropStash={handleDropStash}
+              onCreateTag={handleCreateTag}
+              onDeleteTag={handleDeleteTag}
+              onBranchFromStash={handleBranchFromStash}
+              onRenameBranch={handleRenameBranch}
+              onPruneBranches={handlePruneBranches}
+              currentRepoPath={repoState?.path}
+              onAddWorktree={handleAddWorktree}
+              onSwitchWorktree={handleSwitchWorktree}
+              onRemoveWorktree={handleRemoveWorktree}
+              isActivePane={activePane === 'sidebar'}
+            />
+          </div>
 
           {/* Drag Splitter: Sidebar -> Graph */}
           <div
@@ -1203,7 +1382,12 @@ export const App: React.FC = () => {
             title="Drag to resize sidebar"
           />
 
-          <main className="flex-1 flex flex-col overflow-hidden relative">
+          <main
+            className={`flex-1 flex flex-col overflow-hidden relative transition-all ${
+              activePane === 'graph' ? 'ring-1 ring-inset ring-sky-500/50' : ''
+            }`}
+            onMouseDown={() => setActivePane('graph')}
+          >
             <CommitGraph
               commits={repoState?.commits || []}
               selectedCommits={selectedCommits}
@@ -1222,118 +1406,42 @@ export const App: React.FC = () => {
               onMergeBranch={handleMergeBranch}
               onRebaseBranch={handleRebaseBranch}
               onCherryPick={handleCherryPick}
+              isActivePane={activePane === 'graph'}
             />
 
             {/* Context Menu */}
             {contextMenu && (
               <div
-                className="fixed z-50 bg-surface border border-surface-border rounded-lg shadow-2xl py-1 text-xs text-slate-200 min-w-[210px]"
-                style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+                className="fixed z-50 bg-surface border border-surface-border rounded-lg shadow-2xl py-1 text-xs text-slate-200 min-w-[220px]"
+                style={{
+                  top: `${Math.min(window.innerHeight - 340, Math.max(10, contextMenu.y))}px`,
+                  left: `${Math.min(window.innerWidth - 240, Math.max(10, contextMenu.x))}px`,
+                }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="px-3 py-1 text-[10px] text-slate-500 font-mono border-b border-surface-border">
-                  {contextMenu.commit.shortHash}
+                <div className="px-3 py-1 text-[10px] text-slate-500 font-mono border-b border-surface-border flex items-center justify-between">
+                  <span>{contextMenu.commit.shortHash}</span>
+                  <span className="text-[9px] text-slate-600 font-sans">↑/↓ Enter Esc</span>
                 </div>
-                <button
-                  onClick={() => {
-                    gih?.execCommand(['checkout', contextMenu.commit.hash]).then(refreshState)
-                    setContextMenu(null)
-                  }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover"
-                >
-                  Checkout this commit
-                </button>
-                <button
-                  onClick={() => {
-                    const bName = window.prompt('Create branch from this commit:')
-                    if (bName) {
-                      gih?.createBranch(bName, contextMenu.commit.hash).then(refreshState)
-                    }
-                    setContextMenu(null)
-                  }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover"
-                >
-                  Create branch here...
-                </button>
-                <button
-                  onClick={() => {
-                    gih?.execCommand(['cherry-pick', contextMenu.commit.hash]).then(refreshState)
-                    setContextMenu(null)
-                  }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover"
-                >
-                  Cherry-pick commit
-                </button>
-                <button
-                  onClick={() => {
-                    handleExportPatch(contextMenu.commit)
-                    setContextMenu(null)
-                  }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-emerald-300 flex items-center justify-between"
-                >
-                  <span>Export as .patch...</span>
-                  <FileDiff className="w-3 h-3 text-emerald-400" />
-                </button>
-                <button
-                  onClick={() => {
-                    handleRevertCommit(contextMenu.commit)
-                    setContextMenu(null)
-                  }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-amber-300 flex items-center justify-between"
-                >
-                  <span>Revert commit (git revert)</span>
-                  <RotateCcw className="w-3 h-3 text-amber-400" />
-                </button>
-                <button
-                  onClick={() => {
-                    setIsRebaseModalOpen(true)
-                    setContextMenu(null)
-                  }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-brand"
-                >
-                  Interactive rebase onto here...
-                </button>
-
-                {remoteInfo && (
-                  <>
-                    <div className="border-t border-surface-border my-1" />
+                {contextMenuItems.map((item, idx) => (
+                  <React.Fragment key={item.id}>
+                    {item.hasDividerBefore && <div className="border-t border-surface-border my-1" />}
                     <button
-                      onClick={() => {
-                        const url = remoteInfo.commitUrlTemplate.replace('{hash}', contextMenu.commit.hash)
-                        gih?.openExternal(url)
-                        setContextMenu(null)
-                      }}
-                      className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sky-400 flex items-center justify-between"
+                      type="button"
+                      tabIndex={0}
+                      onClick={item.action}
+                      onMouseEnter={() => setSelectedMenuItemIndex(idx)}
+                      className={`w-full text-left px-3 py-1.5 transition-colors flex items-center justify-between text-xs outline-none ${
+                        idx === selectedMenuItemIndex
+                          ? 'bg-surface-hover text-white ring-1 ring-inset ring-sky-400/50'
+                          : 'text-slate-200'
+                      } ${item.className || ''}`}
                     >
-                      <span className="capitalize">View on {remoteInfo.name}</span>
-                      <ExternalLink className="w-3 h-3 text-sky-400" />
+                      <span>{item.label}</span>
+                      {item.icon && <item.icon className="w-3 h-3 ml-2 shrink-0" />}
                     </button>
-                    {repoState?.currentBranch && (
-                      <button
-                        onClick={() => {
-                          const prUrl = remoteInfo.prUrlTemplate.replace('{branch}', encodeURIComponent(repoState.currentBranch || ''))
-                          gih?.openExternal(prUrl)
-                          setContextMenu(null)
-                        }}
-                        className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-indigo-400 flex items-center justify-between"
-                      >
-                        <span>Create Pull Request</span>
-                        <ExternalLink className="w-3 h-3 text-indigo-400" />
-                      </button>
-                    )}
-                  </>
-                )}
-
-                <div className="border-t border-surface-border my-1" />
-                <button
-                  onClick={() => {
-                    setResetModalCommit(contextMenu.commit)
-                    setContextMenu(null)
-                  }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-rose-950/60 text-rose-300"
-                >
-                  Reset branch to here...
-                </button>
+                  </React.Fragment>
+                ))}
               </div>
             )}
           </main>
@@ -1348,43 +1456,51 @@ export const App: React.FC = () => {
             title="Drag to resize staging panel"
           />
 
-          <StagingArea
-            width={stagingWidth}
-            files={repoState?.files || []}
-            selectedCommits={selectedCommits}
-            onClearSelectedCommits={handleClearSelectedCommits}
-            onStageFile={(path) => gih?.stageFile(path).then(refreshState)}
-            onUnstageFile={(path) => gih?.unstageFile(path).then(refreshState)}
-            onStageAll={() => gih?.stageAll().then(refreshState)}
-            onUnstageAll={() => gih?.unstageAll().then(refreshState)}
-            onDiscardChanges={(path) => gih?.discardChanges(path).then(refreshState)}
-            onDiscardAll={handleDiscardAll}
-            onOpenInEditor={handleOpenInEditor}
-            onQuickEditFile={(path) => setEditingFilePath(path)}
-            onBlameFile={(path) => setBlameFilePath(path)}
-            onIgnorePattern={async (pattern) => {
-              if (!gih?.addToGitIgnore) return
-              const res = await gih.addToGitIgnore(pattern)
-              if (res.success) {
-                showToast({
-                  type: 'success',
-                  command: `echo ${pattern} >> .gitignore`,
-                  message: `Added '${pattern}' to .gitignore`,
-                })
-                refreshState()
-              } else {
-                showToast({ type: 'error', message: res.error || 'Failed to update .gitignore' })
-              }
-            }}
-            onCommit={handleCommit}
-            onGetDiff={(path, staged) => gih?.getDiff(path, staged)}
-            onGetCommitFiles={(hash) => gih?.getCommitFiles(hash)}
-            onGetRangeDiff={(base, head) => gih?.getRangeDiff(base, head)}
-            onGetCommitFileDiff={(base, head, path) => gih?.getCommitFileDiff(base, head, path)}
-            onApplyHunkPatch={handleApplyHunkPatch}
-            onResolveConflict={handleResolveConflict}
-            headCommit={repoState?.commits.find((c) => c.isHead) || repoState?.commits[0] || null}
-          />
+          <div
+            className={`h-full flex shrink-0 relative transition-all ${
+              activePane === 'staging' ? 'ring-1 ring-inset ring-sky-500/50' : ''
+            }`}
+            onMouseDown={() => setActivePane('staging')}
+          >
+            <StagingArea
+              width={stagingWidth}
+              files={repoState?.files || []}
+              selectedCommits={selectedCommits}
+              onClearSelectedCommits={handleClearSelectedCommits}
+              onStageFile={(path) => gih?.stageFile(path).then(refreshState)}
+              onUnstageFile={(path) => gih?.unstageFile(path).then(refreshState)}
+              onStageAll={() => gih?.stageAll().then(refreshState)}
+              onUnstageAll={() => gih?.unstageAll().then(refreshState)}
+              onDiscardChanges={(path) => gih?.discardChanges(path).then(refreshState)}
+              onDiscardAll={handleDiscardAll}
+              onOpenInEditor={handleOpenInEditor}
+              onQuickEditFile={(path) => setEditingFilePath(path)}
+              onBlameFile={(path) => setBlameFilePath(path)}
+              onIgnorePattern={async (pattern) => {
+                if (!gih?.addToGitIgnore) return
+                const res = await gih.addToGitIgnore(pattern)
+                if (res.success) {
+                  showToast({
+                    type: 'success',
+                    command: `echo ${pattern} >> .gitignore`,
+                    message: `Added '${pattern}' to .gitignore`,
+                  })
+                  refreshState()
+                } else {
+                  showToast({ type: 'error', message: res.error || 'Failed to update .gitignore' })
+                }
+              }}
+              onCommit={handleCommit}
+              onGetDiff={(path, staged) => gih?.getDiff(path, staged)}
+              onGetCommitFiles={(hash) => gih?.getCommitFiles(hash)}
+              onGetRangeDiff={(base, head) => gih?.getRangeDiff(base, head)}
+              onGetCommitFileDiff={(base, head, path) => gih?.getCommitFileDiff(base, head, path)}
+              onApplyHunkPatch={handleApplyHunkPatch}
+              onResolveConflict={handleResolveConflict}
+              headCommit={repoState?.commits.find((c) => c.isHead) || repoState?.commits[0] || null}
+              isActivePane={activePane === 'staging'}
+            />
+          </div>
         </div>
       )}
 
@@ -1401,15 +1517,23 @@ export const App: React.FC = () => {
       )}
 
       {/* Collapsible Bottom Panel */}
-      <BottomPanel
-        height={bottomHeight}
-        isOpen={isTerminalOpen}
-        onClose={() => setIsTerminalOpen(false)}
-        commandHistory={commandHistory}
-        onExecCommand={handleExecCommand}
-        onGetReflog={() => gih?.getReflog(50) || Promise.resolve([])}
-        onResetToReflog={handleResetToReflog}
-      />
+      <div
+        className={`relative transition-all ${
+          activePane === 'terminal' ? 'ring-1 ring-inset ring-sky-500/50' : ''
+        }`}
+        onMouseDown={() => setActivePane('terminal')}
+      >
+        <BottomPanel
+          height={bottomHeight}
+          isOpen={isTerminalOpen}
+          onClose={() => setIsTerminalOpen(false)}
+          commandHistory={commandHistory}
+          onExecCommand={handleExecCommand}
+          onGetReflog={() => gih?.getReflog(50) || Promise.resolve([])}
+          onResetToReflog={handleResetToReflog}
+          isActivePane={activePane === 'terminal'}
+        />
+      </div>
 
       {/* Modals */}
       <CommandPalette

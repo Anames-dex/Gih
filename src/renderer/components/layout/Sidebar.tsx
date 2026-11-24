@@ -41,6 +41,7 @@ interface SidebarProps {
   onAddWorktree?: () => void
   onSwitchWorktree?: (path: string) => void
   onRemoveWorktree?: (path: string) => void
+  isActivePane?: boolean
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -64,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onAddWorktree,
   onSwitchWorktree,
   onRemoveWorktree,
+  isActivePane = false,
 }) => {
   const [renamingBranch, setRenamingBranch] = useState<string | null>(null)
   const [renamingValue, setRenamingValue] = useState('')

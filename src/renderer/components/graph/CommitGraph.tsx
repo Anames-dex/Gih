@@ -24,6 +24,7 @@ interface CommitGraphProps {
   onMergeBranch?: (sourceBranch: string, targetRef: string) => void
   onRebaseBranch?: (sourceBranch: string, upstreamRef: string) => void
   onCherryPick?: (commitHash: string) => void
+  isActivePane?: boolean
 }
 
 const ROW_HEIGHT = 44
@@ -42,6 +43,7 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
   onMergeBranch,
   onRebaseBranch,
   onCherryPick,
+  isActivePane = true,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [draggedItem, setDraggedItem] = useState<{ type: 'branch' | 'commit'; name?: string; hash: string } | null>(null)
@@ -140,6 +142,32 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
         const targetCommit = commits[targetIndex]
         onSelectCommit(targetCommit, false, e.shiftKey)
         scrollToCommit(targetIndex)
+      } else if (
+        (e.key === 'Enter' || e.key === 'm' || e.key === 'ContextMenu') &&
+        selectedCommits.length > 0
+      ) {
+        e.preventDefault()
+        const targetCommit = selectedCommits[0]
+        const targetIndex = commits.findIndex((c) => c.hash === targetCommit.hash)
+        const rect = scrollContainerRef.current?.getBoundingClientRect()
+        const clientX = (rect?.left || 200) + 260
+        let clientY = (rect?.top || 150) + 120
+        if (rect && targetIndex !== -1) {
+          const rowScreenY =
+            rect.top +
+            (targetIndex * ROW_HEIGHT - (scrollContainerRef.current?.scrollTop || 0)) +
+            ROW_HEIGHT / 2
+          clientY = Math.max(rect.top + 20, Math.min(rect.bottom - 60, rowScreenY))
+        }
+        onContextMenu(
+          {
+            clientX,
+            clientY,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+          } as any,
+          targetCommit
+        )
       } else if (e.key === 'Escape') {
         if (searchQuery) {
           setSearchQuery('')
@@ -151,7 +179,7 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [commits, selectedCommits, searchQuery, onSelectCommit, onClearSelection])
+  }, [commits, selectedCommits, searchQuery, onSelectCommit, onClearSelection, onContextMenu])
 
   const matchingCommitHashes = useMemo(() => {
     if (!searchQuery.trim()) return new Set<string>()

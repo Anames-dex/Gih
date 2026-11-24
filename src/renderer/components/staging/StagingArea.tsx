@@ -45,6 +45,7 @@ interface StagingAreaProps {
   onApplyHunkPatch?: (patch: string, options: { cached?: boolean; reverse?: boolean }) => Promise<void>
   onResolveConflict?: (filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => void
   headCommit?: GitCommit | null
+  isActivePane?: boolean
 }
 
 const CONVENTIONAL_TYPES = [
@@ -80,6 +81,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   onApplyHunkPatch,
   onResolveConflict,
   headCommit,
+  isActivePane = false,
 }) => {
   const [activeFile, setActiveFile] = useState<GitFileStatus | null>(null)
   const [activeDiff, setActiveDiff] = useState<FileDiff | null>(null)
