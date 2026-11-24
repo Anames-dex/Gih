@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import type { GitCommit } from '@/shared/types'
 import { computeDagLayout } from './dagLayout'
+import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
 import {
   GitBranch as GitBranchIcon,
   Tag as TagIcon,
@@ -71,8 +72,14 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const dropMenuRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(800)
+
+  useFocusTrap(dropMenuRef, !!dropMenu, () => {
+    setDropMenu(null)
+    setDraggedItem(null)
+  })
 
   useEffect(() => {
     const container = scrollContainerRef.current
@@ -688,7 +695,10 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
       {/* Drag & Drop Action Popover */}
       {dropMenu && (
         <div
-          className="fixed z-50 bg-[#0f172a]/95 border border-surface-border rounded-xl shadow-2xl p-2 backdrop-blur-md min-w-[260px] text-xs space-y-1 animate-fade-in text-slate-200 select-none"
+          ref={dropMenuRef}
+          role="menu"
+          tabIndex={-1}
+          className="fixed z-50 bg-[#0f172a]/95 border border-surface-border rounded-xl shadow-2xl p-2 backdrop-blur-md min-w-[260px] text-xs space-y-1 animate-fade-in text-slate-200 select-none outline-none"
           style={{
             left: Math.max(16, Math.min(window.innerWidth - 280, dropMenu.x - 20)),
             top: Math.max(16, Math.min(window.innerHeight - 200, dropMenu.y - 20)),

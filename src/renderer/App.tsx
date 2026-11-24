@@ -30,6 +30,7 @@ import { StashInspectorModal } from './components/modals/StashInspectorModal'
 import { CreateTagModal } from './components/modals/CreateTagModal'
 import { ActionDialogModal, type DialogRequest } from './components/modals/ActionDialogModal'
 import { registerDialogListener, showConfirm, showPrompt } from './utils/dialog'
+import { useFocusTrap } from './hooks/useFocusTrap'
 
 interface ToastNotice {
   id: string
@@ -43,6 +44,7 @@ export const App: React.FC = () => {
   const [gitStatus, setGitStatus] = useState<GitInstallationStatus | null>(null)
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
   const [dialogRequest, setDialogRequest] = useState<DialogRequest | null>(null)
+  const contextMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     registerDialogListener(setDialogRequest)
@@ -132,6 +134,8 @@ export const App: React.FC = () => {
     commit: GitCommit
   } | null>(null)
   const [selectedMenuItemIndex, setSelectedMenuItemIndex] = useState(0)
+
+  useFocusTrap(contextMenuRef, !!contextMenu, () => setContextMenu(null))
 
   const gih = (window as any).gih
   const isRefreshingRef = useRef(false)
@@ -1807,7 +1811,10 @@ export const App: React.FC = () => {
             {/* Context Menu */}
             {contextMenu && (
               <div
-                className="fixed z-50 bg-surface border border-surface-border rounded-lg shadow-2xl py-1 text-xs text-slate-200 min-w-[220px]"
+                ref={contextMenuRef}
+                role="menu"
+                tabIndex={-1}
+                className="fixed z-50 bg-surface border border-surface-border rounded-lg shadow-2xl py-1 text-xs text-slate-200 min-w-[220px] outline-none"
                 style={{
                   top: `${Math.min(window.innerHeight - 340, Math.max(10, contextMenu.y))}px`,
                   left: `${Math.min(window.innerWidth - 240, Math.max(10, contextMenu.x))}px`,
