@@ -510,7 +510,7 @@ export class GitService {
       this.getBranches(),
       this.getTags(),
       this.getStashes(),
-      this.getCommits(250, allBranches, filePath),
+      this.getCommits(400, allBranches, filePath, 0),
       this.getFileStatuses(),
       this.getWorktrees(),
       this.getSubmodules(),
@@ -604,7 +604,12 @@ export class GitService {
   /**
    * Read commit DAG
    */
-  public async getCommits(limit: number = 300, allBranches: boolean = true, filePath?: string): Promise<GitCommit[]> {
+  public async getCommits(
+    limit: number = 400,
+    allBranches: boolean = true,
+    filePath?: string,
+    skip: number = 0
+  ): Promise<GitCommit[]> {
     // Format: Hash, ShortHash, AuthorName, AuthorEmail, Date, Subject, Parents, RefNames, SigStatus, SigSigner, SigKey, SigFingerprint
     const delimiter = '||__GIH_FIELD__||'
     const recordDelimiter = '||__GIH_REC__||'
@@ -623,7 +628,10 @@ export class GitService {
       '%GF',
     ].join(delimiter) + recordDelimiter
 
-    const args = ['log', '--date=relative', `--max-count=${limit}`, `--format=${format}`]
+    const args = ['log', '--topo-order', '--date=relative', `--max-count=${limit}`, `--format=${format}`]
+    if (skip > 0) {
+      args.push(`--skip=${skip}`)
+    }
     if (allBranches) {
       args.splice(1, 0, '--all')
     } else {

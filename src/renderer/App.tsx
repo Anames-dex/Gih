@@ -40,6 +40,9 @@ interface ToastNotice {
 export const App: React.FC = () => {
   const [gitStatus, setGitStatus] = useState<GitInstallationStatus | null>(null)
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
+  const [hasMoreCommits, setHasMoreCommits] = useState(false)
+  const [isLoadingMoreCommits, setIsLoadingMoreCommits] = useState(false)
+  const isLoadingMoreRef = useRef(false)
   const [showAllBranches, setShowAllBranches] = useState(true)
   const showAllBranchesRef = useRef(true)
   const [graphFilePathFilter, setGraphFilePathFilter] = useState<string | null>(null)
@@ -145,6 +148,7 @@ export const App: React.FC = () => {
     try {
       const state = await gih.getState(allBranches, filePath || undefined)
       setRepoState(state)
+      setHasMoreCommits((state?.commits?.length ?? 0) >= 400)
       const history = await gih.getCommandHistory()
       setCommandHistory(history)
       if (gih.getRemoteInfo) {
@@ -175,6 +179,35 @@ export const App: React.FC = () => {
       }
     }
   }, [gih])
+
+  const handleLoadMoreCommits = useCallback(async () => {
+    if (!gih?.getCommits || isLoadingMoreRef.current || !repoState?.isGitRepo) return
+    isLoadingMoreRef.current = true
+    setIsLoadingMoreCommits(true)
+    try {
+      const currentCount = repoState.commits.length
+      const nextBatch = await gih.getCommits(
+        400,
+        showAllBranchesRef.current,
+        graphFilePathFilterRef.current || undefined,
+        currentCount
+      )
+      setHasMoreCommits(nextBatch.length >= 400)
+      if (nextBatch.length > 0) {
+        setRepoState((prev) => {
+          if (!prev) return prev
+          const seen = new Set(prev.commits.map((c) => c.hash))
+          const unique = nextBatch.filter((c) => !seen.has(c.hash))
+          return unique.length > 0 ? { ...prev, commits: [...prev.commits, ...unique] } : prev
+        })
+      }
+    } catch (e) {
+      console.error('Failed to load older commits:', e)
+    } finally {
+      isLoadingMoreRef.current = false
+      setIsLoadingMoreCommits(false)
+    }
+  }, [gih, repoState?.isGitRepo, repoState?.commits.length])
 
   const handleSetGraphFilePathFilter = (filePath: string | null) => {
     graphFilePathFilterRef.current = filePath
@@ -1694,6 +1727,9 @@ export const App: React.FC = () => {
               isActivePane={activePane === 'graph'}
               filePathFilter={graphFilePathFilter}
               onClearFilePathFilter={() => handleSetGraphFilePathFilter(null)}
+              hasMoreCommits={hasMoreCommits}
+              isLoadingMore={isLoadingMoreCommits}
+              onLoadMoreCommits={handleLoadMoreCommits}
             />
 
             {/* Context Menu */}

@@ -293,8 +293,8 @@ ipcMain.handle('git:getState', async (_, allBranches?: boolean, filePath?: strin
   return await gitService.getRepositoryState(allBranches ?? true, filePath)
 })
 
-ipcMain.handle('git:getCommits', async (_, limit?: number, allBranches?: boolean, filePath?: string) => {
-  return await gitService.getCommits(limit ?? 300, allBranches ?? true, filePath)
+ipcMain.handle('git:getCommits', async (_, limit?: number, allBranches?: boolean, filePath?: string, skip?: number) => {
+  return await gitService.getCommits(limit ?? 400, allBranches ?? true, filePath, skip ?? 0)
 })
 
 ipcMain.handle('git:getAuthorConfig', async () => {

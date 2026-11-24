@@ -13,6 +13,7 @@ export interface GraphEdge {
   toRow: number
   toLane: number
   color: string
+  isMerge: boolean
 }
 
 const LANE_COLORS = [
@@ -26,7 +27,19 @@ const LANE_COLORS = [
   '#f97316', // Orange
 ]
 
-const MAX_LANES_CAP = 24
+const MAX_LANES_CAP = 48
+
+function allocateLane(activeLanes: (string | null)[], parentHash: string): void {
+  if (activeLanes.includes(parentHash)) return
+  const emptyIdx = activeLanes.indexOf(null)
+  if (emptyIdx !== -1) {
+    activeLanes[emptyIdx] = parentHash
+  } else if (activeLanes.length < MAX_LANES_CAP) {
+    activeLanes.push(parentHash)
+  } else {
+    activeLanes[MAX_LANES_CAP - 1] = parentHash
+  }
+}
 
 export function computeDagLayout(commits: GitCommit[]): {
   nodes: GraphNode[]
@@ -35,16 +48,15 @@ export function computeDagLayout(commits: GitCommit[]): {
 } {
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
-  const commitHashMap = new Map<string, { row: number; lane: number }>()
+  const commitPosMap = new Map<string, { row: number; lane: number; color: string }>()
 
-  // Active lanes array holds the commit hash that next expects a parent on that lane
+  // Active lanes hold the commit hash next expected along that column
   const activeLanes: (string | null)[] = []
 
   commits.forEach((commit, rowIndex) => {
-    // 1. Find if this commit is already expected on an active lane
+    // 1. Find leftmost lane already expecting this commit, or reuse first free slot
     let lane = activeLanes.indexOf(commit.hash)
     if (lane === -1) {
-      // Find first empty slot in activeLanes or append
       lane = activeLanes.indexOf(null)
       if (lane === -1) {
         if (activeLanes.length < MAX_LANES_CAP) {
@@ -63,53 +75,47 @@ export function computeDagLayout(commits: GitCommit[]): {
       lane,
       color,
     })
-    commitHashMap.set(commit.hash, { row: rowIndex, lane })
+    commitPosMap.set(commit.hash, { row: rowIndex, lane, color })
 
-    // Vacate current slot
-    activeLanes[lane] = null
+    // Clear all lanes that were waiting on this commit so merged/converged columns are freed immediately
+    for (let i = 0; i < activeLanes.length; i++) {
+      if (activeLanes[i] === commit.hash) {
+        activeLanes[i] = null
+      }
+    }
 
-    // 2. Assign parents to lanes
+    // 2. Assign parents to lanes without duplicating any parent already tracked
     commit.parents.forEach((parentHash, pIdx) => {
-      if (pIdx === 0) {
-        // First parent prefers staying on the same lane
-        if (activeLanes[lane] === null) {
-          activeLanes[lane] = parentHash
-        } else {
-          // Lane is occupied, find new lane
-          const nextEmpty = activeLanes.indexOf(null)
-          if (nextEmpty !== -1) {
-            activeLanes[nextEmpty] = parentHash
-          } else if (activeLanes.length < MAX_LANES_CAP) {
-            activeLanes.push(parentHash)
-          } else {
-            activeLanes[MAX_LANES_CAP - 1] = parentHash
-          }
-        }
+      if (activeLanes.includes(parentHash)) {
+        return
+      }
+      if (pIdx === 0 && activeLanes[lane] === null) {
+        // Primary parent stays in the same column whenever possible
+        activeLanes[lane] = parentHash
       } else {
-        // Additional parents (merge commit) get separate lanes
-        const nextEmpty = activeLanes.indexOf(null)
-        if (nextEmpty !== -1) {
-          activeLanes[nextEmpty] = parentHash
-        } else if (activeLanes.length < MAX_LANES_CAP) {
-          activeLanes.push(parentHash)
-        } else {
-          activeLanes[MAX_LANES_CAP - 1] = parentHash
-        }
+        allocateLane(activeLanes, parentHash)
       }
     })
+
+    // Collapse trailing empty columns so non-interfering branches stay compact
+    while (activeLanes.length > 0 && activeLanes[activeLanes.length - 1] === null) {
+      activeLanes.pop()
+    }
   })
 
-  // 3. Generate edges now that all commit positions are known
+  // 3. Build edges using final node positions
   nodes.forEach((node) => {
-    node.commit.parents.forEach((parentHash) => {
-      const parentPos = commitHashMap.get(parentHash)
+    node.commit.parents.forEach((parentHash, pIdx) => {
+      const parentPos = commitPosMap.get(parentHash)
       if (parentPos) {
+        const isMerge = pIdx > 0
         edges.push({
           fromRow: node.row,
           fromLane: node.lane,
           toRow: parentPos.row,
           toLane: parentPos.lane,
-          color: node.color,
+          color: isMerge ? parentPos.color : node.color,
+          isMerge,
         })
       }
     })

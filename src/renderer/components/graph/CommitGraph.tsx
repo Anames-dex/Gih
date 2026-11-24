@@ -29,6 +29,9 @@ interface CommitGraphProps {
   isActivePane?: boolean
   filePathFilter?: string | null
   onClearFilePathFilter?: () => void
+  hasMoreCommits?: boolean
+  isLoadingMore?: boolean
+  onLoadMoreCommits?: () => void
 }
 
 const ROW_HEIGHT = 44
@@ -50,6 +53,9 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
   isActivePane = true,
   filePathFilter,
   onClearFilePathFilter,
+  hasMoreCommits = false,
+  isLoadingMore = false,
+  onLoadMoreCommits,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [draggedItem, setDraggedItem] = useState<{ type: 'branch' | 'commit'; name?: string; hash: string } | null>(null)
@@ -74,6 +80,14 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
 
     const handleScroll = () => {
       setScrollTop(container.scrollTop)
+      if (
+        hasMoreCommits &&
+        !isLoadingMore &&
+        onLoadMoreCommits &&
+        container.scrollTop + container.clientHeight >= container.scrollHeight - ROW_HEIGHT * 18
+      ) {
+        onLoadMoreCommits()
+      }
     }
 
     const handleResize = () => {
@@ -87,7 +101,7 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
       container.removeEventListener('scroll', handleScroll)
       window.removeEventListener('resize', handleResize)
     }
-  }, [])
+  }, [hasMoreCommits, isLoadingMore, onLoadMoreCommits])
 
   useEffect(() => {
     const scrollToCommit = (index: number) => {
@@ -366,10 +380,24 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
               const x2 = GRAPH_PADDING_LEFT + edge.toLane * LANE_WIDTH
               const y2 = edge.toRow * ROW_HEIGHT + ROW_HEIGHT / 2
 
-              // Cubic bezier connection between parent and child commits
-              const cy1 = y1 + (y2 - y1) * 0.5
-              const cy2 = y1 + (y2 - y1) * 0.5
-              const pathData = `M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`
+              let pathData: string
+              if (x1 === x2) {
+                // Straight vertical continuation along the same column
+                pathData = `M ${x1} ${y1} L ${x2} ${y2}`
+              } else if (y2 - y1 <= ROW_HEIGHT) {
+                const cy = (y1 + y2) / 2
+                pathData = `M ${x1} ${y1} C ${x1} ${cy}, ${x2} ${cy}, ${x2} ${y2}`
+              } else if (edge.isMerge) {
+                // Curve out cleanly at the merge commit, then run straight vertically
+                const curveEndY = y1 + ROW_HEIGHT
+                const cy = y1 + ROW_HEIGHT * 0.5
+                pathData = `M ${x1} ${y1} C ${x1} ${cy}, ${x2} ${cy}, ${x2} ${curveEndY} L ${x2} ${y2}`
+              } else {
+                // Run straight vertically, then curve cleanly into the ancestor branch lane
+                const curveStartY = y2 - ROW_HEIGHT
+                const cy = curveStartY + ROW_HEIGHT * 0.5
+                pathData = `M ${x1} ${y1} L ${x1} ${curveStartY} C ${x1} ${cy}, ${x2} ${cy}, ${x2} ${y2}`
+              }
 
               return (
                 <path
@@ -377,8 +405,8 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
                   d={pathData}
                   fill="none"
                   stroke={edge.color}
-                  strokeWidth={2.5}
-                  strokeOpacity={0.8}
+                  strokeWidth={2}
+                  strokeOpacity={0.85}
                   strokeLinecap="round"
                 />
               )
@@ -510,42 +538,44 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
                   }}
                 >
                 {/* Branch / Tag Badges */}
-                <div className="flex items-center gap-1.5 mr-3 shrink-0">
-                  {commit.isHead && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      <CheckCircle2 className="w-3 h-3" />
-                      HEAD
-                    </span>
-                  )}
-                  {commit.branches.map((branch) => (
-                    <span
-                      key={branch}
-                      draggable
-                      onDragStart={(e) => {
-                        e.stopPropagation()
-                        setDraggedItem({ type: 'branch', name: branch, hash: commit.hash })
-                        e.dataTransfer.setData('text/plain', branch)
-                      }}
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-sky-500/20 text-sky-300 border border-sky-500/30 hover:bg-sky-500/30 cursor-grab active:cursor-grabbing transition-transform active:scale-95"
-                      title={`Drag ${branch} onto another commit to merge, rebase, or cherry-pick`}
-                    >
-                      <GitBranchIcon className="w-3 h-3" />
-                      {branch}
-                    </span>
-                  ))}
-                  {commit.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                    >
-                      <TagIcon className="w-3 h-3" />
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                {(commit.isHead || commit.branches.length > 0 || commit.tags.length > 0) && (
+                  <div className="flex items-center gap-1 mr-3 shrink-0">
+                    {commit.isHead && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        <CheckCircle2 className="w-3 h-3" />
+                        HEAD
+                      </span>
+                    )}
+                    {commit.branches.map((branch) => (
+                      <span
+                        key={branch}
+                        draggable
+                        onDragStart={(e) => {
+                          e.stopPropagation()
+                          setDraggedItem({ type: 'branch', name: branch, hash: commit.hash })
+                          e.dataTransfer.setData('text/plain', branch)
+                        }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-sky-500/20 text-sky-300 border border-sky-500/30 hover:bg-sky-500/30 cursor-grab active:cursor-grabbing transition-transform active:scale-95"
+                        title={`Drag ${branch} onto another commit to merge, rebase, or cherry-pick`}
+                      >
+                        <GitBranchIcon className="w-3 h-3 shrink-0" />
+                        <span>{branch}</span>
+                      </span>
+                    ))}
+                    {commit.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                      >
+                        <TagIcon className="w-3 h-3 shrink-0" />
+                        <span>{tag}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {/* Commit Message */}
-                <div className="flex-1 truncate text-sm text-slate-200 font-medium">
+                <div className="flex-1 min-w-[140px] truncate text-sm text-slate-200 font-medium">
                   {commit.summary}
                 </div>
 
@@ -600,6 +630,21 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
             )
           })}
         </div>
+        {(isLoadingMore || hasMoreCommits) && (
+          <div className="py-3 px-4 flex items-center justify-center gap-2 text-xs text-slate-400 border-t border-surface-border/40 bg-[#0c0e14]">
+            {isLoadingMore ? (
+              <span>Loading older commits...</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onLoadMoreCommits?.()}
+                className="px-3 py-1 rounded-md bg-surface-subtle hover:bg-surface-hover border border-surface-border text-slate-300 hover:text-white transition-colors"
+              >
+                Load more commits ({commits.length.toLocaleString()} loaded)
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Drag & Drop Action Popover */}
