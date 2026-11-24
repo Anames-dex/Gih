@@ -374,9 +374,17 @@ export const App: React.FC = () => {
     if (!gih) return
     setIsPushing(true)
     const t0 = performance.now()
-    const cmdStr = forceWithLease ? 'git push --force-with-lease' : 'git push -u origin'
+    const currentBranch = repoState?.currentBranch || undefined
+    const cmdStr = forceWithLease
+      ? `git push --force-with-lease${currentBranch ? ` origin ${currentBranch}` : ''}`
+      : `git push -u origin${currentBranch ? ` ${currentBranch}` : ''}`
     try {
-      const res = await gih.pushRemote(undefined, undefined, !forceWithLease, forceWithLease)
+      const res = await gih.pushRemote(
+        currentBranch ? 'origin' : undefined,
+        currentBranch,
+        !forceWithLease,
+        forceWithLease
+      )
       await refreshState()
       if (res && res.exitCode !== 0) {
         showToast({

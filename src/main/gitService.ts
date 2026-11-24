@@ -1333,11 +1333,22 @@ export class GitService {
     const args = ['push', '--progress']
     if (setUpstream) args.push('-u')
     if (forceWithLease) args.push('--force-with-lease')
-    if (remoteName) {
-      args.push(this.validateGitArg(remoteName, 'remote name'))
+
+    let resolvedBranch = branchName
+    if (setUpstream && !resolvedBranch) {
+      const headRes = await this.execGit(['rev-parse', '--abbrev-ref', 'HEAD'])
+      const headName = headRes.stdout.trim()
+      if (headRes.exitCode === 0 && headName && headName !== 'HEAD') {
+        resolvedBranch = headName
+      }
     }
-    if (branchName) {
-      args.push(this.validateGitArg(branchName, 'branch name'))
+
+    const resolvedRemote = remoteName || (resolvedBranch ? 'origin' : undefined)
+    if (resolvedRemote) {
+      args.push(this.validateGitArg(resolvedRemote, 'remote name'))
+    }
+    if (resolvedBranch) {
+      args.push(this.validateGitArg(resolvedBranch, 'branch name'))
     }
     return await this.execGitWithProgress(args, this.currentRepoPath, onProgress, 'Pushing')
   }
