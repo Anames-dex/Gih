@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import type { GitBranch, GitTag, GitStash, GitWorktree } from '@/shared/types'
 import {
   GitBranch as BranchIcon,
@@ -94,6 +94,114 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const filteredRemote = remoteBranches.filter((b) =>
     b.name.toLowerCase().includes(filterQuery.toLowerCase())
   )
+
+  type NavItem =
+    | { id: string; type: 'branch'; name: string }
+    | { id: string; type: 'remoteBranch'; name: string }
+    | { id: string; type: 'tag'; name: string }
+    | { id: string; type: 'stash'; index: number }
+    | { id: string; type: 'worktree'; path: string }
+
+  const navItems = useMemo<NavItem[]>(() => {
+    const items: NavItem[] = []
+    if (localExpanded) {
+      filteredLocal.forEach((b) => items.push({ id: `branch-${b.name}`, type: 'branch', name: b.name }))
+    }
+    if (remotesExpanded) {
+      filteredRemote.forEach((b) => items.push({ id: `remote-${b.name}`, type: 'remoteBranch', name: b.name }))
+    }
+    if (tagsExpanded) {
+      tags.forEach((t) => items.push({ id: `tag-${t.name}`, type: 'tag', name: t.name }))
+    }
+    if (stashesExpanded) {
+      stashes.forEach((s) => items.push({ id: `stash-${s.index}`, type: 'stash', index: s.index }))
+    }
+    if (worktreesExpanded) {
+      worktrees.forEach((w) => items.push({ id: `worktree-${w.path}`, type: 'worktree', path: w.path }))
+    }
+    return items
+  }, [
+    localExpanded,
+    filteredLocal,
+    remotesExpanded,
+    filteredRemote,
+    tagsExpanded,
+    tags,
+    stashesExpanded,
+    stashes,
+    worktreesExpanded,
+    worktrees,
+  ])
+
+  const [focusedNavIndex, setFocusedNavIndex] = useState<number>(0)
+
+  useEffect(() => {
+    setFocusedNavIndex((prev) => {
+      if (navItems.length === 0) return 0
+      return Math.max(0, Math.min(prev, navItems.length - 1))
+    })
+  }, [navItems])
+
+  useEffect(() => {
+    const item = navItems[focusedNavIndex]
+    if (!item) return
+    const el = document.querySelector(`[data-sidebar-id="${item.id}"]`)
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [focusedNavIndex, navItems])
+
+  useEffect(() => {
+    if (!isActivePane) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const isInput =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+
+      if (isInput) return
+
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        if (navItems.length === 0) return
+        e.preventDefault()
+        setFocusedNavIndex((prev) => Math.min(navItems.length - 1, prev + 1))
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        if (navItems.length === 0) return
+        e.preventDefault()
+        setFocusedNavIndex((prev) => Math.max(0, prev - 1))
+      } else if (e.key === 'Enter') {
+        if (navItems.length === 0) return
+        e.preventDefault()
+        const current = navItems[focusedNavIndex]
+        if (!current) return
+        if (current.type === 'branch' || current.type === 'remoteBranch') {
+          onCheckoutBranch(current.name)
+        } else if (current.type === 'stash') {
+          onPopStash(current.index)
+        } else if (current.type === 'worktree' && onSwitchWorktree) {
+          onSwitchWorktree(current.path)
+        }
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        const current = navItems[focusedNavIndex]
+        if (current && current.type === 'branch' && current.name !== currentBranch) {
+          e.preventDefault()
+          onDeleteBranch(current.name)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [
+    isActivePane,
+    navItems,
+    focusedNavIndex,
+    currentBranch,
+    onCheckoutBranch,
+    onDeleteBranch,
+    onPopStash,
+    onSwitchWorktree,
+  ])
 
   const handleDragStart = (idx: number) => {
     setDraggedSectionIndex(idx)
@@ -198,12 +306,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )
                   }
 
+                  const isItemFocused =
+                    isActivePane && navItems[focusedNavIndex]?.id === `branch-${b.name}`
+
                   return (
                     <div
                       key={b.name}
+                      data-sidebar-id={`branch-${b.name}`}
+                      tabIndex={0}
+                      onClick={() => {
+                        const idx = navItems.findIndex((it) => it.id === `branch-${b.name}`)
+                        if (idx !== -1) setFocusedNavIndex(idx)
+                      }}
                       onDoubleClick={() => onCheckoutBranch(b.name)}
-                      className={`flex items-center justify-between px-2 py-1 rounded text-xs group cursor-pointer ${
-                        isActive
+                      className={`flex items-center justify-between px-2 py-1 rounded text-xs group cursor-pointer outline-none transition-all ${
+                        isItemFocused
+                          ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400 text-white'
+                          : isActive
                           ? 'bg-sky-500/15 text-sky-300 font-medium border-l-2 border-sky-400'
                           : 'hover:bg-surface-hover text-slate-300'
                       }`}
@@ -219,7 +338,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -286,18 +405,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {remotesExpanded && (
               <div className="pl-4 mt-0.5 space-y-0.5">
-                {filteredRemote.map((b) => (
-                  <div
-                    key={b.name}
-                    onDoubleClick={() => onCheckoutBranch(b.name)}
-                    className="flex items-center justify-between px-2 py-1 rounded text-xs hover:bg-surface-hover text-slate-300 group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <Globe className="w-3 h-3 text-slate-500" />
-                      <span className="truncate">{b.name}</span>
+                {filteredRemote.map((b) => {
+                  const isItemFocused =
+                    isActivePane && navItems[focusedNavIndex]?.id === `remote-${b.name}`
+                  return (
+                    <div
+                      key={b.name}
+                      data-sidebar-id={`remote-${b.name}`}
+                      tabIndex={0}
+                      onClick={() => {
+                        const idx = navItems.findIndex((it) => it.id === `remote-${b.name}`)
+                        if (idx !== -1) setFocusedNavIndex(idx)
+                      }}
+                      onDoubleClick={() => onCheckoutBranch(b.name)}
+                      className={`flex items-center justify-between px-2 py-1 rounded text-xs text-slate-300 group cursor-pointer outline-none transition-all ${
+                        isItemFocused ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400 text-white' : 'hover:bg-surface-hover'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Globe className="w-3 h-3 text-slate-500" />
+                        <span className="truncate">{b.name}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
                 {filteredRemote.length === 0 && (
                   <p className="text-[11px] text-slate-500 px-2 py-1">No remote branches tracked</p>
                 )}
@@ -347,29 +478,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {tagsExpanded && (
               <div className="pl-4 mt-0.5 space-y-0.5">
-                {tags.map((t) => (
-                  <div
-                    key={t.name}
-                    className="flex items-center justify-between px-2 py-1 rounded text-xs hover:bg-surface-hover text-slate-300 group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <TagIcon className="w-3 h-3 text-emerald-400" />
-                      <span className="truncate">{t.name}</span>
+                {tags.map((t) => {
+                  const isItemFocused =
+                    isActivePane && navItems[focusedNavIndex]?.id === `tag-${t.name}`
+                  return (
+                    <div
+                      key={t.name}
+                      data-sidebar-id={`tag-${t.name}`}
+                      tabIndex={0}
+                      onClick={() => {
+                        const idx = navItems.findIndex((it) => it.id === `tag-${t.name}`)
+                        if (idx !== -1) setFocusedNavIndex(idx)
+                      }}
+                      className={`flex items-center justify-between px-2 py-1 rounded text-xs text-slate-300 group cursor-pointer outline-none transition-all ${
+                        isItemFocused ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400 text-white' : 'hover:bg-surface-hover'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <TagIcon className="w-3 h-3 text-emerald-400" />
+                        <span className="truncate">{t.name}</span>
+                      </div>
+                      {onDeleteTag && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onDeleteTag(t.name)
+                          }}
+                          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-rose-400"
+                          title="Delete tag"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
-                    {onDeleteTag && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onDeleteTag(t.name)
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400"
-                        title="Delete tag"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
                 {tags.length === 0 && (
                   <p className="text-[11px] text-slate-500 px-2 py-1">No tags</p>
                 )}
@@ -405,45 +549,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {stashesExpanded && (
               <div className="pl-4 mt-0.5 space-y-0.5">
-                {stashes.map((s) => (
-                  <div
-                    key={s.name}
-                    className="flex items-center justify-between px-2 py-1 rounded text-xs hover:bg-surface-hover text-slate-300 group"
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <Archive className="w-3 h-3 text-purple-400" />
-                      <span className="truncate" title={s.message}>{s.message || s.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                      {onBranchFromStash && (
+                {stashes.map((s) => {
+                  const isItemFocused =
+                    isActivePane && navItems[focusedNavIndex]?.id === `stash-${s.index}`
+                  return (
+                    <div
+                      key={s.name}
+                      data-sidebar-id={`stash-${s.index}`}
+                      tabIndex={0}
+                      onClick={() => {
+                        const idx = navItems.findIndex((it) => it.id === `stash-${s.index}`)
+                        if (idx !== -1) setFocusedNavIndex(idx)
+                      }}
+                      className={`flex items-center justify-between px-2 py-1 rounded text-xs text-slate-300 group outline-none transition-all ${
+                        isItemFocused ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400 text-white' : 'hover:bg-surface-hover'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Archive className="w-3 h-3 text-purple-400" />
+                        <span className="truncate" title={s.message}>{s.message || s.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+                        {onBranchFromStash && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const bName = window.prompt('New branch name from stash:')
+                              if (bName) onBranchFromStash(bName, s.index)
+                            }}
+                            className="text-[10px] px-1 py-0.5 bg-surface-subtle hover:bg-surface-border rounded text-amber-400"
+                            title="Branch from stash"
+                          >
+                            Branch
+                          </button>
+                        )}
                         <button
-                          onClick={() => {
-                            const bName = window.prompt('New branch name from stash:')
-                            if (bName) onBranchFromStash(bName, s.index)
-                          }}
-                          className="text-[10px] px-1 py-0.5 bg-surface-subtle hover:bg-surface-border rounded text-amber-400"
-                          title="Branch from stash"
+                          type="button"
+                          onClick={() => onPopStash(s.index)}
+                          className="text-[10px] px-1 py-0.5 bg-surface-subtle hover:bg-surface-border rounded text-sky-400"
+                          title="Pop stash (Enter)"
                         >
-                          Branch
+                          Pop
                         </button>
-                      )}
-                      <button
-                        onClick={() => onPopStash(s.index)}
-                        className="text-[10px] px-1 py-0.5 bg-surface-subtle hover:bg-surface-border rounded text-sky-400"
-                        title="Pop stash"
-                      >
-                        Pop
-                      </button>
-                      <button
-                        onClick={() => onDropStash(s.index)}
-                        className="p-0.5 hover:text-rose-400"
-                        title="Drop stash"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => onDropStash(s.index)}
+                          className="p-0.5 hover:text-rose-400"
+                          title="Drop stash"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
                 {stashes.length === 0 && (
                   <p className="text-[11px] text-slate-500 px-2 py-1">No stashes saved</p>
                 )}
@@ -499,13 +658,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   const normalizedWt = wt.path.replace(/\\/g, '/').toLowerCase()
                   const isCurrent = normalizedCurrent === normalizedWt
                   const isMain = wtIdx === 0
+                  const isItemFocused =
+                    isActivePane && navItems[focusedNavIndex]?.id === `worktree-${wt.path}`
 
                   return (
                     <div
                       key={wt.path}
+                      data-sidebar-id={`worktree-${wt.path}`}
+                      tabIndex={0}
+                      onClick={() => {
+                        const idx = navItems.findIndex((it) => it.id === `worktree-${wt.path}`)
+                        if (idx !== -1) setFocusedNavIndex(idx)
+                      }}
                       onDoubleClick={() => !isCurrent && onSwitchWorktree?.(wt.path)}
-                      className={`flex items-center justify-between px-2 py-1 rounded text-xs group cursor-pointer transition-colors ${
-                        isCurrent
+                      className={`flex items-center justify-between px-2 py-1 rounded text-xs group cursor-pointer transition-colors outline-none ${
+                        isItemFocused
+                          ? 'bg-amber-500/20 ring-1 ring-inset ring-sky-400 text-white'
+                          : isCurrent
                           ? 'bg-amber-500/15 text-amber-300 font-medium border-l-2 border-amber-400'
                           : 'hover:bg-surface-hover text-slate-300'
                       }`}

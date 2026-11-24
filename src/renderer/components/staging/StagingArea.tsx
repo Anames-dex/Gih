@@ -92,6 +92,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const [diffViewMode, setDiffViewMode] = useState<'unified' | 'split'>('unified')
   const [isDiffLoading, setIsDiffLoading] = useState(false)
   const [isApplyingHunk, setIsApplyingHunk] = useState(false)
+  const [focusedHunkIndex, setFocusedHunkIndex] = useState<number>(0)
   const commitTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const handleApplyConventionalPrefix = (type: string) => {
@@ -113,6 +114,46 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
         commitTextareaRef.current.setSelectionRange(pos, pos)
       }
     }, 0)
+  }
+
+  const handleStageHunk = async (hunk: DiffHunk) => {
+    if (!activeFile || !onApplyHunkPatch) return
+    setIsApplyingHunk(true)
+    try {
+      const patch = buildHunkPatch(activeFile.path, hunk)
+      await onApplyHunkPatch(patch, { cached: true })
+      const updated = await onGetDiff(activeFile.path, activeFile.staged)
+      setActiveDiff(updated)
+    } finally {
+      setIsApplyingHunk(false)
+    }
+  }
+
+  const handleUnstageHunk = async (hunk: DiffHunk) => {
+    if (!activeFile || !onApplyHunkPatch) return
+    setIsApplyingHunk(true)
+    try {
+      const patch = buildHunkPatch(activeFile.path, hunk)
+      await onApplyHunkPatch(patch, { cached: true, reverse: true })
+      const updated = await onGetDiff(activeFile.path, activeFile.staged)
+      setActiveDiff(updated)
+    } finally {
+      setIsApplyingHunk(false)
+    }
+  }
+
+  const handleDiscardHunk = async (hunk: DiffHunk) => {
+    if (!activeFile || !onApplyHunkPatch) return
+    if (!window.confirm('Discard this hunk changes from working directory?')) return
+    setIsApplyingHunk(true)
+    try {
+      const patch = buildHunkPatch(activeFile.path, hunk)
+      await onApplyHunkPatch(patch, { reverse: true })
+      const updated = await onGetDiff(activeFile.path, activeFile.staged)
+      setActiveDiff(updated)
+    } finally {
+      setIsApplyingHunk(false)
+    }
   }
 
   // Commit / Range inspection state
@@ -181,6 +222,53 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
           target.isContentEditable)
 
       if (isInput) return
+
+      // Diff Viewer Hunk Navigation and Shortcuts
+      const currentDiff = activeFile ? activeDiff : activeInspectorFile ? activeInspectorDiff : null
+      const hunks = currentDiff?.hunks || []
+
+      if (currentDiff && hunks.length > 0) {
+        if (e.key === ']' || e.key === 'n') {
+          e.preventDefault()
+          setFocusedHunkIndex((prev) => {
+            const next = Math.min(hunks.length - 1, prev + 1)
+            const el = document.querySelector(`[data-hunk-index="${next}"]`)
+            el?.scrollIntoView({ block: 'nearest' })
+            return next
+          })
+          return
+        } else if (e.key === '[' || e.key === 'p') {
+          e.preventDefault()
+          setFocusedHunkIndex((prev) => {
+            const next = Math.max(0, prev - 1)
+            const el = document.querySelector(`[data-hunk-index="${next}"]`)
+            el?.scrollIntoView({ block: 'nearest' })
+            return next
+          })
+          return
+        } else if (e.key.toLowerCase() === 's' && activeFile && !activeFile.staged) {
+          const targetHunk = hunks[focusedHunkIndex]
+          if (targetHunk && !isApplyingHunk) {
+            e.preventDefault()
+            handleStageHunk(targetHunk)
+            return
+          }
+        } else if (e.key.toLowerCase() === 'u' && activeFile && activeFile.staged) {
+          const targetHunk = hunks[focusedHunkIndex]
+          if (targetHunk && !isApplyingHunk) {
+            e.preventDefault()
+            handleUnstageHunk(targetHunk)
+            return
+          }
+        } else if (e.key.toLowerCase() === 'd' && activeFile && !activeFile.staged) {
+          const targetHunk = hunks[focusedHunkIndex]
+          if (targetHunk && !isApplyingHunk) {
+            e.preventDefault()
+            handleDiscardHunk(targetHunk)
+            return
+          }
+        }
+      }
 
       if (e.key === 'ArrowDown' || e.key === 'j') {
         if (visibleFileList.length === 0) return
@@ -356,46 +444,6 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
     setTimeout(() => setHasCopiedHashes(false), 2000)
   }
 
-  const handleStageHunk = async (hunk: DiffHunk) => {
-    if (!activeFile || !onApplyHunkPatch) return
-    setIsApplyingHunk(true)
-    try {
-      const patch = buildHunkPatch(activeFile.path, hunk)
-      await onApplyHunkPatch(patch, { cached: true })
-      const updated = await onGetDiff(activeFile.path, activeFile.staged)
-      setActiveDiff(updated)
-    } finally {
-      setIsApplyingHunk(false)
-    }
-  }
-
-  const handleUnstageHunk = async (hunk: DiffHunk) => {
-    if (!activeFile || !onApplyHunkPatch) return
-    setIsApplyingHunk(true)
-    try {
-      const patch = buildHunkPatch(activeFile.path, hunk)
-      await onApplyHunkPatch(patch, { cached: true, reverse: true })
-      const updated = await onGetDiff(activeFile.path, activeFile.staged)
-      setActiveDiff(updated)
-    } finally {
-      setIsApplyingHunk(false)
-    }
-  }
-
-  const handleDiscardHunk = async (hunk: DiffHunk) => {
-    if (!activeFile || !onApplyHunkPatch) return
-    if (!window.confirm('Discard this hunk changes from working directory?')) return
-    setIsApplyingHunk(true)
-    try {
-      const patch = buildHunkPatch(activeFile.path, hunk)
-      await onApplyHunkPatch(patch, { reverse: true })
-      const updated = await onGetDiff(activeFile.path, activeFile.staged)
-      setActiveDiff(updated)
-    } finally {
-      setIsApplyingHunk(false)
-    }
-  }
-
   useEffect(() => {
     if (activeFile) {
       setIsDiffLoading(true)
@@ -539,15 +587,31 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
             <p className="text-slate-500 py-2">No text differences found.</p>
           )}
           {diff?.hunks.map((hunk, hIdx) => {
+            const isHunkFocused = hIdx === focusedHunkIndex
             const unifiedRows = buildUnifiedRows(hunk.lines)
             const splitRows = buildSplitRows(hunk.lines)
 
             return (
-              <div key={hIdx} className="rounded border border-surface-border/50 overflow-hidden bg-[#0c0e14]">
+              <div
+                key={hIdx}
+                data-hunk-index={hIdx}
+                tabIndex={0}
+                onClick={() => setFocusedHunkIndex(hIdx)}
+                className={`rounded border overflow-hidden bg-[#0c0e14] transition-all outline-none ${
+                  isHunkFocused
+                    ? 'border-sky-400 ring-1 ring-sky-400 shadow-md shadow-sky-950/40'
+                    : 'border-surface-border/50'
+                }`}
+              >
                 <div className="flex items-center justify-between text-[11px] text-indigo-300 bg-indigo-950/40 px-2 py-1 border-b border-surface-border/40 font-mono">
-                  <span className="truncate max-w-[200px]" title={hunk.header}>
-                    {hunk.header}
-                  </span>
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="truncate max-w-[200px]" title={hunk.header}>
+                      {hunk.header}
+                    </span>
+                    <span className="text-[9px] font-sans px-1 py-0.2 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                      Hunk {hIdx + 1}/{diff.hunks.length}
+                    </span>
+                  </div>
                   {!isInspect && activeFile && (
                     <div className="flex items-center gap-1.5 font-sans shrink-0">
                       {!activeFile.staged ? (
