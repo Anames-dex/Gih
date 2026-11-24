@@ -15,7 +15,8 @@ import {
   Pencil,
   Check,
   Scissors,
-  Eye
+  Eye,
+  UploadCloud
 } from 'lucide-react'
 
 type SidebarSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'worktrees'
@@ -36,6 +37,8 @@ interface SidebarProps {
   onInspectStash?: (stash: GitStash) => void
   onCreateTag?: () => void
   onDeleteTag?: (name: string) => void
+  onPushTag?: (name: string) => void
+  onPushAllTags?: () => void
   onBranchFromStash?: (name: string, index: number) => void
   onRenameBranch?: (oldName: string, newName: string) => void
   onPruneBranches?: () => void
@@ -62,6 +65,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onInspectStash,
   onCreateTag,
   onDeleteTag,
+  onPushTag,
+  onPushAllTags,
   onBranchFromStash,
   onRenameBranch,
   onPruneBranches,
@@ -464,6 +469,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="text-[10px] bg-surface-subtle px-1.5 py-0.2 rounded text-slate-400">
                   {tags.length}
                 </span>
+                {onPushAllTags && tags.length > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onPushAllTags()
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-sky-300 transition-opacity"
+                    title="Push all tags to remote origin (git push origin --tags)"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {onCreateTag && (
                   <button
                     onClick={(e) => {
@@ -501,19 +518,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <TagIcon className="w-3 h-3 text-emerald-400" />
                         <span className="truncate">{t.name}</span>
                       </div>
-                      {onDeleteTag && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onDeleteTag(t.name)
-                          }}
-                          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-rose-400"
-                          title="Delete tag"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {onPushTag && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onPushTag(t.name)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-sky-300"
+                            title={`Push tag '${t.name}' to remote origin`}
+                          >
+                            <UploadCloud className="w-3 h-3" />
+                          </button>
+                        )}
+                        {onDeleteTag && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onDeleteTag(t.name)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-rose-400"
+                            title="Delete tag"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}

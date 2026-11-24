@@ -74,6 +74,8 @@ export interface GihAPI {
   getStashDiff: (index?: number) => Promise<string>
   createTag: (name: string, message?: string, targetHash?: string) => Promise<void>
   deleteTag: (name: string) => Promise<void>
+  pushTag: (name: string, remoteName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  pushAllTags: (remoteName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   continueOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   abortOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   skipOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
@@ -144,6 +146,8 @@ const api: GihAPI = {
   getStashDiff: (index?: number) => ipcRenderer.invoke('git:getStashDiff', index),
   createTag: (name: string, message?: string, targetHash?: string) => ipcRenderer.invoke('git:createTag', name, message, targetHash),
   deleteTag: (name: string) => ipcRenderer.invoke('git:deleteTag', name),
+  pushTag: (name: string, remoteName?: string) => ipcRenderer.invoke('git:pushTag', name, remoteName),
+  pushAllTags: (remoteName?: string) => ipcRenderer.invoke('git:pushAllTags', remoteName),
   continueOperation: (type: string) => ipcRenderer.invoke('git:continueOperation', type),
   abortOperation: (type: string) => ipcRenderer.invoke('git:abortOperation', type),
   skipOperation: (type: string) => ipcRenderer.invoke('git:skipOperation', type),

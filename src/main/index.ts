@@ -566,6 +566,14 @@ ipcMain.handle('git:deleteTag', async (_, name: string) => {
   await gitService.deleteTag(name)
 })
 
+ipcMain.handle('git:pushTag', async (_, tagName: string, remoteName?: string) => {
+  return await gitService.pushTag(tagName, remoteName)
+})
+
+ipcMain.handle('git:pushAllTags', async (_, remoteName?: string) => {
+  return await gitService.pushAllTags(remoteName)
+})
+
 ipcMain.handle('git:continueOperation', async (_, type: any) => {
   return await gitService.continueOperation(type)
 })

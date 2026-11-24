@@ -858,6 +858,22 @@ export class GitService {
     await this.execGit(['tag', '-d', '--', safeName])
   }
 
+  public async pushTag(
+    tagName: string,
+    remoteName: string = 'origin'
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const safeTag = this.validateGitArg(tagName, 'tag name')
+    const safeRemote = this.validateGitArg(remoteName, 'remote name')
+    return await this.execGit(['push', safeRemote, safeTag])
+  }
+
+  public async pushAllTags(
+    remoteName: string = 'origin'
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const safeRemote = this.validateGitArg(remoteName, 'remote name')
+    return await this.execGit(['push', safeRemote, '--tags'])
+  }
+
   public async branchFromStash(branchName: string, index: number = 0): Promise<void> {
     const safeBranch = this.validateGitArg(branchName, 'branch name')
     await this.execGit(['stash', 'branch', safeBranch, `stash@{${index}}`])

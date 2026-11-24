@@ -9,7 +9,7 @@ import type {
   GitAuthorConfig,
   RecentRepository
 } from '../shared/types'
-import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink, RotateCcw, FileDiff } from 'lucide-react'
+import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink, RotateCcw, FileDiff, Tag } from 'lucide-react'
 import { AppHeader } from './components/layout/AppHeader'
 import { Sidebar } from './components/layout/Sidebar'
 import { CommitGraph } from './components/graph/CommitGraph'
@@ -27,6 +27,7 @@ import { ApplyPatchModal } from './components/modals/ApplyPatchModal'
 import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal'
 import { CreateStashModal } from './components/modals/CreateStashModal'
 import { StashInspectorModal } from './components/modals/StashInspectorModal'
+import { CreateTagModal } from './components/modals/CreateTagModal'
 
 interface ToastNotice {
   id: string
@@ -69,6 +70,8 @@ export const App: React.FC = () => {
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false)
   const [isCreateStashModalOpen, setIsCreateStashModalOpen] = useState(false)
   const [inspectingStash, setInspectingStash] = useState<GitStash | null>(null)
+  const [isCreateTagModalOpen, setIsCreateTagModalOpen] = useState(false)
+  const [createTagTargetCommit, setCreateTagTargetCommit] = useState<GitCommit | null>(null)
   const [commandHistory, setCommandHistory] = useState<CommandLogEntry[]>([])
   const [isFetching, setIsFetching] = useState(false)
   const [isPulling, setIsPulling] = useState(false)
@@ -856,23 +859,77 @@ export const App: React.FC = () => {
     }
   }
 
-  const handleCreateTag = async () => {
+  const handleOpenCreateTagModal = (targetCommit?: GitCommit | null) => {
+    setCreateTagTargetCommit(targetCommit || null)
+    setIsCreateTagModalOpen(true)
+  }
+
+  const handleConfirmCreateTag = async (
+    name: string,
+    message: string,
+    targetHash?: string,
+    pushImmediately?: boolean
+  ) => {
     if (!gih) return
-    const name = window.prompt('Tag name:')
-    if (!name?.trim()) return
-    const msg = window.prompt('Tag message (optional):')
     const t0 = performance.now()
     try {
-      await gih.createTag(name.trim(), msg || undefined)
+      await gih.createTag(name, message || undefined, targetHash || undefined)
+      let pushMsg = ''
+      if (pushImmediately && gih.pushTag) {
+        const pushRes = await gih.pushTag(name)
+        if (pushRes.exitCode === 0) {
+          pushMsg = ' & pushed to origin'
+        }
+      }
       await refreshState()
       showToast({
         type: 'success',
-        command: `git tag ${name.trim()}`,
-        message: `Created tag '${name.trim()}'`,
+        command: `git tag ${message ? '-a ' : ''}${name}${targetHash ? ` ${targetHash.slice(0, 7)}` : ''}`,
+        message: `Created tag '${name}'${pushMsg}`,
         durationMs: Math.round(performance.now() - t0),
       })
     } catch (e: any) {
-      showToast({ type: 'error', command: `git tag ${name.trim()}`, message: e.message })
+      showToast({ type: 'error', command: `git tag ${name}`, message: e.message })
+    }
+  }
+
+  const handlePushTag = async (tagName: string) => {
+    if (!gih?.pushTag) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.pushTag(tagName)
+      if (res.exitCode === 0) {
+        showToast({
+          type: 'success',
+          command: `git push origin ${tagName}`,
+          message: `Pushed tag '${tagName}' to origin`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      } else {
+        showToast({ type: 'error', command: `git push origin ${tagName}`, message: res.stderr || 'Push failed' })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: `git push origin ${tagName}`, message: e.message })
+    }
+  }
+
+  const handlePushAllTags = async () => {
+    if (!gih?.pushAllTags) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.pushAllTags()
+      if (res.exitCode === 0) {
+        showToast({
+          type: 'success',
+          command: `git push origin --tags`,
+          message: `Pushed all tags to remote origin`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      } else {
+        showToast({ type: 'error', command: `git push origin --tags`, message: res.stderr || 'Push failed' })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: `git push origin --tags`, message: e.message })
     }
   }
 
@@ -1136,6 +1193,15 @@ export const App: React.FC = () => {
           if (bName) {
             gih?.createBranch(bName, contextMenu.commit.hash).then(refreshState)
           }
+          setContextMenu(null)
+        },
+      },
+      {
+        id: 'create-tag',
+        label: 'Create tag here...',
+        icon: Tag,
+        action: () => {
+          handleOpenCreateTagModal(contextMenu.commit)
           setContextMenu(null)
         },
       },
@@ -1541,8 +1607,10 @@ export const App: React.FC = () => {
               onPopStash={handlePopStash}
               onDropStash={handleDropStash}
               onInspectStash={(stash) => setInspectingStash(stash)}
-              onCreateTag={handleCreateTag}
+              onCreateTag={() => handleOpenCreateTagModal()}
               onDeleteTag={handleDeleteTag}
+              onPushTag={handlePushTag}
+              onPushAllTags={handlePushAllTags}
               onBranchFromStash={handleBranchFromStash}
               onRenameBranch={handleRenameBranch}
               onPruneBranches={handlePruneBranches}
@@ -1910,6 +1978,16 @@ export const App: React.FC = () => {
           }
         }}
         onGetStashDiff={(idx) => gih?.getStashDiff(idx) || Promise.resolve('')}
+      />
+
+      <CreateTagModal
+        isOpen={isCreateTagModalOpen}
+        targetCommit={createTagTargetCommit}
+        onClose={() => {
+          setIsCreateTagModalOpen(false)
+          setCreateTagTargetCommit(null)
+        }}
+        onConfirm={handleConfirmCreateTag}
       />
 
       {/* Top-Center Command Feedback Island */}
