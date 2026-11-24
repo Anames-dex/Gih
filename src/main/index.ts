@@ -439,6 +439,24 @@ ipcMain.handle('git:applyPatch', async (_, patch: string, options?: { cached?: b
   return await gitService.applyPatch(patch, options)
 })
 
+ipcMain.handle('git:formatPatch', async (_, commitHash: string) => {
+  return await gitService.formatPatch(commitHash)
+})
+
+ipcMain.handle('app:savePatchFile', async (_, defaultFileName: string, content: string) => {
+  const win = BrowserWindow.getFocusedWindow()
+  const { canceled, filePath } = await dialog.showSaveDialog(win || (BrowserWindow.getAllWindows()[0] as any), {
+    title: 'Export Git Patch',
+    defaultPath: defaultFileName,
+    filters: [{ name: 'Git Patch', extensions: ['patch', 'diff'] }],
+  })
+  if (canceled || !filePath) {
+    return { success: false }
+  }
+  fs.writeFileSync(filePath, content, 'utf8')
+  return { success: true, filePath }
+})
+
 ipcMain.handle('git:createCommit', async (_, message: string, signOff?: boolean, amend?: boolean) => {
   return await gitService.createCommit(message, signOff, amend)
 })

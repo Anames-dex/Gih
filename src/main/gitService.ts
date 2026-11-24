@@ -469,6 +469,15 @@ export class GitService {
   }
 
   /**
+   * Generates a formatted patch string for a commit
+   */
+  public async formatPatch(commitHash: string): Promise<string> {
+    const safeHash = this.validateGitArg(commitHash, 'commit hash')
+    const { stdout } = await this.execGit(['format-patch', '-1', safeHash, '--stdout'])
+    return stdout
+  }
+
+  /**
    * Fetch complete repository state for visual representation
    */
   public async getRepositoryState(allBranches: boolean = true): Promise<RepositoryState> {

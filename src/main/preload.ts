@@ -46,6 +46,8 @@ export interface GihAPI {
   addToGitIgnore: (pattern: string) => Promise<{ success: boolean; pattern: string; error?: string }>
   resolveConflict: (filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => Promise<{ stdout: string; stderr: string; exitCode: number }>
   applyPatch: (patch: string, options?: { cached?: boolean; reverse?: boolean }) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  formatPatch: (commitHash: string) => Promise<string>
+  savePatchFile: (defaultFileName: string, content: string) => Promise<{ success: boolean; filePath?: string }>
   createCommit: (message: string, signOff?: boolean, amend?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   resetBranch: (targetHash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<{ stdout: string; stderr: string; exitCode: number }>
   checkoutBranch: (branchName: string) => Promise<void>
@@ -110,6 +112,8 @@ const api: GihAPI = {
   addToGitIgnore: (pattern: string) => ipcRenderer.invoke('git:addToGitIgnore', pattern),
   resolveConflict: (filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => ipcRenderer.invoke('git:resolveConflict', filePath, resolution),
   applyPatch: (patch: string, options?: { cached?: boolean; reverse?: boolean }) => ipcRenderer.invoke('git:applyPatch', patch, options),
+  formatPatch: (commitHash: string) => ipcRenderer.invoke('git:formatPatch', commitHash),
+  savePatchFile: (defaultFileName: string, content: string) => ipcRenderer.invoke('app:savePatchFile', defaultFileName, content),
   createCommit: (message: string, signOff?: boolean, amend?: boolean) => ipcRenderer.invoke('git:createCommit', message, signOff, amend),
   resetBranch: (targetHash: string, mode: 'soft' | 'mixed' | 'hard') => ipcRenderer.invoke('git:resetBranch', targetHash, mode),
   checkoutBranch: (branchName: string) => ipcRenderer.invoke('git:checkoutBranch', branchName),

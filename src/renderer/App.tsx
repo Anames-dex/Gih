@@ -8,7 +8,7 @@ import type {
   GitAuthorConfig,
   RecentRepository
 } from '../shared/types'
-import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink, RotateCcw } from 'lucide-react'
+import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink, RotateCcw, FileDiff } from 'lucide-react'
 import { AppHeader } from './components/layout/AppHeader'
 import { Sidebar } from './components/layout/Sidebar'
 import { CommitGraph } from './components/graph/CommitGraph'
@@ -22,6 +22,7 @@ import { GitMissingView } from './components/layout/GitMissingView'
 import { GitAuthorModal } from './components/modals/GitAuthorModal'
 import { QuickEditorModal } from './components/modals/QuickEditorModal'
 import { GitBlameModal } from './components/modals/GitBlameModal'
+import { ApplyPatchModal } from './components/modals/ApplyPatchModal'
 
 interface ToastNotice {
   id: string
@@ -57,6 +58,7 @@ export const App: React.FC = () => {
   const [isCloneModalOpen, setIsCloneModalOpen] = useState(false)
   const [editingFilePath, setEditingFilePath] = useState<string | null>(null)
   const [blameFilePath, setBlameFilePath] = useState<string | null>(null)
+  const [isApplyPatchModalOpen, setIsApplyPatchModalOpen] = useState(false)
   const [commandHistory, setCommandHistory] = useState<CommandLogEntry[]>([])
   const [isFetching, setIsFetching] = useState(false)
   const [isPulling, setIsPulling] = useState(false)
@@ -420,6 +422,38 @@ export const App: React.FC = () => {
       }
     } catch (e: any) {
       showToast({ type: 'error', command: 'git worktree remove', message: e.message })
+    }
+  }
+
+  const handleExportPatch = async (commit: GitCommit) => {
+    if (!gih?.formatPatch) return
+    try {
+      const patch = await gih.formatPatch(commit.hash)
+      if (!patch.trim()) {
+        showToast({ type: 'error', message: 'Failed to generate patch' })
+        return
+      }
+      const safeSubject = (commit.message || 'commit').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30)
+      const defaultName = `${commit.shortHash}-${safeSubject}.patch`
+      if (gih.savePatchFile) {
+        const res = await gih.savePatchFile(defaultName, patch)
+        if (res.success && res.filePath) {
+          showToast({
+            type: 'success',
+            command: `git format-patch -1 ${commit.shortHash}`,
+            message: `Saved patch to ${res.filePath.split(/[/\\]/).pop()}`,
+          })
+          return
+        }
+      }
+      await navigator.clipboard.writeText(patch)
+      showToast({
+        type: 'success',
+        command: `git format-patch -1 ${commit.shortHash}`,
+        message: 'Copied formatted patch to clipboard',
+      })
+    } catch (e: any) {
+      showToast({ type: 'error', command: 'git format-patch', message: e.message })
     }
   }
 
@@ -1232,6 +1266,16 @@ export const App: React.FC = () => {
                 </button>
                 <button
                   onClick={() => {
+                    handleExportPatch(contextMenu.commit)
+                    setContextMenu(null)
+                  }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-emerald-300 flex items-center justify-between"
+                >
+                  <span>Export as .patch...</span>
+                  <FileDiff className="w-3 h-3 text-emerald-400" />
+                </button>
+                <button
+                  onClick={() => {
                     handleRevertCommit(contextMenu.commit)
                     setContextMenu(null)
                   }}
@@ -1383,6 +1427,7 @@ export const App: React.FC = () => {
           if (id === 'pull') handlePull()
           if (id === 'push') handlePush()
           if (id === 'stash') handleStash()
+          if (id === 'apply-patch') setIsApplyPatchModalOpen(true)
           if (id === 'author-identity') setIsAuthorModalOpen(true)
           if (id === 'context-menu') {
             if (gih?.isExplorerContextMenuRegistered && gih?.toggleExplorerContextMenu) {
@@ -1500,6 +1545,18 @@ export const App: React.FC = () => {
           }}
         />
       )}
+
+      <ApplyPatchModal
+        isOpen={isApplyPatchModalOpen}
+        onClose={() => setIsApplyPatchModalOpen(false)}
+        onPatchApplied={() => {
+          refreshState()
+          showToast({
+            type: 'success',
+            message: 'Applied patch to working tree',
+          })
+        }}
+      />
 
       {/* Top-Center Command Feedback Island */}
       <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5 pointer-events-none max-w-lg w-full px-4">
