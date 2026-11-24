@@ -14,7 +14,8 @@ import {
   GitCompare,
   Layers,
   ChevronRight,
-  EyeOff
+  EyeOff,
+  Search
 } from 'lucide-react'
 import { buildSplitRows, buildUnifiedRows, buildHunkPatch } from './diffUtils'
 
@@ -111,6 +112,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const [activeInspectorDiff, setActiveInspectorDiff] = useState<FileDiff | null>(null)
   const [isInspectorDiffLoading, setIsInspectorDiffLoading] = useState(false)
   const [hasCopiedHashes, setHasCopiedHashes] = useState(false)
+  const [fileFilter, setFileFilter] = useState('')
 
   const isMultiSelection = selectedCommits.length > 1
   const isSingleSelection = selectedCommits.length === 1
@@ -120,6 +122,22 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const conflictedFiles = files.filter((f) => f.status === 'conflicted')
   const stagedFiles = files.filter((f) => f.staged)
   const unstagedFiles = files.filter((f) => !f.staged && f.status !== 'conflicted')
+
+  const filterMatch = (filePath: string) => {
+    if (!fileFilter.trim()) return true
+    return filePath.toLowerCase().includes(fileFilter.trim().toLowerCase())
+  }
+
+  const filteredConflictedFiles = conflictedFiles.filter((f) => filterMatch(f.path))
+  const filteredStagedFiles = stagedFiles.filter((f) => filterMatch(f.path))
+  const filteredUnstagedFiles = unstagedFiles.filter((f) => filterMatch(f.path))
+  const filteredInspectorFiles = inspectorFiles.filter((f) => filterMatch(f.path))
+
+  const firstLine = commitMessage.split('\n')[0] || ''
+  const firstLineLen = firstLine.length
+  const hasMultipleLines = commitMessage.includes('\n')
+  const secondLine = hasMultipleLines ? commitMessage.split('\n')[1] || '' : ''
+  const secondLineEmpty = !hasMultipleLines || secondLine.trim() === ''
 
   // Load files for selected commit or commit range
   useEffect(() => {
@@ -269,6 +287,32 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
     onCommit(commitMessage.trim(), signOff, isAmend)
     setCommitMessage('')
     setIsAmend(false)
+  }
+
+  const renderFileFilterInput = (totalCount: number) => {
+    if (totalCount === 0 && !fileFilter) return null
+    return (
+      <div className="relative mb-2 select-none">
+        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+        <input
+          type="text"
+          value={fileFilter}
+          onChange={(e) => setFileFilter(e.target.value)}
+          placeholder={`Filter files (${totalCount})...`}
+          className="w-full bg-[#0c0e14] border border-surface-border rounded-lg pl-8 pr-7 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-brand/70 font-mono"
+        />
+        {fileFilter && (
+          <button
+            type="button"
+            onClick={() => setFileFilter('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+            title="Clear filter"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+    )
   }
 
   const renderFileDiffViewer = (
@@ -634,13 +678,19 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
               )}
             </div>
 
+            {renderFileFilterInput(inspectorFiles.length)}
+
             {inspectorFiles.length === 0 && !isInspectorLoading ? (
               <div className="p-4 rounded-lg bg-surface-subtle/50 border border-surface-border text-center text-xs text-slate-500">
                 No changed files in this commit selection.
               </div>
+            ) : filteredInspectorFiles.length === 0 ? (
+              <div className="p-4 rounded-lg bg-surface-subtle/50 border border-surface-border text-center text-xs text-slate-500">
+                No files match '{fileFilter}'.
+              </div>
             ) : (
               <div className="space-y-1">
-                {inspectorFiles.map((file) => {
+                {filteredInspectorFiles.map((file) => {
                   const isActive = activeInspectorFile?.path === file.path
                   const statusColors: Record<string, string> = {
                     modified: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
@@ -698,19 +748,21 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
 
       {/* Staged & Unstaged Lists */}
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        {renderFileFilterInput(files.length)}
+
         {/* Conflicted Section (Shown during merge / rebase conflicts) */}
-        {conflictedFiles.length > 0 && (
+        {filteredConflictedFiles.length > 0 && (
           <div className="p-3 rounded-lg bg-rose-950/30 border border-rose-800/60 space-y-2.5">
             <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-rose-400">
               <div className="flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
-                <span>Conflicts ({conflictedFiles.length})</span>
+                <span>Conflicts ({filteredConflictedFiles.length}{fileFilter ? `/${conflictedFiles.length}` : ''})</span>
               </div>
               <span className="text-[10px] text-rose-300/80 font-normal">Resolve to proceed</span>
             </div>
 
             <div className="space-y-1.5">
-              {conflictedFiles.map((file) => (
+              {filteredConflictedFiles.map((file) => (
                 <div key={file.path} className="p-2 rounded bg-[#090b10] border border-rose-900/40 text-xs space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-white truncate max-w-[200px]" title={file.path}>{file.path}</span>
@@ -752,7 +804,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
-              Staged Changes ({stagedFiles.length})
+              Staged Changes ({filteredStagedFiles.length}{fileFilter ? `/${stagedFiles.length}` : ''})
             </span>
             {stagedFiles.length > 0 && (
               <button
@@ -766,7 +818,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
           </div>
 
           <div className="space-y-0.5">
-            {stagedFiles.map((file) => (
+            {filteredStagedFiles.map((file) => (
               <div
                 key={file.path}
                 onClick={() => setActiveFile(file)}
@@ -800,6 +852,11 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                 No changes staged
               </p>
             )}
+            {stagedFiles.length > 0 && filteredStagedFiles.length === 0 && (
+              <p className="text-xs text-slate-500 italic p-1.5 text-center">
+                No staged files match filter
+              </p>
+            )}
           </div>
         </div>
 
@@ -807,7 +864,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-semibold uppercase tracking-wider text-amber-400">
-              Unstaged Changes ({unstagedFiles.length})
+              Unstaged Changes ({filteredUnstagedFiles.length}{fileFilter ? `/${unstagedFiles.length}` : ''})
             </span>
             {unstagedFiles.length > 0 && (
               <div className="flex items-center gap-2">
@@ -836,7 +893,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
           </div>
 
           <div className="space-y-0.5">
-            {unstagedFiles.map((file) => {
+            {filteredUnstagedFiles.map((file) => {
               const ext = file.path.includes('.') ? file.path.split('.').pop() : null
               const dir = file.path.includes('/') ? file.path.split('/')[0] : file.path.includes('\\') ? file.path.split('\\')[0] : null
 
@@ -961,20 +1018,43 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
 
       {/* Commit Box Form */}
       <form onSubmit={handleCommitSubmit} className="p-3 border-t border-surface-border bg-surface-subtle/60">
-        {/* Conventional Commit Helper Pills */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1.5 mb-1.5 select-none">
-          <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider shrink-0 mr-0.5">prefix:</span>
-          {CONVENTIONAL_TYPES.map(({ type, label, desc, color }) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => handleApplyConventionalPrefix(type)}
-              title={desc}
-              className={`px-1.5 py-0.5 text-[10px] font-mono rounded bg-surface border border-surface-border/70 shrink-0 transition-all active:scale-95 ${color}`}
+        {/* Conventional Commit Helper Pills & 50/72 Rule Counter */}
+        <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-surface-border/40 select-none">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+            <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider shrink-0 mr-0.5">prefix:</span>
+            {CONVENTIONAL_TYPES.map(({ type, label, desc, color }) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleApplyConventionalPrefix(type)}
+                title={desc}
+                className={`px-1.5 py-0.5 text-[10px] font-mono rounded bg-surface border border-surface-border/70 shrink-0 transition-all active:scale-95 ${color}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {firstLineLen > 0 && (
+            <div
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0 ml-1.5 transition-colors ${
+                firstLineLen <= 50
+                  ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                  : firstLineLen <= 72
+                  ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+                  : 'text-rose-400 bg-rose-500/10 border-rose-500/30 font-semibold'
+              }`}
+              title={
+                firstLineLen <= 50
+                  ? 'Great summary length (<= 50 chars)'
+                  : firstLineLen <= 72
+                  ? 'Acceptable summary length (<= 72 chars)'
+                  : 'Git warning: First line exceeds 72 characters'
+              }
             >
-              {label}
-            </button>
-          ))}
+              {firstLineLen}/72
+            </div>
+          )}
         </div>
 
         <textarea
@@ -990,6 +1070,13 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
           }}
           className="w-full bg-[#0c0e14] border border-surface-border rounded-lg p-2.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-brand resize-none font-sans"
         />
+
+        {hasMultipleLines && !secondLineEmpty && (
+          <div className="mt-1.5 text-[10px] text-amber-400/90 flex items-center gap-1 font-mono">
+            <AlertTriangle className="w-3 h-3 shrink-0" />
+            <span>Git style tip: Leave 2nd line blank between summary and body.</span>
+          </div>
+        )}
 
         <div className="flex items-center justify-between mt-2.5">
           <div className="flex items-center gap-3">
