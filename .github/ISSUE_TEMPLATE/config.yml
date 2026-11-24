@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability Reports
+    url: mailto:natelligence.ai@gmail.com
+    about: Please report security vulnerabilities privately via email.
+  - name: General Discussions & Questions
+    url: https://github.com/Anames-dex/Gih/discussions
+    about: Ask questions, share workflows, and discuss ideas with the Gih community.
