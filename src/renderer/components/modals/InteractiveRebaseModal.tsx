@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import type { GitCommit } from '@/shared/types'
 import { GitCommit as CommitIcon, ArrowUp, ArrowDown, X, Play, RefreshCw } from 'lucide-react'
 import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
@@ -24,10 +24,14 @@ export const InteractiveRebaseModal: React.FC<InteractiveRebaseModalProps> = ({
   commits,
   onExecuteRebase,
 }) => {
-  const [steps, setSteps] = useState<RebaseStep[]>(() =>
-    commits.slice(0, 10).map((c) => ({ commit: c, action: 'pick' }))
-  )
+  const [steps, setSteps] = useState<RebaseStep[]>([])
   const modalRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      setSteps(commits.slice(0, 50).map((c) => ({ commit: c, action: 'pick' })))
+    }
+  }, [isOpen, commits])
 
   useFocusTrap(modalRef, isOpen, onClose)
 

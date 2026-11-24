@@ -77,6 +77,7 @@ export const App: React.FC = () => {
   const [isTerminalOpen, setIsTerminalOpen] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isRebaseModalOpen, setIsRebaseModalOpen] = useState(false)
+  const [rebaseTargetCommit, setRebaseTargetCommit] = useState<GitCommit | null>(null)
   const [resetModalCommit, setResetModalCommit] = useState<GitCommit | null>(null)
   const [isCloneModalOpen, setIsCloneModalOpen] = useState(false)
   const [editingFilePath, setEditingFilePath] = useState<string | null>(null)
@@ -1391,6 +1392,7 @@ export const App: React.FC = () => {
         label: 'Interactive rebase onto here...',
         className: 'text-brand',
         action: () => {
+          setRebaseTargetCommit(contextMenu.commit)
           setIsRebaseModalOpen(true)
           setContextMenu(null)
         },
@@ -1992,8 +1994,16 @@ export const App: React.FC = () => {
 
       <InteractiveRebaseModal
         isOpen={isRebaseModalOpen}
-        onClose={() => setIsRebaseModalOpen(false)}
-        commits={repoState?.commits || []}
+        onClose={() => {
+          setIsRebaseModalOpen(false)
+          setRebaseTargetCommit(null)
+        }}
+        commits={(() => {
+          const all = repoState?.commits || []
+          if (!rebaseTargetCommit) return all.slice(0, 20)
+          const idx = all.findIndex((c) => c.hash === rebaseTargetCommit.hash)
+          return idx > 0 ? all.slice(0, idx) : all.slice(0, 20)
+        })()}
         onExecuteRebase={handleExecuteRebase}
       />
 
