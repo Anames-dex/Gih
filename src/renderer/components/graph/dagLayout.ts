@@ -5,6 +5,7 @@ export interface GraphNode {
   row: number
   lane: number
   color: string
+  hasUnloadedParent: boolean
 }
 
 export interface GraphEdge {
@@ -48,6 +49,7 @@ export function computeDagLayout(commits: GitCommit[]): {
 } {
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
+  const commitSet = new Set(commits.map((c) => c.hash))
   const commitPosMap = new Map<string, { row: number; lane: number; color: string }>()
 
   // Active lanes hold the commit hash next expected along that column
@@ -69,11 +71,14 @@ export function computeDagLayout(commits: GitCommit[]): {
     }
 
     const color = LANE_COLORS[lane % LANE_COLORS.length]
+    const hasUnloadedParent = commit.parents.some((p) => !commitSet.has(p))
+
     nodes.push({
       commit,
       row: rowIndex,
       lane,
       color,
+      hasUnloadedParent,
     })
     commitPosMap.set(commit.hash, { row: rowIndex, lane, color })
 
@@ -84,8 +89,11 @@ export function computeDagLayout(commits: GitCommit[]): {
       }
     }
 
-    // 2. Assign parents to lanes without duplicating any parent already tracked
+    // 2. Assign loaded parents to lanes without duplicating or leaking unloaded parents
     commit.parents.forEach((parentHash, pIdx) => {
+      if (!commitSet.has(parentHash)) {
+        return
+      }
       if (activeLanes.includes(parentHash)) {
         return
       }

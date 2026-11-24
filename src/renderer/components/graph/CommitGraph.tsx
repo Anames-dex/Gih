@@ -511,11 +511,31 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
                   <circle
                     cx={cx}
                     cy={cy}
-                    r={5}
+                    r={node.commit.parents.length > 1 ? 6 : 5}
                     fill={node.color}
                     stroke="#0c0e14"
                     strokeWidth={2}
                   />
+                  {node.commit.parents.length > 1 && (
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={2}
+                      fill="#0c0e14"
+                    />
+                  )}
+                  {node.hasUnloadedParent && (
+                    <line
+                      x1={cx}
+                      y1={cy + 6}
+                      x2={cx}
+                      y2={cy + ROW_HEIGHT * 0.45}
+                      stroke={node.color}
+                      strokeWidth={2}
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.5}
+                    />
+                  )}
                 </g>
               )
             })}
