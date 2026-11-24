@@ -622,9 +622,6 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
                     </span>
                   )}
                   <span>{commit.author.date}</span>
-                  <span className="px-1.5 py-0.5 bg-surface-border/60 rounded text-slate-400">
-                    {commit.shortHash}
-                  </span>
                 </div>
               </div>
             )
