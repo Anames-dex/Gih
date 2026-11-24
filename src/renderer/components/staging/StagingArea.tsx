@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import type { GitFileStatus, FileDiff, DiffHunk, GitCommit, CommitRangeDiff } from '@/shared/types'
 import {
   FileText,
@@ -40,6 +40,16 @@ interface StagingAreaProps {
   headCommit?: GitCommit | null
 }
 
+const CONVENTIONAL_TYPES = [
+  { type: 'feat', label: 'feat:', desc: 'A new feature', color: 'hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500/40 text-emerald-400' },
+  { type: 'fix', label: 'fix:', desc: 'A bug fix', color: 'hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/40 text-rose-400' },
+  { type: 'docs', label: 'docs:', desc: 'Documentation only changes', color: 'hover:bg-blue-500/20 hover:text-blue-300 hover:border-blue-500/40 text-blue-400' },
+  { type: 'refactor', label: 'refactor:', desc: 'Code change that neither fixes a bug nor adds a feature', color: 'hover:bg-purple-500/20 hover:text-purple-300 hover:border-purple-500/40 text-purple-400' },
+  { type: 'perf', label: 'perf:', desc: 'A code change that improves performance', color: 'hover:bg-amber-500/20 hover:text-amber-300 hover:border-amber-500/40 text-amber-400' },
+  { type: 'test', label: 'test:', desc: 'Adding or correcting tests', color: 'hover:bg-yellow-500/20 hover:text-yellow-300 hover:border-yellow-500/40 text-yellow-400' },
+  { type: 'chore', label: 'chore:', desc: 'Build process or auxiliary tools and libraries', color: 'hover:bg-slate-500/20 hover:text-slate-200 hover:border-slate-500/40 text-slate-400' },
+] as const
+
 export const StagingArea: React.FC<StagingAreaProps> = ({
   width = 380,
   files,
@@ -70,6 +80,28 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const [diffViewMode, setDiffViewMode] = useState<'unified' | 'split'>('unified')
   const [isDiffLoading, setIsDiffLoading] = useState(false)
   const [isApplyingHunk, setIsApplyingHunk] = useState(false)
+  const commitTextareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const handleApplyConventionalPrefix = (type: string) => {
+    const prefixRegex = /^([a-zA-Z]+)(\([^\)]+\))?(!)?:\s*/
+    let newMessage = ''
+    if (prefixRegex.test(commitMessage)) {
+      newMessage = commitMessage.replace(prefixRegex, (_, _oldType, scope, breaking) => {
+        return `${type}${scope || ''}${breaking || ''}: `
+      })
+    } else {
+      newMessage = `${type}: ${commitMessage}`
+    }
+    setCommitMessage(newMessage)
+    setTimeout(() => {
+      if (commitTextareaRef.current) {
+        commitTextareaRef.current.focus()
+        const colonIndex = newMessage.indexOf(': ')
+        const pos = colonIndex !== -1 ? colonIndex + 2 : newMessage.length
+        commitTextareaRef.current.setSelectionRange(pos, pos)
+      }
+    }, 0)
+  }
 
   // Commit / Range inspection state
   const [inspectorFiles, setInspectorFiles] = useState<GitFileStatus[]>([])
@@ -929,7 +961,24 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
 
       {/* Commit Box Form */}
       <form onSubmit={handleCommitSubmit} className="p-3 border-t border-surface-border bg-surface-subtle/60">
+        {/* Conventional Commit Helper Pills */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1.5 mb-1.5 select-none">
+          <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider shrink-0 mr-0.5">prefix:</span>
+          {CONVENTIONAL_TYPES.map(({ type, label, desc, color }) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => handleApplyConventionalPrefix(type)}
+              title={desc}
+              className={`px-1.5 py-0.5 text-[10px] font-mono rounded bg-surface border border-surface-border/70 shrink-0 transition-all active:scale-95 ${color}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <textarea
+          ref={commitTextareaRef}
           value={commitMessage}
           onChange={(e) => setCommitMessage(e.target.value)}
           placeholder="Commit message (Ctrl+Enter to commit)..."
