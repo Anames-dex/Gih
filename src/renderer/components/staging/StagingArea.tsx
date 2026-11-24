@@ -28,6 +28,7 @@ interface StagingAreaProps {
   onStageAll: () => void
   onUnstageAll: () => void
   onDiscardChanges: (path: string) => void
+  onDiscardAll?: () => void
   onIgnorePattern?: (pattern: string) => void
   onCommit: (message: string, signOff?: boolean, amend?: boolean) => void
   onGetDiff: (path: string, staged: boolean) => Promise<FileDiff>
@@ -49,6 +50,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   onStageAll,
   onUnstageAll,
   onDiscardChanges,
+  onDiscardAll,
   onIgnorePattern,
   onCommit,
   onGetDiff,
@@ -776,13 +778,28 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
               Unstaged Changes ({unstagedFiles.length})
             </span>
             {unstagedFiles.length > 0 && (
-              <button
-                onClick={onStageAll}
-                className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" />
-                Stage All
-              </button>
+              <div className="flex items-center gap-2">
+                {onDiscardAll && (
+                  <button
+                    type="button"
+                    onClick={onDiscardAll}
+                    className="text-[11px] text-rose-400/80 hover:text-rose-300 flex items-center gap-1 transition-colors"
+                    title="Discard all unstaged changes (revert tracked files and clean untracked files)"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Discard All
+                  </button>
+                )}
+                {onDiscardAll && <span className="text-slate-600 text-[10px]">|</span>}
+                <button
+                  type="button"
+                  onClick={onStageAll}
+                  className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  Stage All
+                </button>
+              </div>
             )}
           </div>
 

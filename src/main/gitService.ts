@@ -97,6 +97,19 @@ export class GitService {
   }
 
   /**
+   * Discards all unstaged changes in the working tree (restores modified tracked files and cleans untracked files).
+   */
+  public async discardAllChanges(): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const restoreRes = await this.execGit(['checkout', '--', '.'])
+    const cleanRes = await this.execGit(['clean', '-df'])
+    return {
+      stdout: [restoreRes.stdout, cleanRes.stdout].filter(Boolean).join('\n'),
+      stderr: [restoreRes.stderr, cleanRes.stderr].filter(Boolean).join('\n'),
+      exitCode: restoreRes.exitCode !== 0 ? restoreRes.exitCode : cleanRes.exitCode,
+    }
+  }
+
+  /**
    * Checks whether Git is installed and accessible on PATH
    */
   public async checkGitInstallation(): Promise<{

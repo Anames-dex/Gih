@@ -494,6 +494,35 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleDiscardAll = async () => {
+    if (!gih) return
+    const confirmed = window.confirm(
+      'Are you sure you want to discard ALL unstaged changes?\n\nThis will permanently revert modified tracked files and delete untracked files. This action cannot be undone.'
+    )
+    if (!confirmed) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.discardAllChanges()
+      await refreshState()
+      if (res.exitCode !== 0) {
+        showToast({
+          type: 'error',
+          command: 'git checkout -- . && git clean -df',
+          message: res.stderr || 'Failed to discard all changes.',
+        })
+      } else {
+        showToast({
+          type: 'info',
+          command: 'git checkout -- . && git clean -df',
+          message: 'Discarded all unstaged changes in working tree',
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: 'git discard', message: e.message })
+    }
+  }
+
   const handleOpenRepo = async () => {
     if (!gih) return
     const dir = await gih.openDirectoryDialog()
@@ -1171,6 +1200,7 @@ export const App: React.FC = () => {
             onStageAll={() => gih?.stageAll().then(refreshState)}
             onUnstageAll={() => gih?.unstageAll().then(refreshState)}
             onDiscardChanges={(path) => gih?.discardChanges(path).then(refreshState)}
+            onDiscardAll={handleDiscardAll}
             onIgnorePattern={async (pattern) => {
               if (!gih?.addToGitIgnore) return
               const res = await gih.addToGitIgnore(pattern)

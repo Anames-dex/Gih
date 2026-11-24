@@ -403,6 +403,10 @@ ipcMain.handle('git:discardChanges', async (_, filePath: string) => {
   await gitService.execGit(['restore', '--', filePath])
 })
 
+ipcMain.handle('git:discardAllChanges', async () => {
+  return await gitService.discardAllChanges()
+})
+
 ipcMain.handle('git:resolveConflict', async (_, filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => {
   return await gitService.resolveConflict(filePath, resolution)
 })
