@@ -23,7 +23,7 @@ Include terminal output, error message, or tactile island notification.
 
 ## Environment Information
 - **OS**: [e.g. Windows 11 x64, macOS Sequoia arm64, Ubuntu 24.04]
-- **Gih Version**: [e.g. 0.1.0]
+- **Gih Version**: [e.g. 1.0.0]
 - **Git Version**: [e.g. git version 2.47.0]
 
 ## Additional Context

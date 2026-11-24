@@ -108,14 +108,14 @@ npm run package:linux
 
 All built binaries are output to the `release/` directory:
 - **Windows (x64 & ARM64)**:
-  - `Gih-Setup-0.1.0-x64.exe` / `Gih-Setup-0.1.0-arm64.exe` (NSIS customizable setup installers with desktop & Start menu shortcuts)
-  - `Gih-Portable-0.1.0-x64.exe` / `Gih-Portable-0.1.0-arm64.exe` (Zero-install portable binaries)
+  - `Gih-Setup-1.0.0-x64.exe` / `Gih-Setup-1.0.0-arm64.exe` (NSIS customizable setup installers with desktop & Start menu shortcuts)
+  - `Gih-Portable-1.0.0-x64.exe` / `Gih-Portable-1.0.0-arm64.exe` (Zero-install portable binaries)
 - **macOS (Apple Silicon arm64 & Intel x64)**:
-  - `Gih-0.1.0-arm64.dmg` / `Gih-0.1.0-arm64.zip` (Native Apple Silicon M-series)
-  - `Gih-0.1.0-x64.dmg` / `Gih-0.1.0-x64.zip` (Intel Mac)
+  - `Gih-1.0.0-arm64.dmg` / `Gih-1.0.0-arm64.zip` (Native Apple Silicon M-series)
+  - `Gih-1.0.0-x64.dmg` / `Gih-1.0.0-x64.zip` (Intel Mac)
 - **Linux (x64 & ARM64)**:
-  - `Gih-0.1.0-x64.AppImage` / `Gih-0.1.0-arm64.AppImage` (Universal standalone binary across all Linux distributions)
-  - `Gih-0.1.0-x64.deb` / `Gih-0.1.0-arm64.deb` (Debian, Ubuntu, Linux Mint)
+  - `Gih-1.0.0-x64.AppImage` / `Gih-1.0.0-arm64.AppImage` (Universal standalone binary across all Linux distributions)
+  - `Gih-1.0.0-x64.deb` / `Gih-1.0.0-arm64.deb` (Debian, Ubuntu, Linux Mint)
 
 > **Git Detection**: Gih automatically verifies whether Git is installed and available on your system PATH on startup. If Git is not detected, Gih offers a guided one-click installation flow tailored to your operating system (official installer, winget, Apple developer tools, or Linux package managers) with instant in-app status re-checking.
 
