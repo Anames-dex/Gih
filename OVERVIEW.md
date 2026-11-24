@@ -2,7 +2,7 @@
 
 ## 1. What is Gih?
 
-**Gih** is an open-source, visual Git workstation and interactive shell designed for developers who demand the full expressive depth of the Git command-line interface, combined with the spatial clarity and speed of a modern visual client.
+**Gih** is a source-available, visual Git workstation and interactive shell designed for developers who demand the full expressive depth of the Git command-line interface, combined with the spatial clarity and speed of a modern visual client.
 
 Most graphical Git clients create an artificial abstraction layer over Git. In doing so, they obscure what Git is actually doing, introduce non-standard terms, or strip away advanced features such as interactive rebasing, selective hunk application, reflog restoration, and granular resets.
 

@@ -28,10 +28,10 @@
     "developer-tools",
     "graph",
     "visual-git",
-    "open-source"
+    "source-available"
   ],
   "author": "Anames-dex <natelligence.ai@gmail.com>",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "bugs": {
     "url": "https://github.com/Anames-dex/Gih/issues"
   },

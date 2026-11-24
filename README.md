@@ -6,11 +6,11 @@
 
 ### A high-craft visual Git workstation and interactive graph shell.
 
-[![License](https://img.shields.io/badge/license-Community%20%26%20Commercial-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Cross--Platform-lightgrey.svg)]()
+[![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
 [![TypeScript](https://img.shields.io/badge/built%20with-TypeScript%20%7C%20React%2019-blue.svg)]()
 
-[**Overview**](OVERVIEW.md) • [**Architecture**](ARCHITECTURE.md) • [**Contributing**](CONTRIBUTING.md) • [**Accessibility**](ACCESSIBILITY.md) • [**Code of Conduct**](CODE_OF_CONDUCT.md) • [**Security**](SECURITY.md) • [**License**](LICENSE)
+[**Overview**](OVERVIEW.md) • [**Architecture**](ARCHITECTURE.md) • [**Contributing**](CONTRIBUTING.md) • [**Accessibility**](ACCESSIBILITY.md) • [**Code of Conduct**](CODE_OF_CONDUCT.md) • [**Security**](SECURITY.md) • [**License**](LICENSE) • [**Commercial**](COMMERCIAL.md)
 
 </div>
 
@@ -18,7 +18,7 @@
 
 ## What is Gih?
 
-**Gih** is an open-source, visual-first Git workstation designed for developers who want the speed and clarity of a graphical commit graph without losing the full, unconstrained depth of the Git command-line interface.
+**Gih** is a source-available, visual-first Git workstation designed for developers who want the speed and clarity of a graphical commit graph without losing the full, unconstrained depth of the Git command-line interface.
 
 Unlike tools that simplify Git by hiding its internals, Gih keeps you connected to raw Git operations. Every click, drag, and toggle shows the exact Git CLI command executed with millisecond telemetry feedback.
 
@@ -128,6 +128,7 @@ All built binaries are output to the `release/` directory:
 - [**CONTRIBUTING.md**](CONTRIBUTING.md): Developer guide, code style standards, and conventional commit workflow.
 - [**ACCESSIBILITY.md**](ACCESSIBILITY.md): Zero-mouse keyboard navigation guide, focus management, and WCAG standards.
 - [**CODE_OF_CONDUCT.md**](CODE_OF_CONDUCT.md): Community standards, respectful collaboration, and maintainer responsibilities.
+- [**COMMERCIAL.md**](COMMERCIAL.md): Commercial licensing, 14-day team trial, and seat pricing (>10 users).
 - [**SECURITY.md**](SECURITY.md): Responsible disclosure policy and contact procedures.
 
 ---
@@ -171,10 +172,10 @@ Gih is engineered for complete keyboard accessibility—every panel, tree, diff 
 
 ## License & Commercial Inquiries
 
-Gih is distributed under the **Gih Community & Commercial License**:
+Gih is **source-available** software distributed under the [**PolyForm Noncommercial License 1.0.0**](LICENSE):
 
-- **Individual Use**: Free of charge for personal, non-commercial, and open-source contribution purposes.
-- **Commercial & Enterprise Use**: Use by or on behalf of commercial companies requires an authorized commercial license.
+- **Free Use**: Free of charge for individuals, students, non-profits, open-source contributors, and teams of **10 or fewer users**.
+- **Commercial Teams (> 10 Users)**: Includes a **14-day free trial**, followed by **$5 USD/user/month** (or **$50 USD/user/year**). See [**COMMERCIAL.md**](COMMERCIAL.md) for details.
 
-For commercial licensing and enterprise inquiries, contact:
+To start a team trial or purchase a commercial license, contact:
 **natelligence.ai@gmail.com**
