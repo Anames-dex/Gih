@@ -67,10 +67,25 @@ Gih takes the opposite approach: **every visual interaction in Gih corresponds t
   - `--mixed`: Default; moves branch pointer and keeps working directory intact as unstaged changes.
   - `--hard`: Discards working tree modifications with safety prompts.
 
-### 3.7. Branch Management & Cloning
+### 3.7. Branch Management, Sync Badges & Git Worktree Studio
 - Inline branch renaming (`git branch -m`) directly from the sidebar.
+- Real-time `↑ ahead` and `↓ behind` commit badges on local and tracking branches.
+- **Stale Branch Prune**: One-click action in the branch header executing `git fetch --prune` and deleting merged local tracking branches whose upstream is gone.
+- **Git Worktree Studio**: Sidebar interface for `git worktree add`, listing, and safe deletion, enabling instant parallel checkouts in dedicated folders.
 - Built-in **Clone Repository** modal with URL parsing, destination browsing, and automatic project opening.
 - Stash manager with stash inspect, pop, apply, drop, and branch-from-stash support.
+
+### 3.8. Interactive Git Blame & Commit Jump
+- Full file blame inspection powered by `git blame --line-porcelain`.
+- Color-coded commit gutters with deterministic hues, author signatures, dates, and commit subjects.
+- Single-click commit focus: clicking any blame line jumps directly to that commit in the DAG graph.
+- Search filter for instantly finding code snippets, authors, or commit messages across blame output.
+
+### 3.9. Quick In-App Code Editor & Patch Studio
+- In-app file viewer and editor modal with line numbers, tab spacing, and instant `Ctrl+S` disk saving.
+- Configurable external editor launcher (`code`, `cursor`, `windsurf`, `subl`, or system default).
+- Format-patch export directly from commit context menus (`git format-patch -1`).
+- Unified Apply Patch modal supporting raw clipboard paste and `--cached` / `--reverse` flags.
 
 ---
 

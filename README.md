@@ -40,6 +40,14 @@ Unlike tools that simplify Git by hiding its internals, Gih keeps you connected 
 - **Visual Rebase & Reflog**: Interactive rebase modal (`pick`, `reword`, `edit`, `squash`, `fixup`, `drop`) and reflog restoration.
 - **Remote Repository Clone**: Built-in clone dialog with destination browsing and automatic workspace transition.
 - **Safe Commit Reversion (`git revert`)**: Safely invert commits directly from the graph right-click context menu via `git revert --no-edit <hash>`, producing clean reverse commits while preserving linear history and catching conflicts.
+- **Git Worktree Studio**: Sidebar management for Git worktrees (`git worktree add`, `list`, and `remove`), allowing developers to checkout and work across multiple branches concurrently in parallel directories.
+- **Interactive Git Blame & Commit Jump**: Gutter-based line-by-line blame inspector showing author, relative date, commit subject, and hash-coded hues; click any commit to navigate directly to it in the graph.
+- **In-App Quick File Viewer / Editor & External Launch**: In-app code editor modal with line numbers, 2-space tab indent, and instant `Ctrl+S` saving back to disk, plus one-click launching in configured editors (VS Code, Cursor, Windsurf, Sublime, or system default).
+- **Patch Management Studio**: Export individual commits as `.patch` files or copy format-patch content to clipboard, with a dedicated Apply Patch studio supporting `--cached` and `--reverse` options.
+- **Branch Ahead/Behind Sync Badges & Stale Branch Pruning**: Real-time `↑ ahead` and `↓ behind` tracking badges on branches, with a one-click action to prune remote references (`git fetch --prune`) and remove merged local branches whose upstream is gone.
+- **Staging & Commit File Filter**: Instant fuzzy file search bar in both the Staging area and Commit/Range Inspector to rapidly isolate modified files in large changesets.
+- **Commit Message 50/72 Rule Counter**: Real-time character pill adhering to standard Git commit guidelines (green `<= 50`, amber `50-72`, rose `> 72`) with blank second-line warnings.
+- **Keyboard Graph Navigation & Vim Keys**: Walk the commit DAG fluidly using `↑` / `↓` or `j` / `k` with auto-scrolling viewport, `Shift` for range selection, and `Esc` to clear.
 - **Discard All Changes**: One-click action in the Staging Area to restore tracked files (`git checkout -- .`) and clean untracked artifacts (`git clean -df`) with a safety confirmation prompt.
 - **Conventional Commit Helper Pills**: Quick-tap prefix buttons (`feat:`, `fix:`, `docs:`, `refactor:`, `perf:`, `test:`, `chore:`) that automatically format or update commit messages and focus the input.
 - **Branch View Filter Toggle**: Toggle between `All Branches` (`git log --all`) and `Current Branch` (`git log HEAD`) directly from the graph search bar for distraction-free feature branch development.
@@ -115,8 +123,11 @@ All built binaries are output to the `release/` directory:
 |---|---|
 | `Ctrl + K` / `Cmd + K` | Open Command Palette |
 | `Ctrl + F` / `Cmd + F` | Search Commit Graph |
+| `↑` / `↓` or `j` / `k` | Navigate Commits in Graph |
+| `Shift + ↑` / `Shift + ↓` | Continuous Range Selection in Graph |
 | `Ctrl + Enter` | Submit Commit in Staging Panel |
-| `Esc` | Clear active search or close dialog |
+| `Ctrl + S` | Save File in Quick Editor |
+| `Esc` | Clear selection, close modal, or cancel search |
 
 ---
 
