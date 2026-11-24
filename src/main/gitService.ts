@@ -3,6 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import type {
   GitCommit,
+  GitCommitSignature,
   GitBranch,
   GitTag,
   GitStash,
@@ -580,7 +581,7 @@ export class GitService {
    * Read commit DAG
    */
   public async getCommits(limit: number = 300, allBranches: boolean = true): Promise<GitCommit[]> {
-    // Format: Hash, ShortHash, AuthorName, AuthorEmail, Date, Subject, Parents, RefNames
+    // Format: Hash, ShortHash, AuthorName, AuthorEmail, Date, Subject, Parents, RefNames, SigStatus, SigSigner, SigKey, SigFingerprint
     const delimiter = '||__GIH_FIELD__||'
     const recordDelimiter = '||__GIH_REC__||'
     const format = [
@@ -592,6 +593,10 @@ export class GitService {
       '%s',
       '%P',
       '%D',
+      '%G?',
+      '%GS',
+      '%GK',
+      '%GF',
     ].join(delimiter) + recordDelimiter
 
     const args = ['log', '--date=relative', `--max-count=${limit}`, `--format=${format}`]
@@ -614,14 +619,27 @@ export class GitService {
       const parts = record.trim().split(delimiter)
       if (parts.length < 8) continue
 
-      const [hash, shortHash, name, email, date, summary, rawParents, rawRefs] = parts
+      const [
+        hash,
+        shortHash,
+        name,
+        email,
+        date,
+        summary,
+        rawParents,
+        rawRefs,
+        sigStatus,
+        sigSigner,
+        sigKey,
+        sigFingerprint,
+      ] = parts
       const parents = rawParents.trim() ? rawParents.trim().split(' ') : []
       
       const branches: string[] = []
       const tags: string[] = []
       let isHead = false
 
-      if (rawRefs.trim()) {
+      if (rawRefs && rawRefs.trim()) {
         const refItems = rawRefs.split(',').map((s) => s.trim())
         for (const ref of refItems) {
           if (ref.startsWith('HEAD -> ')) {
@@ -637,6 +655,24 @@ export class GitService {
         }
       }
 
+      let signature: GitCommitSignature | undefined
+      if (sigStatus && sigStatus.trim() && sigStatus.trim() !== 'N') {
+        const s = sigStatus.trim()
+        let status: GitCommitSignature['status'] = 'none'
+        if (s === 'G') status = 'good'
+        else if (s === 'B') status = 'bad'
+        else if (s === 'U') status = 'untrusted'
+        else if (s === 'X' || s === 'Y') status = 'expired'
+        else if (s === 'E' || s === 'R') status = 'bad'
+
+        signature = {
+          status,
+          signer: sigSigner?.trim() || undefined,
+          keyId: sigKey?.trim() || undefined,
+          fingerprint: sigFingerprint?.trim() || undefined,
+        }
+      }
+
       commits.push({
         hash,
         shortHash,
@@ -647,6 +683,7 @@ export class GitService {
         branches,
         tags,
         isHead,
+        signature,
       })
     }
 
@@ -811,11 +848,13 @@ export class GitService {
   public async createCommit(
     message: string,
     signOff?: boolean,
-    amend?: boolean
+    amend?: boolean,
+    gpgSign?: boolean
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const args = ['commit', '-m', message]
     if (signOff) args.push('-s')
     if (amend) args.push('--amend')
+    if (gpgSign) args.push('-S')
     return await this.execGit(args)
   }
 

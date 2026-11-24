@@ -48,7 +48,7 @@ export interface GihAPI {
   applyPatch: (patch: string, options?: { cached?: boolean; reverse?: boolean }) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   formatPatch: (commitHash: string) => Promise<string>
   savePatchFile: (defaultFileName: string, content: string) => Promise<{ success: boolean; filePath?: string }>
-  createCommit: (message: string, signOff?: boolean, amend?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  createCommit: (message: string, signOff?: boolean, amend?: boolean, gpgSign?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   resetBranch: (targetHash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<{ stdout: string; stderr: string; exitCode: number }>
   checkoutBranch: (branchName: string) => Promise<void>
   createBranch: (branchName: string, startPoint?: string) => Promise<void>
@@ -114,7 +114,7 @@ const api: GihAPI = {
   applyPatch: (patch: string, options?: { cached?: boolean; reverse?: boolean }) => ipcRenderer.invoke('git:applyPatch', patch, options),
   formatPatch: (commitHash: string) => ipcRenderer.invoke('git:formatPatch', commitHash),
   savePatchFile: (defaultFileName: string, content: string) => ipcRenderer.invoke('app:savePatchFile', defaultFileName, content),
-  createCommit: (message: string, signOff?: boolean, amend?: boolean) => ipcRenderer.invoke('git:createCommit', message, signOff, amend),
+  createCommit: (message: string, signOff?: boolean, amend?: boolean, gpgSign?: boolean) => ipcRenderer.invoke('git:createCommit', message, signOff, amend, gpgSign),
   resetBranch: (targetHash: string, mode: 'soft' | 'mixed' | 'hard') => ipcRenderer.invoke('git:resetBranch', targetHash, mode),
   checkoutBranch: (branchName: string) => ipcRenderer.invoke('git:checkoutBranch', branchName),
   createBranch: (branchName: string, startPoint?: string) => ipcRenderer.invoke('git:createBranch', branchName, startPoint),

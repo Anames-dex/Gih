@@ -10,7 +10,9 @@ import {
   GitMerge,
   GitPullRequest,
   ArrowDownToLine,
-  GitFork
+  GitFork,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react'
 
 interface CommitGraphProps {
@@ -538,7 +540,34 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
                 </div>
 
                 {/* Date & Hash */}
-                <div className="flex items-center gap-3 ml-4 shrink-0 text-xs text-slate-500 font-mono">
+                <div className="flex items-center gap-2.5 ml-4 shrink-0 text-xs text-slate-500 font-mono">
+                  {commit.signature && commit.signature.status !== 'none' && (
+                    <span
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium border ${
+                        commit.signature.status === 'good'
+                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                          : commit.signature.status === 'untrusted'
+                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                          : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                      }`}
+                      title={`Signature: ${commit.signature.status.toUpperCase()}${
+                        commit.signature.signer ? ` by ${commit.signature.signer}` : ''
+                      }${commit.signature.keyId ? ` (Key: ${commit.signature.keyId})` : ''}`}
+                    >
+                      {commit.signature.status === 'good' ? (
+                        <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                      ) : (
+                        <ShieldAlert className="w-3 h-3 text-amber-400" />
+                      )}
+                      <span>
+                        {commit.signature.status === 'good'
+                          ? 'Verified'
+                          : commit.signature.status === 'untrusted'
+                          ? 'Unverified'
+                          : 'Invalid'}
+                      </span>
+                    </span>
+                  )}
                   <span>{commit.author.date}</span>
                   <span className="px-1.5 py-0.5 bg-surface-border/60 rounded text-slate-400">
                     {commit.shortHash}

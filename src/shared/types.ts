@@ -4,6 +4,14 @@ export interface CommitAuthor {
   date: string
 }
 
+export interface GitCommitSignature {
+  status: 'good' | 'bad' | 'untrusted' | 'expired' | 'none'
+  signer?: string
+  keyId?: string
+  fingerprint?: string
+  primaryKeyFingerprint?: string
+}
+
 export interface GitCommit {
   hash: string
   shortHash: string
@@ -14,6 +22,7 @@ export interface GitCommit {
   branches: string[]
   tags: string[]
   isHead: boolean
+  signature?: GitCommitSignature
   lane?: number
   row?: number
 }

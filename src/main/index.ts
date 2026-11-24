@@ -457,8 +457,8 @@ ipcMain.handle('app:savePatchFile', async (_, defaultFileName: string, content: 
   return { success: true, filePath }
 })
 
-ipcMain.handle('git:createCommit', async (_, message: string, signOff?: boolean, amend?: boolean) => {
-  return await gitService.createCommit(message, signOff, amend)
+ipcMain.handle('git:createCommit', async (_, message: string, signOff?: boolean, amend?: boolean, gpgSign?: boolean) => {
+  return await gitService.createCommit(message, signOff, amend, gpgSign)
 })
 
 ipcMain.handle('git:resetBranch', async (_, targetHash: string, mode: 'soft' | 'mixed' | 'hard') => {

@@ -18,7 +18,9 @@ import {
   Search,
   FileCode,
   ExternalLink,
-  History
+  History,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react'
 import { buildSplitRows, buildUnifiedRows, buildHunkPatch } from './diffUtils'
 
@@ -37,7 +39,7 @@ interface StagingAreaProps {
   onOpenInEditor?: (path: string) => void
   onQuickEditFile?: (path: string) => void
   onBlameFile?: (path: string) => void
-  onCommit: (message: string, signOff?: boolean, amend?: boolean) => void
+  onCommit: (message: string, signOff?: boolean, amend?: boolean, gpgSign?: boolean) => void
   onGetDiff: (path: string, staged: boolean) => Promise<FileDiff>
   onGetCommitFiles?: (hash: string) => Promise<{ files: GitFileStatus[]; statSummary: string }>
   onGetRangeDiff?: (baseHash: string, headHash: string) => Promise<CommitRangeDiff>
@@ -88,6 +90,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const [ignoreMenuFile, setIgnoreMenuFile] = useState<GitFileStatus | null>(null)
   const [commitMessage, setCommitMessage] = useState('')
   const [signOff, setSignOff] = useState(false)
+  const [gpgSign, setGpgSign] = useState(false)
   const [isAmend, setIsAmend] = useState(false)
   const [diffViewMode, setDiffViewMode] = useState<'unified' | 'split'>('unified')
   const [isDiffLoading, setIsDiffLoading] = useState(false)
@@ -462,7 +465,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const handleCommitSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!commitMessage.trim() || (!isAmend && stagedFiles.length === 0)) return
-    onCommit(commitMessage.trim(), signOff, isAmend)
+    onCommit(commitMessage.trim(), signOff, isAmend, gpgSign)
     setCommitMessage('')
     setIsAmend(false)
   }
@@ -852,6 +855,53 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                     <span className="font-mono text-slate-200 truncate max-w-[180px]">
                       {headCommitSelected.parents.map((p) => p.substring(0, 7)).join(', ')}
                     </span>
+                  </div>
+                )}
+                {headCommitSelected.signature && headCommitSelected.signature.status !== 'none' && (
+                  <div className="pt-2 border-t border-surface-border/50 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Signature</span>
+                      <span
+                        className={`inline-flex items-center gap-1 font-mono text-[11px] font-semibold ${
+                          headCommitSelected.signature.status === 'good'
+                            ? 'text-emerald-400'
+                            : headCommitSelected.signature.status === 'untrusted'
+                            ? 'text-amber-400'
+                            : 'text-rose-400'
+                        }`}
+                      >
+                        {headCommitSelected.signature.status === 'good' ? (
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                        ) : (
+                          <ShieldAlert className="w-3.5 h-3.5" />
+                        )}
+                        {headCommitSelected.signature.status.toUpperCase()}
+                      </span>
+                    </div>
+                    {headCommitSelected.signature.signer && (
+                      <div className="flex justify-between text-[11px] text-slate-400">
+                        <span>Signer</span>
+                        <span className="text-slate-200 font-mono truncate max-w-[190px]">
+                          {headCommitSelected.signature.signer}
+                        </span>
+                      </div>
+                    )}
+                    {headCommitSelected.signature.keyId && (
+                      <div className="flex justify-between text-[11px] text-slate-400">
+                        <span>Key ID</span>
+                        <span className="text-slate-200 font-mono select-all">
+                          {headCommitSelected.signature.keyId}
+                        </span>
+                      </div>
+                    )}
+                    {headCommitSelected.signature.fingerprint && (
+                      <div className="flex justify-between text-[11px] text-slate-400">
+                        <span>Fingerprint</span>
+                        <span className="text-slate-400 font-mono text-[10px] select-all truncate max-w-[180px]">
+                          {headCommitSelected.signature.fingerprint}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1475,6 +1525,16 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
                 className="rounded bg-surface-border border-surface-border text-brand focus:ring-0"
               />
               <span>Sign-off (-s)</span>
+            </label>
+
+            <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer hover:text-slate-200" title="Sign commit with GPG or SSH key (-S)">
+              <input
+                type="checkbox"
+                checked={gpgSign}
+                onChange={(e) => setGpgSign(e.target.checked)}
+                className="rounded bg-surface-border border-surface-border text-emerald-400 focus:ring-0"
+              />
+              <span className={gpgSign ? 'text-emerald-400 font-semibold' : ''}>Sign (-S)</span>
             </label>
 
             <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer hover:text-slate-200" title="Amend previous commit (HEAD)">

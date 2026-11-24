@@ -897,19 +897,19 @@ export const App: React.FC = () => {
     }
   }
 
-  const handleCommit = async (message: string, signOff?: boolean, amend?: boolean) => {
+  const handleCommit = async (message: string, signOff?: boolean, amend?: boolean, gpgSign?: boolean) => {
     if (!gih) return
 
     // If author name or email is unset, prompt user with author modal before committing
     if (!authorConfig || !authorConfig.name || !authorConfig.email) {
-      setPendingCommitAction(() => () => handleCommit(message, signOff, amend))
+      setPendingCommitAction(() => () => handleCommit(message, signOff, amend, gpgSign))
       setIsAuthorModalOpen(true)
       return
     }
 
     const t0 = performance.now()
     try {
-      const res = await gih.createCommit(message, signOff, amend)
+      const res = await gih.createCommit(message, signOff, amend, gpgSign)
       if (res.exitCode !== 0) {
         // If git failed specifically due to missing author identity
         if (
@@ -917,7 +917,7 @@ export const App: React.FC = () => {
           res.stderr.toLowerCase().includes('tell me who you are') ||
           res.stderr.toLowerCase().includes('author identity unknown')
         ) {
-          setPendingCommitAction(() => () => handleCommit(message, signOff, amend))
+          setPendingCommitAction(() => () => handleCommit(message, signOff, amend, gpgSign))
           setIsAuthorModalOpen(true)
           return
         }
@@ -926,7 +926,7 @@ export const App: React.FC = () => {
         await refreshState()
         showToast({
           type: 'success',
-          command: `git commit ${amend ? '--amend ' : ''}${signOff ? '-s ' : ''}-m "${message.slice(0, 20)}..."`.trim(),
+          command: `git commit ${amend ? '--amend ' : ''}${signOff ? '-s ' : ''}${gpgSign ? '-S ' : ''}-m "${message.slice(0, 20)}..."`.trim(),
           message: amend ? 'Amended HEAD commit' : 'Commit created',
           durationMs: Math.round(performance.now() - t0),
         })
