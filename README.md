@@ -10,7 +10,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Cross--Platform-lightgrey.svg)]()
 [![TypeScript](https://img.shields.io/badge/built%20with-TypeScript%20%7C%20React%2019-blue.svg)]()
 
-[**Overview**](OVERVIEW.md) • [**Architecture**](ARCHITECTURE.md) • [**Contributing**](CONTRIBUTIONS.md) • [**Security**](SECURITY.md) • [**License**](LICENSE)
+[**Overview**](OVERVIEW.md) • [**Architecture**](ARCHITECTURE.md) • [**Contributing**](CONTRIBUTING.md) • [**Accessibility**](ACCESSIBILITY.md) • [**Code of Conduct**](CODE_OF_CONDUCT.md) • [**Security**](SECURITY.md) • [**License**](LICENSE)
 
 </div>
 
@@ -107,9 +107,15 @@ npm run package:linux
 ```
 
 All built binaries are output to the `release/` directory:
-- **Windows**: `Gih-Portable-0.1.0.exe` (double-click to run immediately without installation) or `Gih-Setup-0.1.0.exe` (NSIS installer).
-- **macOS**: `Gih-0.1.0-arm64.dmg` and `Gih-0.1.0-x64.dmg`.
-- **Linux**: `Gih-0.1.0.AppImage` (universal portable Linux executable).
+- **Windows (x64 & ARM64)**:
+  - `Gih-Setup-0.1.0-x64.exe` / `Gih-Setup-0.1.0-arm64.exe` (NSIS customizable setup installers with desktop & Start menu shortcuts)
+  - `Gih-Portable-0.1.0-x64.exe` / `Gih-Portable-0.1.0-arm64.exe` (Zero-install portable binaries)
+- **macOS (Apple Silicon arm64 & Intel x64)**:
+  - `Gih-0.1.0-arm64.dmg` / `Gih-0.1.0-arm64.zip` (Native Apple Silicon M-series)
+  - `Gih-0.1.0-x64.dmg` / `Gih-0.1.0-x64.zip` (Intel Mac)
+- **Linux (x64 & ARM64)**:
+  - `Gih-0.1.0-x64.AppImage` / `Gih-0.1.0-arm64.AppImage` (Universal standalone binary across all Linux distributions)
+  - `Gih-0.1.0-x64.deb` / `Gih-0.1.0-arm64.deb` (Debian, Ubuntu, Linux Mint)
 
 > **Git Detection**: Gih automatically verifies whether Git is installed and available on your system PATH on startup. If Git is not detected, Gih offers a guided one-click installation flow tailored to your operating system (official installer, winget, Apple developer tools, or Linux package managers) with instant in-app status re-checking.
 
@@ -119,7 +125,9 @@ All built binaries are output to the `release/` directory:
 
 - [**OVERVIEW.md**](OVERVIEW.md): Comprehensive feature breakdown and comparative matrix.
 - [**ARCHITECTURE.md**](ARCHITECTURE.md): Deep dive into the process model, Git execution engine, watcher deduplication, and DAG layout algorithms.
-- [**CONTRIBUTIONS.md**](CONTRIBUTIONS.md): Developer guide, code style standards, and conventional commit workflow.
+- [**CONTRIBUTING.md**](CONTRIBUTING.md): Developer guide, code style standards, and conventional commit workflow.
+- [**ACCESSIBILITY.md**](ACCESSIBILITY.md): Zero-mouse keyboard navigation guide, focus management, and WCAG standards.
+- [**CODE_OF_CONDUCT.md**](CODE_OF_CONDUCT.md): Community standards, respectful collaboration, and maintainer responsibilities.
 - [**SECURITY.md**](SECURITY.md): Responsible disclosure policy and contact procedures.
 
 ---

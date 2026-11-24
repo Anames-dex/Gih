@@ -9,10 +9,13 @@
     "build": "tsc && vite build",
     "package": "tsc && vite build && electron-builder",
     "package:win": "tsc && vite build && electron-builder --win",
+    "package:win:x64": "tsc && vite build && electron-builder --win --x64",
+    "package:win:arm64": "tsc && vite build && electron-builder --win --arm64",
     "package:installer": "tsc && vite build && electron-builder --win nsis",
     "package:portable": "tsc && vite build && electron-builder --win portable",
     "package:mac": "tsc && vite build && electron-builder --mac",
     "package:linux": "tsc && vite build && electron-builder --linux",
+    "package:all": "tsc && vite build && electron-builder -mwl",
     "preview": "vite preview"
   },
   "repository": {
@@ -71,11 +74,11 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": ["x64", "arm64"]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": ["x64", "arm64"]
         }
       ]
     },
@@ -87,11 +90,11 @@
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Gih",
-      "artifactName": "Gih-Setup-${version}.${ext}",
+      "artifactName": "Gih-Setup-${version}-${arch}.${ext}",
       "uninstallDisplayName": "Gih"
     },
     "portable": {
-      "artifactName": "Gih-Portable-${version}.${ext}"
+      "artifactName": "Gih-Portable-${version}-${arch}.${ext}"
     },
     "mac": {
       "icon": "public/logo.png",
@@ -114,14 +117,14 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": ["x64", "arm64"]
         },
         {
           "target": "deb",
-          "arch": ["x64"]
+          "arch": ["x64", "arm64"]
         }
       ],
-      "artifactName": "Gih-${version}.${ext}"
+      "artifactName": "Gih-${version}-${arch}.${ext}"
     }
   }
 }
