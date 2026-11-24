@@ -28,6 +28,8 @@ import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsMod
 import { CreateStashModal } from './components/modals/CreateStashModal'
 import { StashInspectorModal } from './components/modals/StashInspectorModal'
 import { CreateTagModal } from './components/modals/CreateTagModal'
+import { ActionDialogModal, type DialogRequest } from './components/modals/ActionDialogModal'
+import { registerDialogListener, showConfirm, showPrompt } from './utils/dialog'
 
 interface ToastNotice {
   id: string
@@ -40,6 +42,12 @@ interface ToastNotice {
 export const App: React.FC = () => {
   const [gitStatus, setGitStatus] = useState<GitInstallationStatus | null>(null)
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
+  const [dialogRequest, setDialogRequest] = useState<DialogRequest | null>(null)
+
+  useEffect(() => {
+    registerDialogListener(setDialogRequest)
+    return () => registerDialogListener(null)
+  }, [])
   const [hasMoreCommits, setHasMoreCommits] = useState(false)
   const [isLoadingMoreCommits, setIsLoadingMoreCommits] = useState(false)
   const isLoadingMoreRef = useRef(false)
@@ -417,7 +425,12 @@ export const App: React.FC = () => {
 
   const handleNewBranch = async () => {
     if (!gih) return
-    const name = window.prompt('Enter new branch name:')
+    const name = await showPrompt({
+      title: 'Create Branch',
+      message: 'Enter a name for the new branch:',
+      placeholder: 'e.g. feat/new-feature',
+      confirmLabel: 'Create Branch',
+    })
     if (name?.trim()) {
       const t0 = performance.now()
       try {
@@ -437,9 +450,12 @@ export const App: React.FC = () => {
 
   const handlePruneBranches = async () => {
     if (!gih) return
-    const confirmed = window.confirm(
-      'Prune stale branches?\n\nThis runs "git fetch --prune" to remove deleted remote tracking references and safely deletes local branches whose upstream was deleted.'
-    )
+    const confirmed = await showConfirm({
+      title: 'Prune Stale Branches',
+      message:
+        'This runs "git fetch --prune" to remove deleted remote tracking references and safely deletes local branches whose upstream was deleted.',
+      confirmLabel: 'Prune Branches',
+    })
     if (!confirmed) return
     const t0 = performance.now()
     try {
@@ -460,9 +476,19 @@ export const App: React.FC = () => {
 
   const handleAddWorktree = async () => {
     if (!gih?.addWorktree) return
-    const targetPath = window.prompt('Worktree directory path (e.g. ../my-feature):')
+    const targetPath = await showPrompt({
+      title: 'Add Git Worktree (Step 1/2)',
+      message: 'Enter the directory path for the new worktree:',
+      placeholder: 'e.g. ../my-feature',
+      confirmLabel: 'Next',
+    })
     if (!targetPath) return
-    const branchName = window.prompt('Branch to checkout in worktree (existing or new):')
+    const branchName = await showPrompt({
+      title: 'Add Git Worktree (Step 2/2)',
+      message: `Enter the branch to check out in "${targetPath}" (existing or new):`,
+      placeholder: 'e.g. feat/my-feature',
+      confirmLabel: 'Create Worktree',
+    })
     if (!branchName) return
     const t0 = performance.now()
     try {
@@ -496,7 +522,12 @@ export const App: React.FC = () => {
 
   const handleRemoveWorktree = async (wtPath: string) => {
     if (!gih?.removeWorktree) return
-    const confirmed = window.confirm(`Remove worktree at:\n${wtPath}\n\nThis removes the working tree directory.`)
+    const confirmed = await showConfirm({
+      title: 'Remove Worktree',
+      message: `Remove worktree at:\n${wtPath}\n\nThis removes the working tree directory.`,
+      confirmLabel: 'Remove Worktree',
+      danger: true,
+    })
     if (!confirmed) return
     const t0 = performance.now()
     try {
@@ -572,7 +603,14 @@ export const App: React.FC = () => {
 
   const handleDeleteBranch = async (branchName: string) => {
     if (!gih) return
-    if (window.confirm(`Delete branch '${branchName}'?`)) {
+    if (
+      await showConfirm({
+        title: 'Delete Branch',
+        message: `Delete branch '${branchName}'?`,
+        confirmLabel: 'Delete Branch',
+        danger: true,
+      })
+    ) {
       const t0 = performance.now()
       try {
         await gih.deleteBranch(branchName, true)
@@ -687,9 +725,11 @@ export const App: React.FC = () => {
 
   const handleRevertCommit = async (commit: GitCommit) => {
     if (!gih) return
-    const confirmed = window.confirm(
-      `Revert commit "${commit.message}" (${commit.shortHash})?\n\nThis creates a new commit on the current branch that safely inverts changes introduced by this commit.`
-    )
+    const confirmed = await showConfirm({
+      title: 'Revert Commit',
+      message: `Revert commit "${commit.message}" (${commit.shortHash})?\n\nThis creates a new commit on the current branch that safely inverts changes introduced by this commit.`,
+      confirmLabel: 'Revert Commit',
+    })
     if (!confirmed) return
     const t0 = performance.now()
     try {
@@ -716,9 +756,13 @@ export const App: React.FC = () => {
 
   const handleDiscardAll = async () => {
     if (!gih) return
-    const confirmed = window.confirm(
-      'Are you sure you want to discard ALL unstaged changes?\n\nThis will permanently revert modified tracked files and delete untracked files. This action cannot be undone.'
-    )
+    const confirmed = await showConfirm({
+      title: 'Discard All Unstaged Changes',
+      message:
+        'Are you sure you want to discard ALL unstaged changes?\n\nThis will permanently revert modified tracked files and delete untracked files. This action cannot be undone.',
+      confirmLabel: 'Discard All',
+      danger: true,
+    })
     if (!confirmed) return
     const t0 = performance.now()
     try {
@@ -968,7 +1012,14 @@ export const App: React.FC = () => {
 
   const handleDeleteTag = async (tagName: string) => {
     if (!gih) return
-    if (window.confirm(`Delete tag '${tagName}'?`)) {
+    if (
+      await showConfirm({
+        title: 'Delete Tag',
+        message: `Delete tag '${tagName}'?`,
+        confirmLabel: 'Delete Tag',
+        danger: true,
+      })
+    ) {
       const t0 = performance.now()
       try {
         await gih.deleteTag(tagName)
@@ -1166,7 +1217,15 @@ export const App: React.FC = () => {
   const handleAbortOperation = async () => {
     if (!gih || !repoState?.operation) return
     const op = repoState.operation.type
-    if (!window.confirm(`Abort current ${op} operation and discard in-progress steps?`)) return
+    if (
+      !(await showConfirm({
+        title: `Abort ${op}`,
+        message: `Abort current ${op} operation and discard in-progress steps?`,
+        confirmLabel: `Abort ${op}`,
+        danger: true,
+      }))
+    )
+      return
     const t0 = performance.now()
     try {
       await gih.abortOperation(op)
@@ -1209,7 +1268,14 @@ export const App: React.FC = () => {
 
   const handleResetToReflog = async (hash: string) => {
     if (!gih) return
-    if (window.confirm(`Reset repository HEAD to ${hash}?`)) {
+    if (
+      await showConfirm({
+        title: 'Reset HEAD (Hard)',
+        message: `Reset repository HEAD to ${hash.slice(0, 7)}? Uncommitted changes will be lost.`,
+        confirmLabel: 'Reset Hard',
+        danger: true,
+      })
+    ) {
       const t0 = performance.now()
       await gih.execCommand(['reset', '--hard', hash])
       await refreshState()
@@ -1253,12 +1319,18 @@ export const App: React.FC = () => {
       {
         id: 'branch',
         label: 'Create branch here...',
-        action: () => {
-          const bName = window.prompt('Create branch from this commit:')
-          if (bName) {
-            gih?.createBranch(bName, contextMenu.commit.hash).then(refreshState)
-          }
+        action: async () => {
+          const targetHash = contextMenu.commit.hash
           setContextMenu(null)
+          const bName = await showPrompt({
+            title: 'Create Branch at Commit',
+            message: `Create a new branch starting at ${targetHash.slice(0, 7)}:`,
+            placeholder: 'e.g. fix/hotfix-branch',
+            confirmLabel: 'Create Branch',
+          })
+          if (bName) {
+            gih?.createBranch(bName, targetHash).then(refreshState)
+          }
         },
       },
       {
@@ -2099,6 +2171,10 @@ export const App: React.FC = () => {
           </div>
         ))}
       </div>
+      <ActionDialogModal
+        request={dialogRequest}
+        onClose={() => setDialogRequest(null)}
+      />
     </div>
   )
 }

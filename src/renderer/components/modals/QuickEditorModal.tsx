@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
+import { showConfirm } from '@/renderer/utils/dialog'
 import {
   X,
   Save,
@@ -49,11 +50,15 @@ export const QuickEditorModal: React.FC<QuickEditorModalProps> = ({
 
   const isDirty = content !== originalContent
 
-  const handleRequestClose = () => {
+  const handleRequestClose = async () => {
     if (isDirty) {
-      if (window.confirm('You have unsaved changes. Discard and close editor?')) {
-        onClose()
-      }
+      const ok = await showConfirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Discard and close editor?',
+        confirmLabel: 'Discard & Close',
+        danger: true,
+      })
+      if (ok) onClose()
     } else {
       onClose()
     }
@@ -247,15 +252,7 @@ export const QuickEditorModal: React.FC<QuickEditorModalProps> = ({
             {/* Close Button */}
             <button
               type="button"
-              onClick={() => {
-                if (isDirty) {
-                  if (window.confirm('You have unsaved changes. Discard and close editor?')) {
-                    onClose()
-                  }
-                } else {
-                  onClose()
-                }
-              }}
+              onClick={handleRequestClose}
               className="p-1 hover:bg-surface-hover rounded text-slate-400 hover:text-white transition-colors"
               title="Close editor (Esc)"
             >

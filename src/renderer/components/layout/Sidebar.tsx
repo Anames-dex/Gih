@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
+import { showPrompt } from '@/renderer/utils/dialog'
 import type { GitBranch, GitTag, GitStash, GitWorktree, GitSubmodule } from '@/shared/types'
 import {
   GitBranch as BranchIcon,
@@ -749,8 +750,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {onBranchFromStash && (
                           <button
                             type="button"
-                            onClick={() => {
-                              const bName = window.prompt('New branch name from stash:')
+                            onClick={async () => {
+                              const bName = await showPrompt({
+                                title: 'Branch from Stash',
+                                message: 'Enter a new branch name to create from this stash:',
+                                placeholder: 'e.g. feat/stashed-work',
+                                confirmLabel: 'Create Branch',
+                              })
                               if (bName) onBranchFromStash(bName, s.index)
                             }}
                             className="text-[10px] px-1 py-0.5 bg-surface-subtle hover:bg-surface-border rounded text-amber-400"

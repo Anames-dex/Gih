@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import type { GitStash } from '@/shared/types'
 import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
+import { showConfirm, showPrompt } from '@/renderer/utils/dialog'
 import {
   Archive,
   X,
@@ -168,7 +169,12 @@ export const StashInspectorModal: React.FC<StashInspectorModalProps> = ({
               type="button"
               disabled={isActionPending}
               onClick={async () => {
-                const bName = window.prompt('Create and checkout branch from this stash:')
+                const bName = await showPrompt({
+                  title: 'Branch from Stash',
+                  message: 'Create and checkout a new branch from this stash:',
+                  placeholder: 'e.g. feat/stashed-work',
+                  confirmLabel: 'Create & Checkout',
+                })
                 if (!bName) return
                 setIsActionPending(true)
                 try {
@@ -225,7 +231,13 @@ export const StashInspectorModal: React.FC<StashInspectorModalProps> = ({
               type="button"
               disabled={isActionPending}
               onClick={async () => {
-                if (!window.confirm(`Permanently drop ${stash.name || `stash@{${stash.index}}`}?`)) return
+                const ok = await showConfirm({
+                  title: 'Drop Stash',
+                  message: `Permanently drop ${stash.name || `stash@{${stash.index}}`}? This cannot be undone.`,
+                  confirmLabel: 'Drop Stash',
+                  danger: true,
+                })
+                if (!ok) return
                 setIsActionPending(true)
                 try {
                   await onDrop(stash.index)

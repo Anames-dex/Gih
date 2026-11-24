@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { showConfirm } from '@/renderer/utils/dialog'
 import type { GitFileStatus, FileDiff, DiffHunk, GitCommit, CommitRangeDiff } from '@/shared/types'
 import {
   FileText,
@@ -149,7 +150,13 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
 
   const handleDiscardHunk = async (hunk: DiffHunk) => {
     if (!activeFile || !onApplyHunkPatch) return
-    if (!window.confirm('Discard this hunk changes from working directory?')) return
+    const ok = await showConfirm({
+      title: 'Discard Hunk',
+      message: 'Discard this hunk changes from the working directory? This cannot be undone.',
+      confirmLabel: 'Discard Hunk',
+      danger: true,
+    })
+    if (!ok) return
     setIsApplyingHunk(true)
     try {
       const patch = buildHunkPatch(activeFile.path, hunk)

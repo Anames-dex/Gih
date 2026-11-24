@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { showConfirm } from '@/renderer/utils/dialog'
 import type { RemoteProviderInfo, RecentRepository, GitBranch as GitBranchType } from '@/shared/types'
 import {
   FolderGit2,
@@ -316,11 +317,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
+                  setIsPushMenuOpen(false)
                   if (
-                    window.confirm(
-                      'Push with --force-with-lease safely updates the remote branch only if no teammate has updated upstream. Proceed?'
-                    )
+                    await showConfirm({
+                      title: 'Safe Force Push',
+                      message:
+                        'Push with --force-with-lease safely updates the remote branch only if no teammate has updated upstream. Proceed?',
+                      confirmLabel: 'Force Push',
+                      danger: true,
+                    })
                   ) {
                     onPush(true)
                   }
