@@ -379,6 +379,10 @@ ipcMain.handle('git:getDiff', async (_, filePath: string, staged?: boolean) => {
   return await gitService.getFileDiff(filePath, staged)
 })
 
+ipcMain.handle('git:getFileBlame', async (_, filePath: string) => {
+  return await gitService.getFileBlame(filePath)
+})
+
 ipcMain.handle('git:getCommitFiles', async (_, hash: string) => {
   return await gitService.getCommitFiles(hash)
 })

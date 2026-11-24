@@ -16,7 +16,8 @@ import type {
   GitOperationState,
   GitOperationType,
   CommitRangeDiff,
-  RemoteProviderInfo
+  RemoteProviderInfo,
+  GitBlameLine
 } from '../shared/types'
 
 export class GitService {
@@ -191,6 +192,62 @@ export class GitService {
     } catch (err: any) {
       return { success: false, error: err?.message || 'Failed to save file' }
     }
+  }
+
+  /**
+   * Fetches line-by-line blame metadata for a file
+   */
+  public async getFileBlame(filePath: string): Promise<GitBlameLine[]> {
+    const safePath = this.validateGitArg(filePath, 'file path')
+    const { stdout, exitCode } = await this.execGit(['blame', '--line-porcelain', '--', safePath])
+    if (exitCode !== 0 || !stdout.trim()) {
+      return []
+    }
+
+    const lines = stdout.split('\n')
+    const result: GitBlameLine[] = []
+
+    let currentHash = ''
+    let currentAuthor = ''
+    let currentMail = ''
+    let currentTime = 0
+    let currentSummary = ''
+    let currentFinalLine = 0
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (!line) continue
+
+      if (line.startsWith('\t')) {
+        const content = line.substring(1)
+        const dateObj = new Date(currentTime * 1000)
+        result.push({
+          lineNumber: currentFinalLine,
+          hash: currentHash,
+          shortHash: currentHash.substring(0, 7),
+          author: currentAuthor,
+          authorMail: currentMail,
+          timestamp: currentTime,
+          dateStr: isNaN(dateObj.getTime()) ? '' : dateObj.toLocaleDateString(),
+          summary: currentSummary,
+          content,
+        })
+      } else if (line.startsWith('author ')) {
+        currentAuthor = line.substring(7).trim()
+      } else if (line.startsWith('author-mail ')) {
+        currentMail = line.substring(12).trim().replace(/^<|>$/g, '')
+      } else if (line.startsWith('author-time ')) {
+        currentTime = parseInt(line.substring(12).trim(), 10) || 0
+      } else if (line.startsWith('summary ')) {
+        currentSummary = line.substring(8).trim()
+      } else if (/^[0-9a-f]{40}\s/i.test(line)) {
+        const parts = line.split(' ')
+        currentHash = parts[0]
+        currentFinalLine = parseInt(parts[2], 10) || result.length + 1
+      }
+    }
+
+    return result
   }
 
   /**

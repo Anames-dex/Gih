@@ -8,7 +8,8 @@ import type {
   CommitRangeDiff,
   RemoteProviderInfo,
   GitInstallationStatus,
-  GitAuthorConfig
+  GitAuthorConfig,
+  GitBlameLine
 } from '../shared/types'
 
 export interface GihAPI {
@@ -29,6 +30,7 @@ export interface GihAPI {
   saveFileContent: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>
   execCommand: (args: string[]) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   getDiff: (filePath: string, staged?: boolean) => Promise<FileDiff>
+  getFileBlame: (filePath: string) => Promise<GitBlameLine[]>
   getCommitFiles: (hash: string) => Promise<{ files: GitFileStatus[]; statSummary: string }>
   getRangeDiff: (baseHash: string, headHash: string) => Promise<CommitRangeDiff>
   getCommitFileDiff: (baseHash: string, headHash: string, filePath: string) => Promise<FileDiff>
@@ -90,6 +92,7 @@ const api: GihAPI = {
   saveFileContent: (filePath: string, content: string) => ipcRenderer.invoke('app:saveFileContent', filePath, content),
   execCommand: (args: string[]) => ipcRenderer.invoke('git:exec', args),
   getDiff: (filePath: string, staged?: boolean) => ipcRenderer.invoke('git:getDiff', filePath, staged),
+  getFileBlame: (filePath: string) => ipcRenderer.invoke('git:getFileBlame', filePath),
   getCommitFiles: (hash: string) => ipcRenderer.invoke('git:getCommitFiles', hash),
   getRangeDiff: (baseHash: string, headHash: string) => ipcRenderer.invoke('git:getRangeDiff', baseHash, headHash),
   getCommitFileDiff: (baseHash: string, headHash: string, filePath: string) => ipcRenderer.invoke('git:getCommitFileDiff', baseHash, headHash, filePath),

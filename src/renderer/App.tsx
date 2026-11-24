@@ -21,6 +21,7 @@ import { CloneRepositoryModal } from './components/modals/CloneRepositoryModal'
 import { GitMissingView } from './components/layout/GitMissingView'
 import { GitAuthorModal } from './components/modals/GitAuthorModal'
 import { QuickEditorModal } from './components/modals/QuickEditorModal'
+import { GitBlameModal } from './components/modals/GitBlameModal'
 
 interface ToastNotice {
   id: string
@@ -55,6 +56,7 @@ export const App: React.FC = () => {
   const [resetModalCommit, setResetModalCommit] = useState<GitCommit | null>(null)
   const [isCloneModalOpen, setIsCloneModalOpen] = useState(false)
   const [editingFilePath, setEditingFilePath] = useState<string | null>(null)
+  const [blameFilePath, setBlameFilePath] = useState<string | null>(null)
   const [commandHistory, setCommandHistory] = useState<CommandLogEntry[]>([])
   const [isFetching, setIsFetching] = useState(false)
   const [isPulling, setIsPulling] = useState(false)
@@ -1248,6 +1250,7 @@ export const App: React.FC = () => {
             onDiscardAll={handleDiscardAll}
             onOpenInEditor={handleOpenInEditor}
             onQuickEditFile={(path) => setEditingFilePath(path)}
+            onBlameFile={(path) => setBlameFilePath(path)}
             onIgnorePattern={async (pattern) => {
               if (!gih?.addToGitIgnore) return
               const res = await gih.addToGitIgnore(pattern)
@@ -1408,6 +1411,25 @@ export const App: React.FC = () => {
               type: 'success',
               message: `Saved changes to ${editingFilePath.split(/[\\/]/).pop()}`,
             })
+          }}
+        />
+      )}
+
+      {blameFilePath && (
+        <GitBlameModal
+          filePath={blameFilePath}
+          onClose={() => setBlameFilePath(null)}
+          onOpenInEditor={handleOpenInEditor}
+          onSelectCommitHash={(hash) => {
+            const commit = repoState?.commits.find((c) => c.hash === hash)
+            if (commit) {
+              setSelectedCommits([commit])
+              setBlameFilePath(null)
+              showToast({
+                type: 'info',
+                message: `Focused commit ${commit.shortHash} in graph`,
+              })
+            }
           }}
         />
       )}

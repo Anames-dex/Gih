@@ -90,6 +90,18 @@ export interface GitWorktree {
   isLocked?: boolean
 }
 
+export interface GitBlameLine {
+  lineNumber: number
+  hash: string
+  shortHash: string
+  author: string
+  authorMail: string
+  timestamp: number
+  dateStr: string
+  summary: string
+  content: string
+}
+
 export interface CommandLogEntry {
   id: string
   command: string
