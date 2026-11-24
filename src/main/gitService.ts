@@ -18,7 +18,8 @@ import type {
   GitOperationType,
   CommitRangeDiff,
   RemoteProviderInfo,
-  GitBlameLine
+  GitBlameLine,
+  GitSubmodule
 } from '../shared/types'
 
 export class GitService {
@@ -500,16 +501,18 @@ export class GitService {
         commits: [],
         files: [],
         worktrees: [],
+        submodules: [],
       }
     }
 
-    const [branches, tags, stashes, commits, files, worktrees] = await Promise.all([
+    const [branches, tags, stashes, commits, files, worktrees, submodules] = await Promise.all([
       this.getBranches(),
       this.getTags(),
       this.getStashes(),
       this.getCommits(250, allBranches, filePath),
       this.getFileStatuses(),
       this.getWorktrees(),
+      this.getSubmodules(),
     ])
 
     const currentBranch = branches.find((b) => b.isCurrent)?.name || null
@@ -529,6 +532,7 @@ export class GitService {
       commits,
       files,
       worktrees,
+      submodules,
     }
   }
 
@@ -882,6 +886,66 @@ export class GitService {
   public async getStashDiff(index: number = 0): Promise<string> {
     const { stdout } = await this.execGit(['stash', 'show', '-p', `stash@{${index}}`])
     return stdout
+  }
+
+  /**
+   * Read Git submodules status and details
+   */
+  public async getSubmodules(): Promise<GitSubmodule[]> {
+    const { stdout, exitCode } = await this.execGit(['submodule', 'status'])
+    if (exitCode !== 0 || !stdout.trim()) {
+      return []
+    }
+
+    const lines = stdout.split('\n').filter((l) => l.trim().length > 0)
+    const submodules: GitSubmodule[] = []
+
+    for (const line of lines) {
+      const prefix = line[0]
+      const rest = line.substring(1).trim()
+      const parts = rest.split(/\s+/)
+      if (parts.length < 2) continue
+
+      const hash = parts[0]
+      const subPath = parts[1]
+      const describe = parts.slice(2).join(' ').replace(/^\(|\)$/g, '') || undefined
+
+      let status: GitSubmodule['status'] = 'clean'
+      if (prefix === '-') status = 'uninitialized'
+      else if (prefix === '+') status = 'modified'
+      else if (prefix === 'U') status = 'conflict'
+
+      const name = path.basename(subPath)
+
+      submodules.push({
+        name,
+        path: subPath,
+        hash,
+        status,
+        describe,
+      })
+    }
+
+    return submodules
+  }
+
+  /**
+   * Update submodules recursively
+   */
+  public async updateSubmodules(recursive: boolean = true, init: boolean = true): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const args = ['submodule', 'update']
+    if (init) args.push('--init')
+    if (recursive) args.push('--recursive')
+    return await this.execGit(args)
+  }
+
+  /**
+   * Sync submodules URLs
+   */
+  public async syncSubmodules(recursive: boolean = true): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const args = ['submodule', 'sync']
+    if (recursive) args.push('--recursive')
+    return await this.execGit(args)
   }
 
   public async createCommit(

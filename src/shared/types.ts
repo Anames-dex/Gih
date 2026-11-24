@@ -145,6 +145,15 @@ export interface GitOperationState {
   canSkip?: boolean
 }
 
+export interface GitSubmodule {
+  name: string
+  path: string
+  hash: string
+  status: 'clean' | 'modified' | 'uninitialized' | 'conflict'
+  describe?: string
+  url?: string
+}
+
 export interface RepositoryState {
   path: string
   name: string
@@ -158,6 +167,7 @@ export interface RepositoryState {
   commits: GitCommit[]
   files: GitFileStatus[]
   worktrees: GitWorktree[]
+  submodules: GitSubmodule[]
 }
 
 export interface GitInstallationStatus {

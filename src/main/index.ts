@@ -574,6 +574,14 @@ ipcMain.handle('git:pushAllTags', async (_, remoteName?: string) => {
   return await gitService.pushAllTags(remoteName)
 })
 
+ipcMain.handle('git:updateSubmodules', async (_, recursive?: boolean, init?: boolean) => {
+  return await gitService.updateSubmodules(recursive ?? true, init ?? true)
+})
+
+ipcMain.handle('git:syncSubmodules', async (_, recursive?: boolean) => {
+  return await gitService.syncSubmodules(recursive ?? true)
+})
+
 ipcMain.handle('git:continueOperation', async (_, type: any) => {
   return await gitService.continueOperation(type)
 })

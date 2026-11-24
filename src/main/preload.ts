@@ -76,6 +76,8 @@ export interface GihAPI {
   deleteTag: (name: string) => Promise<void>
   pushTag: (name: string, remoteName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   pushAllTags: (remoteName?: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  updateSubmodules: (recursive?: boolean, init?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  syncSubmodules: (recursive?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   continueOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   abortOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   skipOperation: (type: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
@@ -148,6 +150,8 @@ const api: GihAPI = {
   deleteTag: (name: string) => ipcRenderer.invoke('git:deleteTag', name),
   pushTag: (name: string, remoteName?: string) => ipcRenderer.invoke('git:pushTag', name, remoteName),
   pushAllTags: (remoteName?: string) => ipcRenderer.invoke('git:pushAllTags', remoteName),
+  updateSubmodules: (recursive?: boolean, init?: boolean) => ipcRenderer.invoke('git:updateSubmodules', recursive, init),
+  syncSubmodules: (recursive?: boolean) => ipcRenderer.invoke('git:syncSubmodules', recursive),
   continueOperation: (type: string) => ipcRenderer.invoke('git:continueOperation', type),
   abortOperation: (type: string) => ipcRenderer.invoke('git:abortOperation', type),
   skipOperation: (type: string) => ipcRenderer.invoke('git:skipOperation', type),

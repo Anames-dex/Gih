@@ -952,6 +952,38 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleUpdateSubmodules = async () => {
+    if (!gih?.updateSubmodules) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.updateSubmodules()
+      await refreshState()
+      if (res.exitCode === 0) {
+        showToast({
+          type: 'success',
+          command: 'git submodule update --init --recursive',
+          message: res.stdout || 'Submodules synchronized and updated',
+          durationMs: Math.round(performance.now() - t0),
+        })
+      } else {
+        showToast({ type: 'error', command: 'git submodule update', message: res.stderr || 'Update failed' })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: 'git submodule update', message: e.message })
+    }
+  }
+
+  const handleOpenSubmoduleRepo = async (submoduleRelativePath: string) => {
+    if (!gih || !repoState?.path) return
+    const fullPath = `${repoState.path}/${submoduleRelativePath}`.replace(/[\\/]+/g, '/')
+    await gih.setRepoPath(fullPath)
+    await refreshState()
+    showToast({
+      type: 'info',
+      message: `Opened submodule repository at ${submoduleRelativePath}`,
+    })
+  }
+
   const handleBranchFromStash = async (branchName: string, index: number) => {
     if (!gih) return
     const t0 = performance.now()
@@ -1599,6 +1631,7 @@ export const App: React.FC = () => {
               tags={repoState?.tags || []}
               stashes={repoState?.stashes || []}
               worktrees={repoState?.worktrees || []}
+              submodules={repoState?.submodules || []}
               currentBranch={repoState?.currentBranch || null}
               onCheckoutBranch={handleCheckoutBranch}
               onCreateBranch={handleNewBranch}
@@ -1614,6 +1647,8 @@ export const App: React.FC = () => {
               onBranchFromStash={handleBranchFromStash}
               onRenameBranch={handleRenameBranch}
               onPruneBranches={handlePruneBranches}
+              onUpdateSubmodules={handleUpdateSubmodules}
+              onOpenSubmoduleRepo={handleOpenSubmoduleRepo}
               currentRepoPath={repoState?.path}
               onAddWorktree={handleAddWorktree}
               onSwitchWorktree={handleSwitchWorktree}

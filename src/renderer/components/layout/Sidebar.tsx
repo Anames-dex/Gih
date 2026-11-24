@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import type { GitBranch, GitTag, GitStash, GitWorktree } from '@/shared/types'
+import type { GitBranch, GitTag, GitStash, GitWorktree, GitSubmodule } from '@/shared/types'
 import {
   GitBranch as BranchIcon,
   Globe,
@@ -16,10 +16,12 @@ import {
   Check,
   Scissors,
   Eye,
-  UploadCloud
+  UploadCloud,
+  Package,
+  RefreshCw
 } from 'lucide-react'
 
-type SidebarSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'worktrees'
+type SidebarSection = 'branches' | 'remotes' | 'tags' | 'submodules' | 'stashes' | 'worktrees'
 
 interface SidebarProps {
   width?: number
@@ -43,6 +45,9 @@ interface SidebarProps {
   onRenameBranch?: (oldName: string, newName: string) => void
   onPruneBranches?: () => void
   currentRepoPath?: string
+  submodules?: GitSubmodule[]
+  onUpdateSubmodules?: () => void
+  onOpenSubmoduleRepo?: (path: string) => void
   onAddWorktree?: () => void
   onSwitchWorktree?: (path: string) => void
   onRemoveWorktree?: (path: string) => void
@@ -55,6 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   tags,
   stashes,
   worktrees,
+  submodules = [],
   currentBranch,
   currentRepoPath,
   onCheckoutBranch,
@@ -70,6 +76,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onBranchFromStash,
   onRenameBranch,
   onPruneBranches,
+  onUpdateSubmodules,
+  onOpenSubmoduleRepo,
   onAddWorktree,
   onSwitchWorktree,
   onRemoveWorktree,
@@ -81,6 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     'branches',
     'remotes',
     'tags',
+    'submodules',
     'stashes',
     'worktrees',
   ])
@@ -89,6 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [localExpanded, setLocalExpanded] = useState(true)
   const [remotesExpanded, setRemotesExpanded] = useState(true)
   const [tagsExpanded, setTagsExpanded] = useState(false)
+  const [submodulesExpanded, setSubmodulesExpanded] = useState(true)
   const [stashesExpanded, setStashesExpanded] = useState(false)
   const [worktreesExpanded, setWorktreesExpanded] = useState(false)
   const [filterQuery, setFilterQuery] = useState('')
@@ -107,6 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     | { id: string; type: 'branch'; name: string }
     | { id: string; type: 'remoteBranch'; name: string }
     | { id: string; type: 'tag'; name: string }
+    | { id: string; type: 'submodule'; path: string }
     | { id: string; type: 'stash'; index: number }
     | { id: string; type: 'worktree'; path: string }
 
@@ -120,6 +131,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
     if (tagsExpanded) {
       tags.forEach((t) => items.push({ id: `tag-${t.name}`, type: 'tag', name: t.name }))
+    }
+    if (submodulesExpanded) {
+      submodules.forEach((sm) => items.push({ id: `submodule-${sm.path}`, type: 'submodule', path: sm.path }))
     }
     if (stashesExpanded) {
       stashes.forEach((s) => items.push({ id: `stash-${s.index}`, type: 'stash', index: s.index }))
@@ -135,6 +149,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     filteredRemote,
     tagsExpanded,
     tags,
+    submodulesExpanded,
+    submodules,
     stashesExpanded,
     stashes,
     worktreesExpanded,
@@ -186,6 +202,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onCheckoutBranch(current.name)
         } else if (current.type === 'stash') {
           onPopStash(current.index)
+        } else if (current.type === 'submodule' && onOpenSubmoduleRepo) {
+          onOpenSubmoduleRepo(current.path)
         } else if (current.type === 'worktree' && onSwitchWorktree) {
           onSwitchWorktree(current.path)
         }
@@ -551,6 +569,115 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 })}
                 {tags.length === 0 && (
                   <p className="text-[11px] text-slate-500 px-2 py-1">No tags</p>
+                )}
+              </div>
+            )}
+          </div>
+        )
+
+      case 'submodules':
+        return (
+          <div
+            key="submodules"
+            draggable
+            onDragStart={() => handleDragStart(idx)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => handleDrop(idx)}
+            className="group/sec rounded-lg border border-transparent hover:border-surface-border/40 transition-colors"
+          >
+            <div
+              onClick={() => setSubmodulesExpanded(!submodulesExpanded)}
+              className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-hover cursor-pointer text-xs font-semibold text-slate-400 uppercase tracking-wider group"
+            >
+              <div className="flex items-center gap-1.5">
+                <GripVertical className="w-3 h-3 text-slate-600 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity" />
+                {submodulesExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                <Package className="w-3.5 h-3.5 text-teal-400" />
+                <span>Submodules</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] bg-surface-subtle px-1.5 py-0.2 rounded text-slate-400">
+                  {submodules.length}
+                </span>
+                {onUpdateSubmodules && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onUpdateSubmodules()
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-teal-300 transition-opacity"
+                    title="Update all submodules (git submodule update --init --recursive)"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {submodulesExpanded && (
+              <div className="pl-4 mt-0.5 space-y-0.5">
+                {submodules.map((sm) => {
+                  const isItemFocused =
+                    isActivePane && navItems[focusedNavIndex]?.id === `submodule-${sm.path}`
+
+                  return (
+                    <div
+                      key={sm.path}
+                      data-sidebar-id={`submodule-${sm.path}`}
+                      tabIndex={0}
+                      onClick={() => {
+                        const navIdx = navItems.findIndex((it) => it.id === `submodule-${sm.path}`)
+                        if (navIdx !== -1) setFocusedNavIndex(navIdx)
+                      }}
+                      onDoubleClick={() => onOpenSubmoduleRepo?.(sm.path)}
+                      className={`flex items-center justify-between px-2 py-1 rounded text-xs group cursor-pointer transition-colors outline-none ${
+                        isItemFocused
+                          ? 'bg-teal-500/20 ring-1 ring-inset ring-sky-400 text-white'
+                          : 'hover:bg-surface-hover text-slate-300'
+                      }`}
+                      title={`Submodule: ${sm.name}\nPath: ${sm.path}\nCommit: ${sm.hash}${
+                        sm.describe ? ` (${sm.describe})` : ''
+                      }\nStatus: ${sm.status}\nDouble-click to open in Gih`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Package className="w-3 h-3 text-teal-400 shrink-0" />
+                        <span className="truncate font-medium">{sm.name}</span>
+                        <span className="text-[10px] font-mono text-slate-500 truncate">
+                          {sm.hash.slice(0, 7)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span
+                          className={`text-[9px] font-mono px-1 py-0.2 rounded border uppercase ${
+                            sm.status === 'clean'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              : sm.status === 'uninitialized'
+                              ? 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                              : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          }`}
+                        >
+                          {sm.status}
+                        </span>
+                        {onOpenSubmoduleRepo && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onOpenSubmoduleRepo(sm.path)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 hover:text-teal-300"
+                            title="Open submodule in Gih"
+                          >
+                            <Play className="w-2.5 h-2.5 fill-current" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+                {submodules.length === 0 && (
+                  <p className="text-[11px] text-slate-500 px-2 py-1">No submodules configured</p>
                 )}
               </div>
             )}
