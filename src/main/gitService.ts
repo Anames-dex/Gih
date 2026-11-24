@@ -680,6 +680,13 @@ export class GitService {
     return await this.execGit(['cherry-pick', safeHash])
   }
 
+  public async revertCommit(
+    commitHash: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const safeHash = this.validateGitArg(commitHash, 'commit hash')
+    return await this.execGit(['revert', '--no-edit', safeHash])
+  }
+
   /**
    * List stashes
    */

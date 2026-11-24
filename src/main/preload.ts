@@ -49,6 +49,7 @@ export interface GihAPI {
   mergeBranch: (branchOrRef: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   rebaseBranch: (upstream: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   cherryPick: (commitHash: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  revertCommit: (commitHash: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   fetchRemote: (remoteName?: string) => Promise<void>
   pullRemote: (remoteName?: string, branchName?: string) => Promise<void>
   pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
@@ -104,6 +105,7 @@ const api: GihAPI = {
   mergeBranch: (branchOrRef: string) => ipcRenderer.invoke('git:merge', branchOrRef),
   rebaseBranch: (upstream: string) => ipcRenderer.invoke('git:rebase', upstream),
   cherryPick: (commitHash: string) => ipcRenderer.invoke('git:cherryPick', commitHash),
+  revertCommit: (commitHash: string) => ipcRenderer.invoke('git:revertCommit', commitHash),
   fetchRemote: (remoteName?: string) => ipcRenderer.invoke('git:fetch', remoteName),
   pullRemote: (remoteName?: string, branchName?: string) => ipcRenderer.invoke('git:pull', remoteName, branchName),
   pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => ipcRenderer.invoke('git:push', remoteName, branchName, setUpstream, forceWithLease),

@@ -8,7 +8,7 @@ import type {
   GitAuthorConfig,
   RecentRepository
 } from '../shared/types'
-import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink } from 'lucide-react'
+import { FolderGit2, AlertTriangle, CheckCircle2, XCircle, Clock, ExternalLink, RotateCcw } from 'lucide-react'
 import { AppHeader } from './components/layout/AppHeader'
 import { Sidebar } from './components/layout/Sidebar'
 import { CommitGraph } from './components/graph/CommitGraph'
@@ -462,6 +462,35 @@ export const App: React.FC = () => {
       }
     } catch (e: any) {
       showToast({ type: 'error', command: `git cherry-pick`, message: e.message })
+    }
+  }
+
+  const handleRevertCommit = async (commit: GitCommit) => {
+    if (!gih) return
+    const confirmed = window.confirm(
+      `Revert commit "${commit.message}" (${commit.shortHash})?\n\nThis creates a new commit on the current branch that safely inverts changes introduced by this commit.`
+    )
+    if (!confirmed) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.revertCommit(commit.hash)
+      await refreshState()
+      if (res.exitCode !== 0) {
+        showToast({
+          type: 'error',
+          command: `git revert --no-edit ${commit.shortHash}`,
+          message: res.stderr || 'Revert conflict encountered. Resolve conflicts in staging panel.',
+        })
+      } else {
+        showToast({
+          type: 'success',
+          command: `git revert --no-edit ${commit.shortHash}`,
+          message: `Reverted commit ${commit.shortHash} ("${commit.message}")`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: `git revert`, message: e.message })
     }
   }
 
@@ -1057,6 +1086,16 @@ export const App: React.FC = () => {
                   className="w-full text-left px-3 py-1.5 hover:bg-surface-hover"
                 >
                   Cherry-pick commit
+                </button>
+                <button
+                  onClick={() => {
+                    handleRevertCommit(contextMenu.commit)
+                    setContextMenu(null)
+                  }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-amber-300 flex items-center justify-between"
+                >
+                  <span>Revert commit (git revert)</span>
+                  <RotateCcw className="w-3 h-3 text-amber-400" />
                 </button>
                 <button
                   onClick={() => {

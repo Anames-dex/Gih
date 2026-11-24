@@ -447,6 +447,10 @@ ipcMain.handle('git:cherryPick', async (_, commitHash: string) => {
   return await gitService.cherryPick(commitHash)
 })
 
+ipcMain.handle('git:revertCommit', async (_, commitHash: string) => {
+  return await gitService.revertCommit(commitHash)
+})
+
 ipcMain.handle('git:fetch', async (_, remoteName?: string) => {
   const args = ['fetch', '--prune']
   if (remoteName) args.push(remoteName)
