@@ -1338,4 +1338,22 @@ export class GitService {
 
     return worktrees
   }
+
+  public async addWorktree(
+    targetPath: string,
+    branchName: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const safeBranch = this.validateGitArg(branchName, 'branch name')
+    return await this.execGit(['worktree', 'add', targetPath, safeBranch])
+  }
+
+  public async removeWorktree(
+    worktreePath: string,
+    force?: boolean
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const args = ['worktree', 'remove']
+    if (force) args.push('--force')
+    args.push(worktreePath)
+    return await this.execGit(args)
+  }
 }

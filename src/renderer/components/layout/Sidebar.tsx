@@ -37,6 +37,10 @@ interface SidebarProps {
   onBranchFromStash?: (name: string, index: number) => void
   onRenameBranch?: (oldName: string, newName: string) => void
   onPruneBranches?: () => void
+  currentRepoPath?: string
+  onAddWorktree?: () => void
+  onSwitchWorktree?: (path: string) => void
+  onRemoveWorktree?: (path: string) => void
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -46,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   stashes,
   worktrees,
   currentBranch,
+  currentRepoPath,
   onCheckoutBranch,
   onCreateBranch,
   onDeleteBranch,
@@ -56,6 +61,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onBranchFromStash,
   onRenameBranch,
   onPruneBranches,
+  onAddWorktree,
+  onSwitchWorktree,
+  onRemoveWorktree,
 }) => {
   const [renamingBranch, setRenamingBranch] = useState<string | null>(null)
   const [renamingValue, setRenamingValue] = useState('')
@@ -462,23 +470,91 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Layers className="w-3.5 h-3.5 text-amber-400" />
                 <span>Worktrees</span>
               </div>
-              <span className="text-[10px] bg-surface-subtle px-1.5 py-0.2 rounded text-slate-400">
-                {worktrees.length}
-              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] bg-surface-subtle px-1.5 py-0.2 rounded text-slate-400">
+                  {worktrees.length}
+                </span>
+                {onAddWorktree && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onAddWorktree()
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-white transition-opacity"
+                    title="Add worktree (git worktree add)"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {worktreesExpanded && (
               <div className="pl-4 mt-0.5 space-y-0.5">
-                {worktrees.map((wt) => (
-                  <div
-                    key={wt.path}
-                    className="flex items-center gap-2 px-2 py-1 rounded text-xs hover:bg-surface-hover text-slate-300"
-                    title={wt.path}
-                  >
-                    <Layers className="w-3 h-3 text-amber-400" />
-                    <span className="truncate">{wt.branch || wt.path.split(/[/\\]/).pop()}</span>
-                  </div>
-                ))}
+                {worktrees.map((wt, wtIdx) => {
+                  const normalizedCurrent = currentRepoPath?.replace(/\\/g, '/').toLowerCase()
+                  const normalizedWt = wt.path.replace(/\\/g, '/').toLowerCase()
+                  const isCurrent = normalizedCurrent === normalizedWt
+                  const isMain = wtIdx === 0
+
+                  return (
+                    <div
+                      key={wt.path}
+                      onDoubleClick={() => !isCurrent && onSwitchWorktree?.(wt.path)}
+                      className={`flex items-center justify-between px-2 py-1 rounded text-xs group cursor-pointer transition-colors ${
+                        isCurrent
+                          ? 'bg-amber-500/15 text-amber-300 font-medium border-l-2 border-amber-400'
+                          : 'hover:bg-surface-hover text-slate-300'
+                      }`}
+                      title={`${wt.path}\nBranch: ${wt.branch || '(detached)'}\nDouble-click to open in Gih`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Layers className={`w-3 h-3 shrink-0 ${isCurrent ? 'text-amber-400' : 'text-slate-500'}`} />
+                        <span className="truncate">{wt.branch || wt.path.split(/[/\\]/).pop()}</span>
+                        {isCurrent && (
+                          <span className="text-[9px] px-1 rounded bg-amber-500/20 text-amber-300 font-semibold select-none">
+                            active
+                          </span>
+                        )}
+                        {isMain && !isCurrent && (
+                          <span className="text-[9px] px-1 rounded bg-surface border border-surface-border text-slate-400 select-none">
+                            main
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {!isCurrent && onSwitchWorktree && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onSwitchWorktree(wt.path)
+                            }}
+                            className="p-1 hover:text-sky-300"
+                            title="Switch Gih to this worktree"
+                          >
+                            <Play className="w-2.5 h-2.5 fill-current" />
+                          </button>
+                        )}
+                        {!isMain && onRemoveWorktree && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onRemoveWorktree(wt.path)
+                            }}
+                            className="p-1 hover:text-rose-400"
+                            title="Remove worktree (git worktree remove)"
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
                 {worktrees.length === 0 && (
                   <p className="text-[11px] text-slate-500 px-2 py-1">Single worktree</p>
                 )}

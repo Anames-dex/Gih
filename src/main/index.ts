@@ -489,6 +489,14 @@ ipcMain.handle('git:pruneBranches', async (_, remoteName?: string) => {
   return await gitService.pruneMergedBranches(remoteName)
 })
 
+ipcMain.handle('git:addWorktree', async (_, targetPath: string, branchName: string) => {
+  return await gitService.addWorktree(targetPath, branchName)
+})
+
+ipcMain.handle('git:removeWorktree', async (_, worktreePath: string, force?: boolean) => {
+  return await gitService.removeWorktree(worktreePath, force)
+})
+
 ipcMain.handle('git:pull', async (_, remoteName?: string, branchName?: string) => {
   const args = ['pull']
   if (remoteName) args.push(remoteName)

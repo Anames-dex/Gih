@@ -360,6 +360,69 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleAddWorktree = async () => {
+    if (!gih?.addWorktree) return
+    const targetPath = window.prompt('Worktree directory path (e.g. ../my-feature):')
+    if (!targetPath) return
+    const branchName = window.prompt('Branch to checkout in worktree (existing or new):')
+    if (!branchName) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.addWorktree(targetPath, branchName)
+      await refreshState()
+      if (res.exitCode !== 0) {
+        showToast({
+          type: 'error',
+          command: `git worktree add ${targetPath} ${branchName}`,
+          message: res.stderr || 'Failed to add worktree',
+        })
+      } else {
+        showToast({
+          type: 'success',
+          command: `git worktree add ${targetPath} ${branchName}`,
+          message: `Created worktree at ${targetPath}`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: 'git worktree', message: e.message })
+    }
+  }
+
+  const handleSwitchWorktree = async (wtPath: string) => {
+    if (!gih) return
+    await gih.setRepoPath(wtPath)
+    await refreshState()
+    showToast({ type: 'info', message: `Switched workspace to worktree ${wtPath.split(/[/\\]/).pop()}` })
+  }
+
+  const handleRemoveWorktree = async (wtPath: string) => {
+    if (!gih?.removeWorktree) return
+    const confirmed = window.confirm(`Remove worktree at:\n${wtPath}\n\nThis removes the working tree directory.`)
+    if (!confirmed) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.removeWorktree(wtPath)
+      await refreshState()
+      if (res.exitCode !== 0) {
+        showToast({
+          type: 'error',
+          command: `git worktree remove ${wtPath}`,
+          message: res.stderr || 'Failed to remove worktree',
+        })
+      } else {
+        showToast({
+          type: 'success',
+          command: `git worktree remove ${wtPath}`,
+          message: `Removed worktree ${wtPath.split(/[/\\]/).pop()}`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: 'git worktree remove', message: e.message })
+    }
+  }
+
   const handleCheckoutBranch = async (branchName: string) => {
     if (!gih) return
     const t0 = performance.now()
@@ -1090,6 +1153,10 @@ export const App: React.FC = () => {
             onBranchFromStash={handleBranchFromStash}
             onRenameBranch={handleRenameBranch}
             onPruneBranches={handlePruneBranches}
+            currentRepoPath={repoState?.path}
+            onAddWorktree={handleAddWorktree}
+            onSwitchWorktree={handleSwitchWorktree}
+            onRemoveWorktree={handleRemoveWorktree}
           />
 
           {/* Drag Splitter: Sidebar -> Graph */}
