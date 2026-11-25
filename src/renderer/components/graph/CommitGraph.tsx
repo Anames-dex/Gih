@@ -276,6 +276,38 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
     return computeDagLayout(effectiveCommits)
   }, [effectiveCommits])
 
+  // Identify commits on HEAD that are linearly ahead of an ancestor branch (e.g. main)
+  const aheadCommitHashes = useMemo(() => {
+    const headNode = nodes.find((n) => n.commit.isHead)
+    if (!headNode) return new Set<string>()
+
+    const nodeByHash = new Map(nodes.map((n) => [n.commit.hash, n]))
+    const headBranchNames = new Set(
+      headNode.commit.branches.map((b) => b.replace(/^[^/]+\//, ''))
+    )
+
+    const candidate = new Set<string>()
+    let curr: (typeof nodes)[number] | undefined = headNode
+    let foundBaseBranch = false
+
+    while (curr) {
+      if (curr !== headNode) {
+        const hasOtherBranch = curr.commit.branches.some(
+          (b) => !headBranchNames.has(b.replace(/^[^/]+\//, ''))
+        )
+        if (hasOtherBranch) {
+          foundBaseBranch = true
+          break
+        }
+      }
+      candidate.add(curr.commit.hash)
+      const firstParent = curr.commit.parents[0]
+      curr = firstParent ? nodeByHash.get(firstParent) : undefined
+    }
+
+    return foundBaseBranch ? candidate : new Set<string>()
+  }, [nodes])
+
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN_ROWS)
   const endIndex = Math.min(effectiveCommits.length, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN_ROWS)
 
@@ -447,14 +479,17 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
                 pathData = `M ${x1} ${y1} L ${x1} ${curveStartY} C ${x1} ${cy}, ${x2} ${cy}, ${x2} ${y2}`
               }
 
+              const fromNode = nodes[edge.fromRow]
+              const isAheadEdge = fromNode ? aheadCommitHashes.has(fromNode.commit.hash) : false
+
               return (
                 <path
                   key={`edge-${idx}-${edge.fromRow}-${edge.toRow}`}
                   d={pathData}
                   fill="none"
-                  stroke={edge.color}
-                  strokeWidth={2}
-                  strokeOpacity={0.85}
+                  stroke={isAheadEdge ? '#f59e0b' : edge.color}
+                  strokeWidth={isAheadEdge ? 2.5 : 2}
+                  strokeOpacity={isAheadEdge ? 0.95 : 0.85}
                   strokeLinecap="round"
                 />
               )
@@ -512,7 +547,7 @@ export const CommitGraph: React.FC<CommitGraphProps> = ({
                     cx={cx}
                     cy={cy}
                     r={node.commit.parents.length > 1 ? 6 : 5}
-                    fill={node.color}
+                    fill={aheadCommitHashes.has(node.commit.hash) ? '#f59e0b' : node.color}
                     stroke="#0c0e14"
                     strokeWidth={2}
                   />
