@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { showConfirm } from '@/renderer/utils/dialog'
 import type { GitFileStatus, FileDiff, DiffHunk, GitCommit, CommitRangeDiff } from '@/shared/types'
 import {
@@ -21,7 +22,8 @@ import {
   ExternalLink,
   History,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  ArrowLeft
 } from 'lucide-react'
 import { buildSplitRows, buildUnifiedRows, buildHunkPatch } from './diffUtils'
 
@@ -50,6 +52,8 @@ interface StagingAreaProps {
   onResolveConflict?: (filePath: string, resolution: 'ours' | 'theirs' | 'mark-resolved') => void
   headCommit?: GitCommit | null
   isActivePane?: boolean
+  centerDiffTarget?: HTMLElement | null
+  onCenterDiffActiveChange?: (active: boolean) => void
 }
 
 const CONVENTIONAL_TYPES = [
@@ -87,6 +91,8 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   onResolveConflict,
   headCommit,
   isActivePane = false,
+  centerDiffTarget = null,
+  onCenterDiffActiveChange,
 }) => {
   const [activeFile, setActiveFile] = useState<GitFileStatus | null>(null)
   const [activeDiff, setActiveDiff] = useState<FileDiff | null>(null)
@@ -95,7 +101,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const [signOff, setSignOff] = useState(false)
   const [gpgSign, setGpgSign] = useState(false)
   const [isAmend, setIsAmend] = useState(false)
-  const [diffViewMode, setDiffViewMode] = useState<'unified' | 'split'>('unified')
+  const [diffViewMode, setDiffViewMode] = useState<'unified' | 'split'>('split')
   const [isDiffLoading, setIsDiffLoading] = useState(false)
   const [isApplyingHunk, setIsApplyingHunk] = useState(false)
   const [focusedHunkIndex, setFocusedHunkIndex] = useState<number>(0)
@@ -173,6 +179,10 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
   const [inspectorStatSummary, setInspectorStatSummary] = useState('')
   const [isInspectorLoading, setIsInspectorLoading] = useState(false)
   const [activeInspectorFile, setActiveInspectorFile] = useState<GitFileStatus | null>(null)
+
+  useEffect(() => {
+    onCenterDiffActiveChange?.(Boolean(activeFile || activeInspectorFile))
+  }, [activeFile, activeInspectorFile, onCenterDiffActiveChange])
   const [activeInspectorDiff, setActiveInspectorDiff] = useState<FileDiff | null>(null)
   const [isInspectorDiffLoading, setIsInspectorDiffLoading] = useState(false)
   const [hasCopiedHashes, setHasCopiedHashes] = useState(false)
@@ -515,12 +525,36 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
     onClose: () => void,
     isInspect: boolean = false
   ) => {
-    return (
-      <div className="border-b border-surface-border bg-surface-subtle/50 p-2.5">
-        <div className="flex items-center justify-between pb-2 mb-2 border-b border-surface-border/50 text-xs">
-          <div className="flex items-center gap-1.5 truncate">
+    const isCenter = Boolean(centerDiffTarget)
+    const viewer = (
+      <div
+        className={
+          isCenter
+            ? 'flex-1 flex flex-col w-full h-full bg-[#090b10] overflow-hidden'
+            : 'border-b border-surface-border bg-surface-subtle/50 p-2.5'
+        }
+      >
+        <div
+          className={`flex items-center justify-between text-xs ${
+            isCenter
+              ? 'px-4 py-2.5 bg-surface border-b border-surface-border shrink-0'
+              : 'pb-2 mb-2 border-b border-surface-border/50'
+          }`}
+        >
+          <div className="flex items-center gap-2 truncate">
+            {isCenter && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-2 py-1 rounded bg-surface-subtle hover:bg-surface-hover border border-surface-border text-xs text-slate-300 hover:text-white flex items-center gap-1 transition-colors shrink-0"
+                title="Back to Commit Graph (Esc)"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Graph</span>
+              </button>
+            )}
             <DiffIcon className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-            <span className="font-mono text-white truncate max-w-[180px]" title={filePath}>
+            <span className={`font-mono text-white truncate ${isCenter ? 'max-w-[420px]' : 'max-w-[180px]'}`} title={filePath}>
               {filePath}
             </span>
           </div>
@@ -607,7 +641,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
           </div>
         </div>
 
-        <div className="max-h-80 overflow-y-auto text-xs font-mono bg-[#090b10] p-2 rounded border border-surface-border/40 space-y-2.5">
+        <div className={isCenter ? 'flex-1 overflow-y-auto text-xs font-mono bg-[#090b10] p-4 space-y-3' : 'max-h-80 overflow-y-auto text-xs font-mono bg-[#090b10] p-2 rounded border border-surface-border/40 space-y-2.5'}>
           {isLoading && <p className="text-slate-500 py-2">Loading diff...</p>}
           {diff && diff.hunks.length === 0 && !isLoading && (
             <p className="text-slate-500 py-2">No text differences found.</p>
@@ -801,6 +835,7 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
         </div>
       </div>
     )
+    return centerDiffTarget ? createPortal(viewer, centerDiffTarget) : viewer
   }
 
   // If commits are selected from the graph, show Inspector for single or multi-commit range

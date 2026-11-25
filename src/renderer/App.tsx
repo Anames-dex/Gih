@@ -45,6 +45,8 @@ export const App: React.FC = () => {
   const [gitStatus, setGitStatus] = useState<GitInstallationStatus | null>(null)
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
   const [repoFiles, setRepoFiles] = useState<string[]>([])
+  const [centerDiffSlotEl, setCenterDiffSlotEl] = useState<HTMLDivElement | null>(null)
+  const [isCenterDiffActive, setIsCenterDiffActive] = useState(false)
   const [dialogRequest, setDialogRequest] = useState<DialogRequest | null>(null)
   const [remoteProgress, setRemoteProgress] = useState<RemoteProgressEvent | null>(null)
   const [copiedToastId, setCopiedToastId] = useState<string | null>(null)
@@ -1913,31 +1915,65 @@ export const App: React.FC = () => {
             }`}
             onMouseDown={() => setActivePane('graph')}
           >
-            <CommitGraph
-              commits={repoState?.commits || []}
-              selectedCommits={selectedCommits}
-              showAllBranches={showAllBranches}
-              onToggleShowAllBranches={(all) => {
-                showAllBranchesRef.current = all
-                setShowAllBranches(all)
-                refreshState(all)
-              }}
-              onSelectCommit={handleSelectCommit}
-              onClearSelection={handleClearSelectedCommits}
-              onContextMenu={(e, commit) => {
-                e.preventDefault()
-                setContextMenu({ x: e.clientX, y: e.clientY, commit })
-              }}
-              onMergeBranch={handleMergeBranch}
-              onRebaseBranch={handleRebaseBranch}
-              onCherryPick={handleCherryPick}
-              isActivePane={activePane === 'graph'}
-              filePathFilter={graphFilePathFilter}
-              onClearFilePathFilter={() => handleSetGraphFilePathFilter(null)}
-              hasMoreCommits={hasMoreCommits}
-              isLoadingMore={isLoadingMoreCommits}
-              onLoadMoreCommits={handleLoadMoreCommits}
+            {editingFilePath && (
+              <div className="flex-1 flex flex-col overflow-hidden z-20">
+                <QuickEditorModal
+                  embedded
+                  filePath={editingFilePath}
+                  onClose={() => setEditingFilePath(null)}
+                  onSaved={() => {
+                    refreshState()
+                    showToast({
+                      type: 'success',
+                      message: `Saved changes to ${editingFilePath.split(/[\\/]/).pop()}`,
+                    })
+                  }}
+                />
+              </div>
+            )}
+
+            <div
+              ref={setCenterDiffSlotEl}
+              className={
+                !editingFilePath && isCenterDiffActive
+                  ? 'flex-1 flex flex-col overflow-hidden z-10'
+                  : 'hidden'
+              }
             />
+
+            <div
+              className={
+                editingFilePath || isCenterDiffActive
+                  ? 'hidden'
+                  : 'flex-1 flex flex-col overflow-hidden'
+              }
+            >
+              <CommitGraph
+                commits={repoState?.commits || []}
+                selectedCommits={selectedCommits}
+                showAllBranches={showAllBranches}
+                onToggleShowAllBranches={(all) => {
+                  showAllBranchesRef.current = all
+                  setShowAllBranches(all)
+                  refreshState(all)
+                }}
+                onSelectCommit={handleSelectCommit}
+                onClearSelection={handleClearSelectedCommits}
+                onContextMenu={(e, commit) => {
+                  e.preventDefault()
+                  setContextMenu({ x: e.clientX, y: e.clientY, commit })
+                }}
+                onMergeBranch={handleMergeBranch}
+                onRebaseBranch={handleRebaseBranch}
+                onCherryPick={handleCherryPick}
+                isActivePane={activePane === 'graph'}
+                filePathFilter={graphFilePathFilter}
+                onClearFilePathFilter={() => handleSetGraphFilePathFilter(null)}
+                hasMoreCommits={hasMoreCommits}
+                isLoadingMore={isLoadingMoreCommits}
+                onLoadMoreCommits={handleLoadMoreCommits}
+              />
+            </div>
 
             {/* Context Menu */}
             {contextMenu && (
@@ -2033,6 +2069,8 @@ export const App: React.FC = () => {
               onResolveConflict={handleResolveConflict}
               headCommit={repoState?.commits.find((c) => c.isHead) || repoState?.commits[0] || null}
               isActivePane={activePane === 'staging'}
+              centerDiffTarget={centerDiffSlotEl}
+              onCenterDiffActiveChange={setIsCenterDiffActive}
             />
           </div>
         </div>
@@ -2178,20 +2216,6 @@ export const App: React.FC = () => {
           return res
         }}
       />
-
-      {editingFilePath && (
-        <QuickEditorModal
-          filePath={editingFilePath}
-          onClose={() => setEditingFilePath(null)}
-          onSaved={() => {
-            refreshState()
-            showToast({
-              type: 'success',
-              message: `Saved changes to ${editingFilePath.split(/[\\/]/).pop()}`,
-            })
-          }}
-        />
-      )}
 
       {blameFilePath && (
         <GitBlameModal

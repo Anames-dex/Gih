@@ -9,13 +9,15 @@ import {
   FileCode,
   AlertTriangle,
   CheckCircle2,
-  FileText
+  FileText,
+  ArrowLeft
 } from 'lucide-react'
 
 interface QuickEditorModalProps {
   filePath: string
   onClose: () => void
   onSaved?: () => void
+  embedded?: boolean
 }
 
 const EDITORS = [
@@ -30,6 +32,7 @@ export const QuickEditorModal: React.FC<QuickEditorModalProps> = ({
   filePath,
   onClose,
   onSaved,
+  embedded = false,
 }) => {
   const gih = (window as any).gih
   const [content, setContent] = useState('')
@@ -64,7 +67,19 @@ export const QuickEditorModal: React.FC<QuickEditorModalProps> = ({
     }
   }
 
-  useFocusTrap(modalRef, true, handleRequestClose)
+  useFocusTrap(modalRef, !embedded, handleRequestClose)
+
+  useEffect(() => {
+    if (!embedded) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        handleRequestClose()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [embedded, isDirty])
 
   useEffect(() => {
     let isMounted = true
@@ -172,18 +187,32 @@ export const QuickEditorModal: React.FC<QuickEditorModalProps> = ({
   const fileName = filePath.split(/[\\/]/).pop() || filePath
   const ext = fileName.includes('.') ? fileName.split('.').pop()?.toUpperCase() : 'TEXT'
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+  const editorContent = (
       <div
         ref={modalRef}
-        role="dialog"
-        aria-modal="true"
+        role={embedded ? undefined : 'dialog'}
+        aria-modal={embedded ? undefined : true}
         tabIndex={-1}
-        className="bg-[#0f131c] border border-surface-border rounded-xl shadow-2xl flex flex-col w-full max-w-5xl h-[85vh] overflow-hidden text-slate-200 outline-none"
+        className={
+          embedded
+            ? 'bg-[#0f131c] flex flex-col w-full h-full overflow-hidden text-slate-200 outline-none'
+            : 'bg-[#0f131c] border border-surface-border rounded-xl shadow-2xl flex flex-col w-full max-w-5xl h-[85vh] overflow-hidden text-slate-200 outline-none'
+        }
       >
         {/* Editor Header */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-surface border-b border-surface-border select-none">
           <div className="flex items-center gap-2.5 truncate">
+            {embedded && (
+              <button
+                type="button"
+                onClick={handleRequestClose}
+                className="px-2 py-1 rounded bg-surface-subtle hover:bg-surface-hover border border-surface-border text-xs text-slate-300 hover:text-white flex items-center gap-1 transition-colors shrink-0"
+                title="Back to Graph (Esc)"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back</span>
+              </button>
+            )}
             <FileCode className="w-4 h-4 text-sky-400 shrink-0" />
             <div className="flex items-center gap-2 truncate">
               <span className="font-semibold text-white truncate">{fileName}</span>
@@ -339,6 +368,13 @@ export const QuickEditorModal: React.FC<QuickEditorModalProps> = ({
           </div>
         </div>
       </div>
+  )
+
+  if (embedded) return editorContent
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+      {editorContent}
     </div>
   )
 }
