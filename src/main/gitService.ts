@@ -1167,9 +1167,13 @@ export class GitService {
     onProgress?: (progress: CloneProgressEvent) => void
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const safeUrl = this.validateGitArg(url, 'clone URL')
-    const parentDir = path.dirname(path.resolve(targetPath))
+    const resolvedTarget = path.resolve(targetPath)
+    const parentDir = path.dirname(resolvedTarget)
+    if (!fs.existsSync(parentDir)) {
+      fs.mkdirSync(parentDir, { recursive: true })
+    }
     return await this.execGitWithProgress(
-      ['clone', '--progress', '--', safeUrl, targetPath],
+      ['clone', '--progress', '--', safeUrl, resolvedTarget],
       parentDir,
       onProgress,
       'Cloning'

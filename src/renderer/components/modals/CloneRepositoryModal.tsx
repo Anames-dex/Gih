@@ -237,7 +237,7 @@ export const CloneRepositoryModal: React.FC<CloneRepositoryModalProps> = ({
             <button
               type="submit"
               disabled={isCloning || !repoUrl.trim() || !parentDir.trim() || !targetFolderName.trim()}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-950/50 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-950/50 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isCloning ? (
                 <>
