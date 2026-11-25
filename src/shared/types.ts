@@ -154,6 +154,11 @@ export interface GitSubmodule {
   url?: string
 }
 
+export interface GitRemote {
+  name: string
+  url: string
+}
+
 export interface RepositoryState {
   path: string
   name: string
@@ -162,6 +167,7 @@ export interface RepositoryState {
   currentBranch: string | null
   isDetached: boolean
   branches: GitBranch[]
+  remotes?: GitRemote[]
   tags: GitTag[]
   stashes: GitStash[]
   commits: GitCommit[]

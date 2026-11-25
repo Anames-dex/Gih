@@ -332,6 +332,74 @@ export const App: React.FC = () => {
   }, [])
 
   // Action Handlers
+  const handleAddRemote = async () => {
+    if (!gih?.addRemote) return
+    const name = await showPrompt({
+      title: 'Add Git Remote (Step 1/2)',
+      message: 'Enter a name for the remote:',
+      defaultValue: 'origin',
+      placeholder: 'origin',
+      confirmLabel: 'Next',
+    })
+    if (!name) return
+    const url = await showPrompt({
+      title: 'Add Git Remote (Step 2/2)',
+      message: `Enter the repository URL for remote '${name}':`,
+      placeholder: 'https://github.com/username/repo.git',
+      confirmLabel: 'Add Remote',
+    })
+    if (!url) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.addRemote(name, url)
+      await refreshState()
+      if (res.exitCode !== 0) {
+        showToast({
+          type: 'error',
+          command: `git remote add ${name} ${url}`,
+          message: res.stderr || 'Failed to add remote',
+        })
+      } else {
+        showToast({
+          type: 'success',
+          command: `git remote add ${name} ${url}`,
+          message: `Added remote '${name}'`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: 'git remote add', message: e.message })
+    }
+  }
+
+  const handleRemoveRemote = async (name: string) => {
+    if (!gih?.removeRemote) return
+    const ok = await showConfirm({
+      title: 'Remove Remote',
+      message: `Remove remote '${name}' from this repository?`,
+      confirmLabel: 'Remove Remote',
+      danger: true,
+    })
+    if (!ok) return
+    const t0 = performance.now()
+    try {
+      const res = await gih.removeRemote(name)
+      await refreshState()
+      if (res.exitCode !== 0) {
+        showToast({ type: 'error', command: `git remote remove ${name}`, message: res.stderr || 'Failed to remove remote' })
+      } else {
+        showToast({
+          type: 'info',
+          command: `git remote remove ${name}`,
+          message: `Removed remote '${name}'`,
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: 'git remote remove', message: e.message })
+    }
+  }
+
   const handleFetch = async () => {
     if (!gih) return
     setIsFetching(true)
@@ -1787,6 +1855,7 @@ export const App: React.FC = () => {
             <Sidebar
               width={sidebarWidth}
               branches={repoState?.branches || []}
+              remotes={repoState?.remotes || []}
               tags={repoState?.tags || []}
               stashes={repoState?.stashes || []}
               worktrees={repoState?.worktrees || []}
@@ -1812,6 +1881,8 @@ export const App: React.FC = () => {
               onAddWorktree={handleAddWorktree}
               onSwitchWorktree={handleSwitchWorktree}
               onRemoveWorktree={handleRemoveWorktree}
+              onAddRemote={handleAddRemote}
+              onRemoveRemote={handleRemoveRemote}
               isActivePane={activePane === 'sidebar'}
             />
           </div>

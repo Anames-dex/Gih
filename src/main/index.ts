@@ -592,6 +592,14 @@ ipcMain.handle('git:push', async (event, remoteName?: string, branchName?: strin
   })
 })
 
+ipcMain.handle('git:addRemote', async (_, name: string, url: string) => {
+  return await gitService.addRemote(name, url)
+})
+
+ipcMain.handle('git:removeRemote', async (_, name: string) => {
+  return await gitService.removeRemote(name)
+})
+
 ipcMain.handle('git:createStash', async (_, message?: string, includeUntracked?: boolean, keepIndex?: boolean) => {
   const args = ['stash', 'push']
   if (includeUntracked) args.push('-u')

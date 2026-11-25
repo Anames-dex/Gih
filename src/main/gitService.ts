@@ -20,6 +20,7 @@ import type {
   RemoteProviderInfo,
   GitBlameLine,
   GitSubmodule,
+  GitRemote,
   CloneProgressEvent
 } from '../shared/types'
 
@@ -506,8 +507,9 @@ export class GitService {
       }
     }
 
-    const [branches, tags, stashes, commits, files, worktrees, submodules] = await Promise.all([
+    const [branches, remotes, tags, stashes, commits, files, worktrees, submodules] = await Promise.all([
       this.getBranches(),
+      this.getRemotes(),
       this.getTags(),
       this.getStashes(),
       this.getCommits(400, allBranches, filePath, 0),
@@ -528,6 +530,7 @@ export class GitService {
       currentBranch,
       isDetached,
       branches,
+      remotes,
       tags,
       stashes,
       commits,
@@ -1323,6 +1326,38 @@ export class GitService {
   /**
    * Push changes to remote repository with optional upstream tracking and safe force-with-lease
    */
+  public async getRemotes(): Promise<GitRemote[]> {
+    const { stdout, exitCode } = await this.execGit(['remote', '-v'])
+    if (exitCode !== 0 || !stdout.trim()) return []
+    const map = new Map<string, string>()
+    for (const line of stdout.split(/\r?\n/)) {
+      const match = line.trim().match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/)
+      if (match) {
+        const [, name, url, kind] = match
+        if (!map.has(name) || kind === 'fetch') {
+          map.set(name, url)
+        }
+      }
+    }
+    return Array.from(map.entries()).map(([name, url]) => ({ name, url }))
+  }
+
+  public async addRemote(
+    name: string,
+    url: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const safeName = this.validateGitArg(name, 'remote name')
+    const safeUrl = this.validateGitArg(url, 'remote URL')
+    return await this.execGit(['remote', 'add', '--', safeName, safeUrl])
+  }
+
+  public async removeRemote(
+    name: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const safeName = this.validateGitArg(name, 'remote name')
+    return await this.execGit(['remote', 'remove', '--', safeName])
+  }
+
   public async pushRemote(
     remoteName?: string,
     branchName?: string,

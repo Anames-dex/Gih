@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { showPrompt } from '@/renderer/utils/dialog'
-import type { GitBranch, GitTag, GitStash, GitWorktree, GitSubmodule } from '@/shared/types'
+import type { GitBranch, GitTag, GitStash, GitWorktree, GitSubmodule, GitRemote } from '@/shared/types'
 import {
   GitBranch as BranchIcon,
   Globe,
@@ -27,6 +27,7 @@ type SidebarSection = 'branches' | 'remotes' | 'tags' | 'submodules' | 'stashes'
 interface SidebarProps {
   width?: number
   branches: GitBranch[]
+  remotes?: GitRemote[]
   tags: GitTag[]
   stashes: GitStash[]
   worktrees: GitWorktree[]
@@ -52,12 +53,15 @@ interface SidebarProps {
   onAddWorktree?: () => void
   onSwitchWorktree?: (path: string) => void
   onRemoveWorktree?: (path: string) => void
+  onAddRemote?: () => void
+  onRemoveRemote?: (name: string) => void
   isActivePane?: boolean
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   width = 260,
   branches,
+  remotes = [],
   tags,
   stashes,
   worktrees,
@@ -425,13 +429,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Globe className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Remotes</span>
               </div>
-              <span className="text-[10px] bg-surface-subtle px-1.5 py-0.2 rounded text-slate-400">
-                {remoteBranches.length}
-              </span>
+              <div className="flex items-center gap-1">
+                {onAddRemote && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onAddRemote()
+                    }}
+                    className="p-0.5 hover:bg-surface-border rounded text-slate-400 hover:text-indigo-400 transition-colors"
+                    title="Add remote (git remote add)"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <span className="text-[10px] bg-surface-subtle px-1.5 py-0.2 rounded text-slate-400">
+                  {remotes.length > 0 ? `${remotes.length} / ${remoteBranches.length}` : remoteBranches.length}
+                </span>
+              </div>
             </div>
 
             {remotesExpanded && (
               <div className="pl-4 mt-0.5 space-y-0.5">
+                {remotes.map((r) => (
+                  <div
+                    key={r.name}
+                    className="flex items-center justify-between px-2 py-1 rounded text-xs text-slate-300 group hover:bg-surface-hover/60"
+                    title={r.url}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Globe className="w-3 h-3 text-indigo-400 shrink-0" />
+                      <span className="font-semibold text-indigo-200 shrink-0">{r.name}</span>
+                      <span className="text-[10px] font-mono text-slate-500 truncate">{r.url}</span>
+                    </div>
+                    {onRemoveRemote && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveRemote(r.name)}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400 text-slate-500 transition-opacity shrink-0"
+                        title={`Remove remote '${r.name}'`}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
                 {filteredRemote.map((b) => {
                   const isItemFocused =
                     isActivePane && navItems[focusedNavIndex]?.id === `remote-${b.name}`
