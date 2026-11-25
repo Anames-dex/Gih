@@ -86,6 +86,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onAddWorktree,
   onSwitchWorktree,
   onRemoveWorktree,
+  onAddRemote,
+  onRemoveRemote,
   isActivePane = false,
 }) => {
   const [renamingBranch, setRenamingBranch] = useState<string | null>(null)
