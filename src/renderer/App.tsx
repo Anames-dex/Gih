@@ -79,6 +79,8 @@ export const App: React.FC = () => {
   const [remoteInfo, setRemoteInfo] = useState<RemoteProviderInfo | null>(null)
   const [activePane, setActivePane] = useState<'sidebar' | 'graph' | 'staging' | 'terminal'>('graph')
   const [isTerminalOpen, setIsTerminalOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isStagingCollapsed, setIsStagingCollapsed] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isRebaseModalOpen, setIsRebaseModalOpen] = useState(false)
   const [rebaseTargetCommit, setRebaseTargetCommit] = useState<GitCommit | null>(null)
@@ -1691,6 +1693,10 @@ export const App: React.FC = () => {
         isPulling={isPulling}
         isPushing={isPushing}
         isStashing={isStashing}
+        isSidebarCollapsed={isSidebarCollapsed}
+        isStagingCollapsed={isStagingCollapsed}
+        onToggleSidebar={() => setIsSidebarCollapsed((p) => !p)}
+        onToggleStaging={() => setIsStagingCollapsed((p) => !p)}
       />
 
       {/* In-Progress Git Operation HUD Banner (Rebase / Merge / Cherry-Pick / Bisect) */}
@@ -1857,9 +1863,13 @@ export const App: React.FC = () => {
       ) : (
         <div className="flex-1 flex overflow-hidden relative">
           <div
-            className={`h-full flex shrink-0 relative transition-all ${
-              activePane === 'sidebar' ? 'ring-1 ring-inset ring-sky-500/50' : ''
-            }`}
+            className={
+              isSidebarCollapsed
+                ? 'hidden'
+                : `h-full flex shrink-0 relative transition-all ${
+                    activePane === 'sidebar' ? 'ring-1 ring-inset ring-sky-500/50' : ''
+                  }`
+            }
             onMouseDown={() => setActivePane('sidebar')}
           >
             <Sidebar
@@ -1900,14 +1910,16 @@ export const App: React.FC = () => {
           </div>
 
           {/* Drag Splitter: Sidebar -> Graph */}
-          <div
-            onMouseDown={() => {
-              isDraggingSidebar.current = true
-              document.body.style.cursor = 'col-resize'
-            }}
-            className="w-1 hover:w-1.5 z-20 cursor-col-resize hover:bg-brand active:bg-brand transition-colors bg-surface-border/60 select-none shrink-0"
-            title="Drag to resize sidebar"
-          />
+          {!isSidebarCollapsed && (
+            <div
+              onMouseDown={() => {
+                isDraggingSidebar.current = true
+                document.body.style.cursor = 'col-resize'
+              }}
+              className="w-1 hover:w-1.5 z-20 cursor-col-resize hover:bg-brand active:bg-brand transition-colors bg-surface-border/60 select-none shrink-0"
+              title="Drag to resize sidebar"
+            />
+          )}
 
           <main
             className={`flex-1 flex flex-col overflow-hidden relative transition-all ${
@@ -2016,19 +2028,25 @@ export const App: React.FC = () => {
           </main>
 
           {/* Drag Splitter: Graph -> Staging */}
-          <div
-            onMouseDown={() => {
-              isDraggingStaging.current = true
-              document.body.style.cursor = 'col-resize'
-            }}
-            className="w-1 hover:w-1.5 z-20 cursor-col-resize hover:bg-brand active:bg-brand transition-colors bg-surface-border/60 select-none shrink-0"
-            title="Drag to resize staging panel"
-          />
+          {!isStagingCollapsed && (
+            <div
+              onMouseDown={() => {
+                isDraggingStaging.current = true
+                document.body.style.cursor = 'col-resize'
+              }}
+              className="w-1 hover:w-1.5 z-20 cursor-col-resize hover:bg-brand active:bg-brand transition-colors bg-surface-border/60 select-none shrink-0"
+              title="Drag to resize staging panel"
+            />
+          )}
 
           <div
-            className={`h-full flex shrink-0 relative transition-all ${
-              activePane === 'staging' ? 'ring-1 ring-inset ring-sky-500/50' : ''
-            }`}
+            className={
+              isStagingCollapsed
+                ? 'hidden'
+                : `h-full flex shrink-0 relative transition-all ${
+                    activePane === 'staging' ? 'ring-1 ring-inset ring-sky-500/50' : ''
+                  }`
+            }
             onMouseDown={() => setActivePane('staging')}
           >
             <StagingArea

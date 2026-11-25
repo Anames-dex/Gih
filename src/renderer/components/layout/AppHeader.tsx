@@ -21,7 +21,9 @@ import {
   X,
   Keyboard,
   Check,
-  Plus
+  Plus,
+  PanelLeft,
+  PanelRight
 } from 'lucide-react'
 
 interface AppHeaderProps {
@@ -49,6 +51,10 @@ interface AppHeaderProps {
   isPulling?: boolean
   isPushing?: boolean
   isStashing?: boolean
+  isSidebarCollapsed?: boolean
+  isStagingCollapsed?: boolean
+  onToggleSidebar?: () => void
+  onToggleStaging?: () => void
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -76,6 +82,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   isPulling = false,
   isPushing = false,
   isStashing = false,
+  isSidebarCollapsed = false,
+  isStagingCollapsed = false,
+  onToggleSidebar,
+  onToggleStaging,
 }) => {
   const [isPushMenuOpen, setIsPushMenuOpen] = useState(false)
   const [isRepoMenuOpen, setIsRepoMenuOpen] = useState(false)
@@ -469,10 +479,40 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </kbd>
         </button>
 
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className={`p-1.5 rounded-md active:scale-95 transition-all border ${
+              !isSidebarCollapsed
+                ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                : 'text-slate-400 hover:text-white hover:bg-surface-hover border-transparent hover:border-surface-border/50'
+            }`}
+            title={isSidebarCollapsed ? 'Show Sidebar (Branches & Files)' : 'Minimize Sidebar'}
+          >
+            <PanelLeft className="w-4 h-4" />
+          </button>
+        )}
+
+        {onToggleStaging && (
+          <button
+            type="button"
+            onClick={onToggleStaging}
+            className={`p-1.5 rounded-md active:scale-95 transition-all border ${
+              !isStagingCollapsed
+                ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                : 'text-slate-400 hover:text-white hover:bg-surface-hover border-transparent hover:border-surface-border/50'
+            }`}
+            title={isStagingCollapsed ? 'Show Staging & Inspector Panel' : 'Minimize Staging & Inspector Panel'}
+          >
+            <PanelRight className="w-4 h-4" />
+          </button>
+        )}
+
         <button
           onClick={onToggleTerminal}
           className="p-1.5 rounded-md hover:bg-surface-hover active:scale-95 text-slate-400 hover:text-white transition-all border border-transparent hover:border-surface-border/50"
-          title="Toggle Terminal & Visual Shell"
+          title="Toggle Terminal & Visual Shell (Ctrl+J)"
         >
           <Terminal className="w-4 h-4 text-slate-400" />
         </button>
