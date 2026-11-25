@@ -393,7 +393,7 @@ ipcMain.handle('git:exec', async (_, args: string[]) => {
   if (!Array.isArray(args) || args.some((a) => typeof a !== 'string')) {
     return { stdout: '', stderr: 'Invalid arguments: expected array of strings', exitCode: 1 }
   }
-  return await gitService.execGit(args)
+  return await gitService.execGit(args, undefined, true)
 })
 
 ipcMain.handle('app:openExternal', async (_, targetUrl: string) => {
@@ -462,15 +462,15 @@ ipcMain.handle('git:getCommandHistory', async () => {
 })
 
 ipcMain.handle('git:stageFile', async (_, filePath: string) => {
-  await gitService.execGit(['add', '--', filePath])
+  await gitService.execGit(['add', '--', filePath], undefined, true)
 })
 
 ipcMain.handle('git:unstageFile', async (_, filePath: string) => {
-  await gitService.execGit(['restore', '--staged', '--', filePath])
+  await gitService.execGit(['restore', '--staged', '--', filePath], undefined, true)
 })
 
 ipcMain.handle('git:stageAll', async () => {
-  await gitService.execGit(['add', '-A'])
+  await gitService.execGit(['add', '-A'], undefined, true)
 })
 
 ipcMain.handle('git:unstageAll', async () => {
@@ -478,7 +478,7 @@ ipcMain.handle('git:unstageAll', async () => {
 })
 
 ipcMain.handle('git:discardChanges', async (_, filePath: string) => {
-  await gitService.execGit(['restore', '--', filePath])
+  await gitService.execGit(['restore', '--', filePath], undefined, true)
 })
 
 ipcMain.handle('git:discardAllChanges', async () => {
@@ -605,19 +605,19 @@ ipcMain.handle('git:createStash', async (_, message?: string, includeUntracked?:
   if (includeUntracked) args.push('-u')
   if (keepIndex) args.push('--keep-index')
   if (message) args.push('-m', message)
-  await gitService.execGit(args)
+  await gitService.execGit(args, undefined, true)
 })
 
 ipcMain.handle('git:popStash', async (_, index: number = 0) => {
-  await gitService.execGit(['stash', 'pop', `stash@{${index}}`])
+  await gitService.execGit(['stash', 'pop', `stash@{${index}}`], undefined, true)
 })
 
 ipcMain.handle('git:applyStash', async (_, index: number = 0) => {
-  await gitService.execGit(['stash', 'apply', `stash@{${index}}`])
+  await gitService.execGit(['stash', 'apply', `stash@{${index}}`], undefined, true)
 })
 
 ipcMain.handle('git:dropStash', async (_, index: number = 0) => {
-  await gitService.execGit(['stash', 'drop', `stash@{${index}}`])
+  await gitService.execGit(['stash', 'drop', `stash@{${index}}`], undefined, true)
 })
 
 ipcMain.handle('git:branchFromStash', async (_, branchName: string, index: number = 0) => {

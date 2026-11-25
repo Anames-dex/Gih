@@ -347,7 +347,11 @@ export class GitService {
   /**
    * Fast native git execution with direct child process, output buffering & telemetry
    */
-  public async execGit(args: string[], cwd: string = this.currentRepoPath): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  public async execGit(
+    args: string[],
+    cwd: string = this.currentRepoPath,
+    logCommand: boolean = false
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const commandStr = `git ${args.join(' ')}`
     const startTime = Date.now()
     this.activeExecutions++
@@ -369,17 +373,19 @@ export class GitService {
               ? (error as any).code
               : 1
             : 0
-          const entry: CommandLogEntry = {
-            id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            command: commandStr,
-            timestamp: startTime,
-            exitCode,
-            output: stdout || stderr || (error ? error.message : ''),
-            isError: exitCode !== 0,
-          }
-          this.commandHistory.unshift(entry)
-          if (this.commandHistory.length > 500) {
-            this.commandHistory.pop()
+          if (logCommand) {
+            const entry: CommandLogEntry = {
+              id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+              command: commandStr,
+              timestamp: startTime,
+              exitCode,
+              output: stdout || stderr || (error ? error.message : ''),
+              isError: exitCode !== 0,
+            }
+            this.commandHistory.unshift(entry)
+            if (this.commandHistory.length > 500) {
+              this.commandHistory.pop()
+            }
           }
 
           resolve({
@@ -1117,7 +1123,7 @@ export class GitService {
 
       child.on('error', (err) => {
         this.activeExecutions = Math.max(0, this.activeExecutions - 1)
-        this.commandHistory.push({
+        this.commandHistory.unshift({
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           command: `git ${args.join(' ')}`,
           timestamp: startTime,
@@ -1125,6 +1131,7 @@ export class GitService {
           output: err.message || stdout,
           isError: true,
         })
+        if (this.commandHistory.length > 500) this.commandHistory.pop()
         resolve({ stdout, stderr: err.message, exitCode: 1 })
       })
 
@@ -1132,7 +1139,7 @@ export class GitService {
         if (lineBuf.trim()) emitProgressLine(lineBuf)
         this.activeExecutions = Math.max(0, this.activeExecutions - 1)
         const exitCode = code ?? 1
-        this.commandHistory.push({
+        this.commandHistory.unshift({
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           command: `git ${args.join(' ')}`,
           timestamp: startTime,
@@ -1140,6 +1147,7 @@ export class GitService {
           output: stderr || stdout,
           isError: exitCode !== 0,
         })
+        if (this.commandHistory.length > 500) this.commandHistory.pop()
         resolve({ stdout, stderr, exitCode })
       })
     })
@@ -1348,14 +1356,14 @@ export class GitService {
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const safeName = this.validateGitArg(name, 'remote name')
     const safeUrl = this.validateGitArg(url, 'remote URL')
-    return await this.execGit(['remote', 'add', '--', safeName, safeUrl])
+    return await this.execGit(['remote', 'add', '--', safeName, safeUrl], this.currentRepoPath, true)
   }
 
   public async removeRemote(
     name: string
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const safeName = this.validateGitArg(name, 'remote name')
-    return await this.execGit(['remote', 'remove', '--', safeName])
+    return await this.execGit(['remote', 'remove', '--', safeName], this.currentRepoPath, true)
   }
 
   public async pushRemote(

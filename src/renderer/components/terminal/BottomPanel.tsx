@@ -192,7 +192,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 Type any native Git command below (e.g. <code className="text-sky-300">rebase -i HEAD~3</code>, <code className="text-sky-300">reset --hard HEAD~1</code>, <code className="text-sky-300">branch -m new-name</code>). Visual graph updates automatically.
               </div>
 
-              {commandHistory.slice(-10).map((entry) => (
+              {commandHistory.slice(0, 10).reverse().map((entry) => (
                 <div
                   key={entry.id}
                   className={`p-2 rounded bg-surface/50 border select-text ${
