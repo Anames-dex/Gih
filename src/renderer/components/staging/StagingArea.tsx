@@ -319,10 +319,13 @@ export const StagingArea: React.FC<StagingAreaProps> = ({
           commitTextareaRef.current?.focus()
         }
       } else if (e.key.toLowerCase() === 'e') {
-        if (visibleFileList.length > 0 && onQuickEditFile) {
+        const targetPath =
+          activeFile?.path ||
+          activeInspectorFile?.path ||
+          visibleFileList[focusedFileIndex]?.path
+        if (targetPath && onQuickEditFile) {
           e.preventDefault()
-          const targetFile = visibleFileList[focusedFileIndex]
-          if (targetFile) onQuickEditFile(targetFile.path)
+          onQuickEditFile(targetPath)
         }
       } else if (e.key.toLowerCase() === 'b') {
         if (visibleFileList.length > 0 && onBlameFile) {

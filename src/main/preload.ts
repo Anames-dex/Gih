@@ -73,6 +73,7 @@ export interface GihAPI {
   pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   addRemote: (name: string, url: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   removeRemote: (name: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  getRepoFiles: () => Promise<string[]>
   createStash: (message?: string, includeUntracked?: boolean, keepIndex?: boolean) => Promise<void>
   popStash: (index?: number) => Promise<void>
   applyStash: (index?: number) => Promise<void>
@@ -164,6 +165,7 @@ const api: GihAPI = {
   pushRemote: (remoteName?: string, branchName?: string, setUpstream?: boolean, forceWithLease?: boolean) => ipcRenderer.invoke('git:push', remoteName, branchName, setUpstream, forceWithLease),
   addRemote: (name: string, url: string) => ipcRenderer.invoke('git:addRemote', name, url),
   removeRemote: (name: string) => ipcRenderer.invoke('git:removeRemote', name),
+  getRepoFiles: () => ipcRenderer.invoke('git:getRepoFiles'),
   createStash: (message?: string, includeUntracked?: boolean, keepIndex?: boolean) => ipcRenderer.invoke('git:createStash', message, includeUntracked, keepIndex),
   popStash: (index?: number) => ipcRenderer.invoke('git:popStash', index),
   applyStash: (index?: number) => ipcRenderer.invoke('git:applyStash', index),

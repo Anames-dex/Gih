@@ -1342,6 +1342,23 @@ export class GitService {
   /**
    * Push changes to remote repository with optional upstream tracking and safe force-with-lease
    */
+  public async getRepoFiles(): Promise<string[]> {
+    const { stdout, exitCode } = await this.execGit([
+      'ls-files',
+      '--cached',
+      '--others',
+      '--exclude-standard',
+    ])
+    if (exitCode !== 0 || !stdout.trim()) return []
+    const unique = new Set(
+      stdout
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean)
+    )
+    return Array.from(unique).sort((a, b) => a.localeCompare(b))
+  }
+
   public async getRemotes(): Promise<GitRemote[]> {
     const { stdout, exitCode } = await this.execGit(['remote', '-v'])
     if (exitCode !== 0 || !stdout.trim()) return []

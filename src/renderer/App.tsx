@@ -44,6 +44,7 @@ interface ToastNotice {
 export const App: React.FC = () => {
   const [gitStatus, setGitStatus] = useState<GitInstallationStatus | null>(null)
   const [repoState, setRepoState] = useState<RepositoryState | null>(null)
+  const [repoFiles, setRepoFiles] = useState<string[]>([])
   const [dialogRequest, setDialogRequest] = useState<DialogRequest | null>(null)
   const [remoteProgress, setRemoteProgress] = useState<RemoteProgressEvent | null>(null)
   const [copiedToastId, setCopiedToastId] = useState<string | null>(null)
@@ -175,6 +176,12 @@ export const App: React.FC = () => {
       setHasMoreCommits((state?.commits?.length ?? 0) >= 400)
       const history = await gih.getCommandHistory()
       setCommandHistory(history)
+      if (gih.getRepoFiles && state?.isGitRepo) {
+        const filesList = await gih.getRepoFiles()
+        setRepoFiles(Array.isArray(filesList) ? filesList : [])
+      } else {
+        setRepoFiles([])
+      }
       if (gih.getRemoteInfo) {
         const rInfo = await gih.getRemoteInfo()
         setRemoteInfo(rInfo)
@@ -1884,6 +1891,8 @@ export const App: React.FC = () => {
               onRemoveWorktree={handleRemoveWorktree}
               onAddRemote={handleAddRemote}
               onRemoveRemote={handleRemoveRemote}
+              repoFiles={repoFiles}
+              onOpenFileInEditor={(fp) => setEditingFilePath(fp)}
               isActivePane={activePane === 'sidebar'}
             />
           </div>

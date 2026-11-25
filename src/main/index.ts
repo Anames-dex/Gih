@@ -600,6 +600,10 @@ ipcMain.handle('git:removeRemote', async (_, name: string) => {
   return await gitService.removeRemote(name)
 })
 
+ipcMain.handle('git:getRepoFiles', async () => {
+  return await gitService.getRepoFiles()
+})
+
 ipcMain.handle('git:createStash', async (_, message?: string, includeUntracked?: boolean, keepIndex?: boolean) => {
   const args = ['stash', 'push']
   if (includeUntracked) args.push('-u')
