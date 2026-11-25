@@ -53,7 +53,19 @@ const indexHtml = path.join(process.env.DIST, 'index.html')
 const initialRepoPath = parseLaunchDirectory(process.argv) || process.cwd()
 const gitService = new GitService(initialRepoPath)
 let gitWatcher: fs.FSWatcher | null = null
+let worktreeWatcher: fs.FSWatcher | null = null
 let watcherDebounceTimer: NodeJS.Timeout | null = null
+
+function triggerRepoChangedDebounced() {
+  if (watcherDebounceTimer) {
+    clearTimeout(watcherDebounceTimer)
+  }
+  watcherDebounceTimer = setTimeout(() => {
+    if (win && !win.isDestroyed() && !gitService.isExecuting()) {
+      win.webContents.send('git:changed')
+    }
+  }, 350)
+}
 
 function setupGitWatcher(repoPath: string) {
   if (gitWatcher) {
@@ -63,6 +75,14 @@ function setupGitWatcher(repoPath: string) {
       // ignore
     }
     gitWatcher = null
+  }
+  if (worktreeWatcher) {
+    try {
+      worktreeWatcher.close()
+    } catch {
+      // ignore
+    }
+    worktreeWatcher = null
   }
 
   const realGitDir = GitService.resolveGitDir(repoPath)
@@ -84,15 +104,7 @@ function setupGitWatcher(repoPath: string) {
         }
       }
 
-      // Debounce by 350ms and do not notify if Gih itself is executing a git command
-      if (watcherDebounceTimer) {
-        clearTimeout(watcherDebounceTimer)
-      }
-      watcherDebounceTimer = setTimeout(() => {
-        if (win && !win.isDestroyed() && !gitService.isExecuting()) {
-          win.webContents.send('git:changed')
-        }
-      }, 350)
+      triggerRepoChangedDebounced()
     }
 
     try {
@@ -101,8 +113,32 @@ function setupGitWatcher(repoPath: string) {
       // Fall back to non-recursive watch if platform unsupported
       gitWatcher = fs.watch(realGitDir, {}, watchCallback)
     }
+
+    // Watch working tree directory so newly created, edited, or deleted files appear immediately
+    const worktreeCallback = (_: string, filename: string | null) => {
+      if (filename) {
+        const normalized = filename.replace(/\\/g, '/').toLowerCase()
+        if (
+          normalized === '.git' ||
+          normalized.startsWith('.git/') ||
+          normalized.startsWith('node_modules/') ||
+          normalized.startsWith('dist/') ||
+          normalized.startsWith('dist-electron/') ||
+          normalized.startsWith('release/')
+        ) {
+          return
+        }
+      }
+      triggerRepoChangedDebounced()
+    }
+
+    try {
+      worktreeWatcher = fs.watch(repoPath, isRecursiveSupported ? { recursive: true } : {}, worktreeCallback)
+    } catch {
+      worktreeWatcher = fs.watch(repoPath, {}, worktreeCallback)
+    }
   } catch (e) {
-    console.warn('Failed to watch .git directory:', e)
+    console.warn('Failed to watch repository directory:', e)
   }
 }
 
@@ -161,6 +197,12 @@ function createWindow() {
   })
 
   setupGitWatcher(gitService.getRepositoryPath())
+
+  win.on('focus', () => {
+    if (GitService.resolveGitDir(gitService.getRepositoryPath())) {
+      triggerRepoChangedDebounced()
+    }
+  })
 
   if (url) {
     win.loadURL(url)
