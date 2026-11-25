@@ -137,9 +137,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             placeholder="Type a command, branch name, or commit hash..."
             className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
           />
-          <kbd className="text-[10px] bg-surface-subtle border border-surface-border px-1.5 py-0.5 rounded text-slate-400 font-mono">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[10px] bg-surface-subtle hover:bg-surface-hover border border-surface-border px-1.5 py-0.5 rounded text-slate-400 hover:text-white font-mono transition-colors shrink-0"
+            title="Close Command Palette (Esc)"
+          >
             ESC
-          </kbd>
+          </button>
         </div>
 
         <div className="max-h-80 overflow-y-auto p-1.5 space-y-0.5">
