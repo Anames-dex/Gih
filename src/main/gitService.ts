@@ -1335,7 +1335,7 @@ export class GitService {
     if (forceWithLease) args.push('--force-with-lease')
 
     let resolvedBranch = branchName
-    if (setUpstream && !resolvedBranch) {
+    if (!resolvedBranch) {
       const headRes = await this.execGit(['rev-parse', '--abbrev-ref', 'HEAD'])
       const headName = headRes.stdout.trim()
       if (headRes.exitCode === 0 && headName && headName !== 'HEAD') {
@@ -1343,7 +1343,28 @@ export class GitService {
       }
     }
 
-    const resolvedRemote = remoteName || (resolvedBranch ? 'origin' : undefined)
+    let resolvedRemote = remoteName
+    if (!resolvedRemote && resolvedBranch) {
+      // 1. Prefer the branch's configured tracking remote if set
+      const trackedRes = await this.execGit(['config', `branch.${resolvedBranch}.remote`])
+      const trackedRemote = trackedRes.stdout.trim()
+      if (trackedRes.exitCode === 0 && trackedRemote) {
+        resolvedRemote = trackedRemote
+      } else {
+        // 2. Fall back to 'origin' if present, or the first configured remote
+        const remotesRes = await this.execGit(['remote'])
+        const remotes = remotesRes.stdout
+          .split(/\r?\n/)
+          .map((r) => r.trim())
+          .filter(Boolean)
+        if (remotes.includes('origin')) {
+          resolvedRemote = 'origin'
+        } else if (remotes.length > 0) {
+          resolvedRemote = remotes[0]
+        }
+      }
+    }
+
     if (resolvedRemote) {
       args.push(this.validateGitArg(resolvedRemote, 'remote name'))
     }

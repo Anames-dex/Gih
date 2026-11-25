@@ -376,11 +376,11 @@ export const App: React.FC = () => {
     const t0 = performance.now()
     const currentBranch = repoState?.currentBranch || undefined
     const cmdStr = forceWithLease
-      ? `git push --force-with-lease${currentBranch ? ` origin ${currentBranch}` : ''}`
-      : `git push -u origin${currentBranch ? ` ${currentBranch}` : ''}`
+      ? `git push --force-with-lease${currentBranch ? ` ${currentBranch}` : ''}`
+      : `git push -u${currentBranch ? ` ${currentBranch}` : ''}`
     try {
       const res = await gih.pushRemote(
-        currentBranch ? 'origin' : undefined,
+        undefined,
         currentBranch,
         !forceWithLease,
         forceWithLease
