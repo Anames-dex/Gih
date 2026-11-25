@@ -113,11 +113,31 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDraggingSidebar.current) {
+        if (e.clientX < 100) {
+          setIsSidebarCollapsed(true)
+          isDraggingSidebar.current = false
+          document.body.style.cursor = 'default'
+          return
+        }
         setSidebarWidth(Math.max(180, Math.min(500, e.clientX)))
       } else if (isDraggingStaging.current) {
-        setStagingWidth(Math.max(260, Math.min(650, window.innerWidth - e.clientX)))
+        const nextWidth = window.innerWidth - e.clientX
+        if (nextWidth < 140) {
+          setIsStagingCollapsed(true)
+          isDraggingStaging.current = false
+          document.body.style.cursor = 'default'
+          return
+        }
+        setStagingWidth(Math.max(260, Math.min(650, nextWidth)))
       } else if (isDraggingBottom.current) {
-        setBottomHeight(Math.max(120, Math.min(600, window.innerHeight - e.clientY)))
+        const nextHeight = window.innerHeight - e.clientY
+        if (nextHeight < 75) {
+          setIsTerminalOpen(false)
+          isDraggingBottom.current = false
+          document.body.style.cursor = 'default'
+          return
+        }
+        setBottomHeight(Math.max(120, Math.min(600, nextHeight)))
       }
     }
 
