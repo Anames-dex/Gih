@@ -19,7 +19,9 @@ import {
   Clock,
   User,
   X,
-  Keyboard
+  Keyboard,
+  Check,
+  Plus
 } from 'lucide-react'
 
 interface AppHeaderProps {
@@ -35,6 +37,7 @@ interface AppHeaderProps {
   onPull: () => void
   onPush: (forceWithLease?: boolean) => void
   onOpenRemoteUrl?: (url: string) => void
+  onCheckoutBranch?: (branchName: string) => void
   onNewBranch: () => void
   onStash: () => void
   onOpenRepo: () => void
@@ -61,6 +64,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onPull,
   onPush,
   onOpenRemoteUrl,
+  onCheckoutBranch,
   onNewBranch,
   onStash,
   onOpenRepo,
@@ -75,6 +79,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
   const [isPushMenuOpen, setIsPushMenuOpen] = useState(false)
   const [isRepoMenuOpen, setIsRepoMenuOpen] = useState(false)
+  const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false)
+  const [branchFilter, setBranchFilter] = useState('')
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent)
 
   return (
@@ -213,19 +219,98 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         )}
 
         {currentBranch && (
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-mono">
-            <GitBranch className="w-3 h-3" />
-            <span className="max-w-[120px] truncate">{currentBranch}</span>
-            {(() => {
-              const b = branches?.find((br) => br.name === currentBranch && !br.isRemote)
-              if (!b || (!b.ahead && !b.behind)) return null
-              return (
-                <span className="flex items-center gap-1 text-[10px] ml-1 bg-surface/80 px-1 rounded border border-sky-500/30 font-semibold select-none">
-                  {Boolean(b.ahead) && <span className="text-emerald-400">↑{b.ahead}</span>}
-                  {Boolean(b.behind) && <span className="text-rose-400">↓{b.behind}</span>}
-                </span>
-              )
-            })()}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setIsBranchMenuOpen((p) => !p)
+                setBranchFilter('')
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 text-sky-400 text-xs font-mono transition-colors active:scale-95"
+              title="Switch active branch"
+            >
+              <GitBranch className="w-3 h-3 shrink-0" />
+              <span className="max-w-[140px] truncate">{currentBranch}</span>
+              {(() => {
+                const b = branches?.find((br) => br.name === currentBranch && !br.isRemote)
+                if (!b || (!b.ahead && !b.behind)) return null
+                return (
+                  <span className="flex items-center gap-1 text-[10px] ml-0.5 bg-surface/80 px-1 rounded border border-sky-500/30 font-semibold select-none">
+                    {Boolean(b.ahead) && <span className="text-emerald-400">↑{b.ahead}</span>}
+                    {Boolean(b.behind) && <span className="text-rose-400">↓{b.behind}</span>}
+                  </span>
+                )
+              })()}
+              <ChevronDown className={`w-3 h-3 text-sky-400/80 transition-transform ${isBranchMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isBranchMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsBranchMenuOpen(false)} />
+                <div
+                  className="absolute top-full mt-1.5 left-0 z-50 bg-[#0f172a] border border-surface-border rounded-xl shadow-2xl p-2 min-w-[260px] text-xs space-y-2 backdrop-blur-md animate-fade-in"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      autoFocus
+                      value={branchFilter}
+                      onChange={(e) => setBranchFilter(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') setIsBranchMenuOpen(false)
+                      }}
+                      placeholder="Filter branches..."
+                      className="w-full bg-[#090b10] border border-surface-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-brand"
+                    />
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto space-y-0.5">
+                    {(branches || [])
+                      .filter((b) => !branchFilter.trim() || b.name.toLowerCase().includes(branchFilter.toLowerCase().trim()))
+                      .map((b) => {
+                        const isCurrent = b.name === currentBranch && !b.isRemote
+                        return (
+                          <button
+                            key={b.name}
+                            type="button"
+                            onClick={() => {
+                              setIsBranchMenuOpen(false)
+                              if (!isCurrent) onCheckoutBranch?.(b.name)
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between gap-2 transition-colors ${
+                              isCurrent
+                                ? 'bg-sky-500/20 text-sky-300 font-semibold'
+                                : 'text-slate-300 hover:bg-surface-hover hover:text-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <GitBranch className={`w-3 h-3 shrink-0 ${b.isRemote ? 'text-indigo-400' : 'text-sky-400'}`} />
+                              <span className="truncate font-mono">{b.name}</span>
+                            </div>
+                            {isCurrent && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0" />}
+                          </button>
+                        )
+                      })}
+                  </div>
+
+                  <div className="pt-1 border-t border-surface-border/60">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsBranchMenuOpen(false)
+                        onNewBranch()
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-surface-hover text-sky-300 font-medium flex items-center gap-2 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5 shrink-0" />
+                      <span>Create New Branch...</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 

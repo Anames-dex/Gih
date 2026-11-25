@@ -1670,6 +1670,7 @@ export const App: React.FC = () => {
         onPull={handlePull}
         onPush={handlePush}
         onOpenRemoteUrl={(url) => gih?.openExternal(url)}
+        onCheckoutBranch={handleCheckoutBranch}
         onNewBranch={handleNewBranch}
         onStash={handleStash}
         onOpenRepo={handleOpenRepo}
