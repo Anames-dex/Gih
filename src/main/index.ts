@@ -474,7 +474,7 @@ ipcMain.handle('git:stageAll', async () => {
 })
 
 ipcMain.handle('git:unstageAll', async () => {
-  await gitService.execGit(['reset', 'HEAD'])
+  await gitService.unstageAll()
 })
 
 ipcMain.handle('git:discardChanges', async (_, filePath: string) => {

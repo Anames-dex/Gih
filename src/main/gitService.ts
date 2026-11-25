@@ -466,6 +466,14 @@ export class GitService {
   /**
    * Apply a unified diff patch to index, working tree, or in reverse
    */
+  public async unstageAll(): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const headCheck = await this.execGit(['rev-parse', '--verify', 'HEAD'])
+    if (headCheck.exitCode === 0) {
+      return await this.execGit(['reset', '-q'], this.currentRepoPath, true)
+    }
+    return await this.execGit(['rm', '-r', '--cached', '-q', '--', '.'], this.currentRepoPath, true)
+  }
+
   public async applyPatch(
     patch: string,
     options: { cached?: boolean; reverse?: boolean } = {}
@@ -1560,7 +1568,7 @@ export class GitService {
    * Get parsed diff for a file
    */
   public async getFileDiff(filePath: string, staged: boolean = false): Promise<FileDiff> {
-    const args = ['diff', '--no-color', '-U3']
+    const args = ['diff', '--no-color', '-U2']
     if (staged) {
       args.push('--cached')
     }
@@ -1573,6 +1581,9 @@ export class GitService {
   private parseUnifiedDiff(rawDiff: string, filePath: string): FileDiff {
     const hunks: DiffHunk[] = []
     const lines = rawDiff.split('\n')
+    if (lines.length > 0 && lines[lines.length - 1] === '') {
+      lines.pop()
+    }
     let currentHunk: DiffHunk | null = null
     let currentHunkRawLines: string[] = []
     let oldLine = 0
@@ -1614,19 +1625,19 @@ export class GitService {
       if (line.startsWith('+')) {
         currentHunk.lines.push({
           type: 'add',
-          content: line.substring(1),
+          content: line.substring(1).replace(/\r$/, ''),
           newLineNumber: newLine++,
         })
       } else if (line.startsWith('-')) {
         currentHunk.lines.push({
           type: 'delete',
-          content: line.substring(1),
+          content: line.substring(1).replace(/\r$/, ''),
           oldLineNumber: oldLine++,
         })
-      } else if (line.startsWith(' ') || line === '') {
+      } else if (line.startsWith(' ')) {
         currentHunk.lines.push({
           type: 'context',
-          content: line.substring(1),
+          content: line.substring(1).replace(/\r$/, ''),
           oldLineNumber: oldLine++,
           newLineNumber: newLine++,
         })
