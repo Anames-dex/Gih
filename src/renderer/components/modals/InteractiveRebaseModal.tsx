@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import type { GitCommit } from '@/shared/types'
 import { GitCommit as CommitIcon, ArrowUp, ArrowDown, X, Play, RefreshCw } from 'lucide-react'
-import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
+import { useFocusTrap, useBackdropClose } from '@/renderer/hooks/useFocusTrap'
 
 export type RebaseAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop'
 
@@ -34,6 +34,7 @@ export const InteractiveRebaseModal: React.FC<InteractiveRebaseModalProps> = ({
   }, [isOpen, commits])
 
   useFocusTrap(modalRef, isOpen, onClose)
+  const backdropProps = useBackdropClose(onClose)
 
   if (!isOpen) return null
 
@@ -69,7 +70,7 @@ export const InteractiveRebaseModal: React.FC<InteractiveRebaseModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
         ref={modalRef}

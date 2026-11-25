@@ -1,4 +1,20 @@
 import { useEffect, useRef } from 'react'
+import type React from 'react'
+
+export function useBackdropClose(onClose?: () => void) {
+  const startedOnBackdropRef = useRef(false)
+  return {
+    onMouseDown: (e: React.MouseEvent<HTMLElement>) => {
+      startedOnBackdropRef.current = e.target === e.currentTarget
+    },
+    onClick: (e: React.MouseEvent<HTMLElement>) => {
+      if (startedOnBackdropRef.current && e.target === e.currentTarget) {
+        onClose?.()
+      }
+      startedOnBackdropRef.current = false
+    },
+  }
+}
 
 const FOCUSABLE_SELECTOR = [
   'a[href]',

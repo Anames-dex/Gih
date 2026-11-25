@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { Archive, X, Check, Shield } from 'lucide-react'
-import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
+import { useFocusTrap, useBackdropClose } from '@/renderer/hooks/useFocusTrap'
 
 interface CreateStashModalProps {
   isOpen: boolean
@@ -20,6 +20,7 @@ export const CreateStashModal: React.FC<CreateStashModalProps> = ({
   const modalRef = useRef<HTMLDivElement>(null)
 
   useFocusTrap(modalRef, isOpen, onClose)
+  const backdropProps = useBackdropClose(onClose)
 
   if (!isOpen) return null
 
@@ -38,7 +39,7 @@ export const CreateStashModal: React.FC<CreateStashModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
         ref={modalRef}

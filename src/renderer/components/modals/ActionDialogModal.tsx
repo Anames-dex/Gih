@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { AlertTriangle, HelpCircle, X } from 'lucide-react'
-import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
+import { useFocusTrap, useBackdropClose } from '@/renderer/hooks/useFocusTrap'
 
 export interface DialogRequest {
   mode: 'confirm' | 'prompt'
@@ -40,6 +40,7 @@ export const ActionDialogModal: React.FC<ActionDialogModalProps> = ({ request, o
   }
 
   useFocusTrap(modalRef, !!request, handleCancel)
+  const backdropProps = useBackdropClose(handleCancel)
 
   if (!request) return null
 
@@ -59,7 +60,7 @@ export const ActionDialogModal: React.FC<ActionDialogModalProps> = ({ request, o
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in select-none"
-      onClick={handleCancel}
+      {...backdropProps}
     >
       <div
         ref={modalRef}

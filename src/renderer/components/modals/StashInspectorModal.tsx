@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import type { GitStash } from '@/shared/types'
-import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
+import { useFocusTrap, useBackdropClose } from '@/renderer/hooks/useFocusTrap'
 import { showConfirm, showPrompt } from '@/renderer/utils/dialog'
 import {
   Archive,
@@ -40,6 +40,7 @@ export const StashInspectorModal: React.FC<StashInspectorModalProps> = ({
   const modalRef = useRef<HTMLDivElement>(null)
 
   useFocusTrap(modalRef, !!stash, onClose)
+  const backdropProps = useBackdropClose(onClose)
 
   useEffect(() => {
     if (!stash) return
@@ -72,7 +73,7 @@ export const StashInspectorModal: React.FC<StashInspectorModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
         ref={modalRef}

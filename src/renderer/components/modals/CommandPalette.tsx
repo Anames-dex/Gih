@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import type { GitBranch, GitCommit } from '@/shared/types'
-import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
+import { useFocusTrap, useBackdropClose } from '@/renderer/hooks/useFocusTrap'
 import {
   Search,
   GitBranch as BranchIcon,
@@ -40,6 +40,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const modalRef = useRef<HTMLDivElement>(null)
 
   useFocusTrap(modalRef, isOpen, onClose)
+  const backdropProps = useBackdropClose(onClose)
 
   useEffect(() => {
     if (isOpen) {
@@ -116,7 +117,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-24"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
         ref={modalRef}

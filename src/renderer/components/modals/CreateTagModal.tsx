@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Tag as TagIcon, X, Check, UploadCloud } from 'lucide-react'
 import type { GitCommit } from '@/shared/types'
-import { useFocusTrap } from '@/renderer/hooks/useFocusTrap'
+import { useFocusTrap, useBackdropClose } from '@/renderer/hooks/useFocusTrap'
 
 interface CreateTagModalProps {
   isOpen: boolean
@@ -25,6 +25,7 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({
   const modalRef = useRef<HTMLDivElement>(null)
 
   useFocusTrap(modalRef, isOpen, onClose)
+  const backdropProps = useBackdropClose(onClose)
 
   useEffect(() => {
     if (isOpen) {
@@ -58,7 +59,7 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
         ref={modalRef}
