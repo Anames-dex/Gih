@@ -20,8 +20,68 @@ import {
   UploadCloud,
   Package,
   RefreshCw,
-  FileCode
+  FileCode,
+  Folder,
+  FolderOpen
 } from 'lucide-react'
+
+interface FileTreeNode {
+  name: string
+  path: string
+  isDir: boolean
+  children: FileTreeNode[]
+}
+
+function buildFileTree(filePaths: string[]): FileTreeNode[] {
+  const root: FileTreeNode[] = []
+  const dirMap = new Map<string, FileTreeNode>()
+
+  for (const fullPath of filePaths) {
+    const parts = fullPath.split('/').filter(Boolean)
+    let parentChildren = root
+    let currentPath = ''
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      const isLast = i === parts.length - 1
+      currentPath = currentPath ? `${currentPath}/${part}` : part
+
+      if (isLast) {
+        parentChildren.push({
+          name: part,
+          path: fullPath,
+          isDir: false,
+          children: [],
+        })
+      } else {
+        let dirNode = dirMap.get(currentPath)
+        if (!dirNode) {
+          dirNode = {
+            name: part,
+            path: currentPath,
+            isDir: true,
+            children: [],
+          }
+          dirMap.set(currentPath, dirNode)
+          parentChildren.push(dirNode)
+        }
+        parentChildren = dirNode.children
+      }
+    }
+  }
+
+  const sortNodes = (nodes: FileTreeNode[]) => {
+    nodes.sort((a, b) => {
+      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+    for (const n of nodes) {
+      if (n.isDir) sortNodes(n.children)
+    }
+  }
+  sortNodes(root)
+  return root
+}
 
 type SidebarSection = 'branches' | 'remotes' | 'tags' | 'submodules' | 'stashes' | 'worktrees'
 
@@ -115,12 +175,72 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [worktreesExpanded, setWorktreesExpanded] = useState(false)
   const [filterQuery, setFilterQuery] = useState('')
   const [sidebarTab, setSidebarTab] = useState<'refs' | 'files'>('refs')
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => new Set())
 
   const filteredRepoFiles = useMemo(() => {
     if (!filterQuery.trim()) return repoFiles
     const q = filterQuery.toLowerCase().trim()
     return repoFiles.filter((f) => f.toLowerCase().includes(q))
   }, [repoFiles, filterQuery])
+
+  const fileTree = useMemo(() => {
+    return buildFileTree(filteredRepoFiles.slice(0, 1500))
+  }, [filteredRepoFiles])
+
+  const toggleFolder = (folderPath: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev)
+      if (next.has(folderPath)) next.delete(folderPath)
+      else next.add(folderPath)
+      return next
+    })
+  }
+
+  const renderFileTreeNodes = (nodes: FileTreeNode[], depth: number = 0): React.ReactNode => {
+    const isFiltering = filterQuery.trim().length > 0
+    return nodes.map((node) => {
+      if (node.isDir) {
+        const isOpen = isFiltering || expandedFolders.has(node.path)
+        return (
+          <div key={`dir:${node.path}`}>
+            <button
+              type="button"
+              onClick={() => toggleFolder(node.path)}
+              className="w-full text-left py-1 pr-2 rounded text-xs text-slate-300 hover:text-white hover:bg-surface-hover flex items-center gap-1.5 transition-colors"
+              style={{ paddingLeft: `${8 + depth * 12}px` }}
+            >
+              {isOpen ? (
+                <ChevronDown className="w-3 h-3 text-slate-500 shrink-0" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-slate-500 shrink-0" />
+              )}
+              {isOpen ? (
+                <FolderOpen className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
+              ) : (
+                <Folder className="w-3.5 h-3.5 text-amber-400/80 shrink-0" />
+              )}
+              <span className="truncate font-medium text-[11px]">{node.name}</span>
+            </button>
+            {isOpen && <div>{renderFileTreeNodes(node.children, depth + 1)}</div>}
+          </div>
+        )
+      }
+
+      return (
+        <button
+          key={`file:${node.path}`}
+          type="button"
+          onClick={() => onOpenFileInEditor?.(node.path)}
+          className="w-full text-left py-1 pr-2 rounded text-xs text-slate-300 hover:text-white hover:bg-surface-hover flex items-center gap-1.5 transition-colors"
+          style={{ paddingLeft: `${22 + depth * 12}px` }}
+          title={`Open ${node.path} in Quick Editor`}
+        >
+          <FileCode className="w-3.5 h-3.5 text-sky-400/80 shrink-0" />
+          <span className="truncate font-mono text-[11px]">{node.name}</span>
+        </button>
+      )
+    })
+  }
 
   const localBranches = branches.filter((b) => !b.isRemote)
   const remoteBranches = branches.filter((b) => b.isRemote)
@@ -1023,24 +1143,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {filteredRepoFiles.slice(0, 500).map((filePath) => (
-            <button
-              key={filePath}
-              type="button"
-              onClick={() => onOpenFileInEditor?.(filePath)}
-              className="w-full text-left px-2 py-1 rounded text-xs text-slate-300 hover:text-white hover:bg-surface-hover flex items-center gap-2 transition-colors group"
-              title={`Open ${filePath} in Quick Editor`}
-            >
-              <FileCode className="w-3.5 h-3.5 text-sky-400/80 shrink-0" />
-              <span className="truncate font-mono text-[11px]">{filePath}</span>
-            </button>
-          ))}
+          {renderFileTreeNodes(fileTree)}
           {filteredRepoFiles.length === 0 && (
             <p className="text-[11px] text-slate-500 px-2 py-3 text-center">No matching files found</p>
           )}
-          {filteredRepoFiles.length > 500 && (
+          {filteredRepoFiles.length > 1500 && (
             <p className="text-[10px] text-slate-500 px-2 py-2 text-center">
-              Showing first 500 of {filteredRepoFiles.length.toLocaleString()} files — type to filter
+              Showing first 1,500 of {filteredRepoFiles.length.toLocaleString()} files — type to filter
             </p>
           )}
         </div>
