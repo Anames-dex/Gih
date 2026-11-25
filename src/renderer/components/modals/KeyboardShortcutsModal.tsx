@@ -38,7 +38,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: ['F6'], description: 'Cycle forward across all open panes' },
       { keys: ['Shift', 'F6'], description: 'Cycle backward across all open panes' },
       { keys: ['Ctrl', 'K'], description: 'Open Command Palette & branch switcher' },
-      { keys: ['Ctrl', '`'], description: 'Toggle integrated terminal panel' },
+      { keys: ['Ctrl', 'J'], description: 'Toggle integrated terminal panel' },
       { keys: ['?'], description: 'Open Keyboard Shortcuts & Cheatsheet' },
       { keys: ['F1'], description: 'Open Keyboard Shortcuts & Cheatsheet' },
       { keys: ['Tab'], description: 'Focus next interactive element / button' },

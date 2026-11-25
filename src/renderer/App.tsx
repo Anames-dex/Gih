@@ -283,9 +283,13 @@ export const App: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setIsCommandPaletteOpen((prev) => !prev)
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '`') {
+      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'j' || e.code === 'Backquote')) {
         e.preventDefault()
-        setIsTerminalOpen((prev) => !prev)
+        setIsTerminalOpen((prev) => {
+          const next = !prev
+          if (next) setActivePane('terminal')
+          return next
+        })
       } else if ((e.ctrlKey || e.metaKey) && e.key === '1') {
         e.preventDefault()
         setActivePane('sidebar')
@@ -1289,8 +1293,30 @@ export const App: React.FC = () => {
   const handleExecCommand = async (commandStr: string) => {
     if (!gih) return
     const args = commandStr.split(/\s+/).filter(Boolean)
-    await gih.execCommand(args)
-    await refreshState()
+    if (args.length === 0) return
+    const t0 = performance.now()
+    const cmdLabel = `git ${args.join(' ')}`
+    try {
+      const res = await gih.execCommand(args)
+      await refreshState()
+      if (res && res.exitCode !== 0) {
+        showToast({
+          type: 'error',
+          command: cmdLabel,
+          message: res.stderr?.trim() || res.stdout?.trim() || `Command exited with code ${res.exitCode}`,
+        })
+      } else {
+        const out = res?.stdout?.trim() || res?.stderr?.trim()
+        showToast({
+          type: 'success',
+          command: cmdLabel,
+          message: out ? out.split('\n')[0] : 'Command completed',
+          durationMs: Math.round(performance.now() - t0),
+        })
+      }
+    } catch (e: any) {
+      showToast({ type: 'error', command: cmdLabel, message: e?.message || 'Failed to execute command' })
+    }
   }
 
   const handleResetToReflog = async (hash: string) => {

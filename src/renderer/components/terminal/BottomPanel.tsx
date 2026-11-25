@@ -192,17 +192,31 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 Type any native Git command below (e.g. <code className="text-sky-300">rebase -i HEAD~3</code>, <code className="text-sky-300">reset --hard HEAD~1</code>, <code className="text-sky-300">branch -m new-name</code>). Visual graph updates automatically.
               </div>
 
-              {commandHistory.slice(0, 5).reverse().map((entry) => (
-                <div key={entry.id} className="p-2 rounded bg-surface/50 border border-surface-border/30">
+              {commandHistory.slice(-10).map((entry) => (
+                <div
+                  key={entry.id}
+                  className={`p-2 rounded bg-surface/50 border select-text ${
+                    entry.isError ? 'border-rose-800/60' : 'border-surface-border/30'
+                  }`}
+                >
                   <div className="flex items-center gap-2 text-slate-300">
+                    {entry.isError ? (
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    ) : (
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    )}
                     <span className="text-sky-400 font-bold">$</span>
-                    <span>{entry.command}</span>
-                    <span className="text-[10px] text-slate-500 ml-auto">
-                      {new Date(entry.timestamp).toLocaleTimeString()}
+                    <span className="truncate">{entry.command}</span>
+                    <span className="text-[10px] text-slate-500 ml-auto shrink-0">
+                      exit {entry.exitCode} • {new Date(entry.timestamp).toLocaleTimeString()}
                     </span>
                   </div>
                   {entry.output && (
-                    <pre className="mt-1 text-[11px] text-slate-400 whitespace-pre-wrap pl-3 border-l border-slate-700">
+                    <pre
+                      className={`mt-1 text-[11px] whitespace-pre-wrap break-words pl-3 border-l ${
+                        entry.isError ? 'text-rose-300 border-rose-700' : 'text-slate-400 border-slate-700'
+                      }`}
+                    >
                       {entry.output}
                     </pre>
                   )}

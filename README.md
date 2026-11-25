@@ -145,7 +145,7 @@ Gih is engineered for complete keyboard accessibility—every panel, tree, diff 
 | `Ctrl + 4` / `Cmd + 4` | Global | Focus Terminal panel & CLI input |
 | `F6` / `Shift + F6` | Global | Cycle focus forward / backward across open panels |
 | `Ctrl + K` / `Cmd + K` | Global | Open Command Palette & Quick Switcher |
-| `Ctrl + \`` | Global | Toggle Integrated Git Terminal |
+| `Ctrl + J` | Global | Toggle Integrated Git Terminal |
 | `?` or `F1` | Global | Open Interactive Keyboard Shortcuts Cheatsheet |
 | `Tab` / `Shift + Tab` | Global | Tab through interactive elements with high-contrast focus rings |
 | `↑` / `↓` or `j` / `k` | Graph | Traverse commits (child / parent) |
